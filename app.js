@@ -7,6 +7,158 @@
     appId: "1:145173933947:web:00930a77d5e24964aa57de"
   };
 
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_MESSAGING_ID",
+  appId: "TU_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let currentUserRole = null;
+let estudiantesMateria = [];
+let presentesSet = new Set();
+let presentTimes = new Map();
+let html5QrCode = null;
+let chartInstance = null;
+
+// ===============================
+// UTILIDADES
+// ===============================
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function showMessage(message, type = "info") {
+  const toast = $("toast");
+  toast.textContent = message;
+  toast.className = `toast ${type}`;
+  toast.style.display = "block";
+
+  setTimeout(() => {
+    toast.style.display = "none";
+  }, 3500);
+}
+
+function setLoginError(message) {
+  $("loginError").textContent = message || "";
+}
+
+function mostrar(id) {
+  document.querySelectorAll(".screen").forEach(screen => {
+    screen.classList.remove("active");
+  });
+
+  const screen = $(id);
+
+  if (screen) {
+    screen.classList.add("active");
+  }
+}
+
+function limpiarInput(id) {
+  const el = $(id);
+  if (el) el.value = "";
+}
+
+function limpiarLista(id) {
+  const el = $(id);
+  if (el) el.innerHTML = "";
+}
+
+function normalizarTexto(texto) {
+  return (texto || "").trim().replace(/\s+/g, " ");
+}
+
+function horaActual() {
+  return new Date().toLocaleTimeString();
+}
+
+// ===============================
+// ERRORES POR CAMPO
+// ===============================
+
+function showFieldError(fieldId, message) {
+  const field = $(fieldId);
+  const error = $(`error-${fieldId}`);
+
+  if (field) {
+    field.classList.add("invalid");
+    field.classList.remove("valid");
+  }
+
+  if (error) {
+    error.textContent = message;
+    error.classList.add("show");
+  }
+}
+
+function clearFieldError(fieldId, markValid = false) {
+  const field = $(fieldId);
+  const error = $(`error-${fieldId}`);
+
+  if (field) {
+    field.classList.remove("invalid");
+
+    if (markValid && field.value.trim() !== "") {
+      field.classList.add("valid");
+    } else {
+      field.classList.remove("valid");
+    }
+  }
+
+  if (error) {
+    error.textContent = "";
+    error.classList.remove("show");
+  }
+}
+
+function clearFields(ids) {
+  ids.forEach(id => clearFieldError(id));
+}
+
+function markFieldValid(fieldId) {
+  const field = $(fieldId);
+  if (field && field.value.trim() !== "") {
+    field.classList.remove("invalid");
+    field.classList.add("valid");
+  }
+}
+
+// ===============================
+// VALIDACIONES
+// ===============================
+
+function validarEmail(value) {
+  const emailValue = value.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
+}
+
+function validarPassword(value) {
+  return value && value.length >= 6;
+}
+
+function validarCedula(value) {
+  const cedulaValue = value.trim();
+  return /^[0-9]+$/.test(cedulaValue) && cedulaValue.length >= 4;
+}
+
+function validarNombre(value) {
+  const nombreValue = normalizarTexto(value);
+  return /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(nombreValue) && nombreValue.length >= 2;
+}
+
+function validarMateria(value) {
+  const materiaValue = normalizarTexto(value);
+  return /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\-]+$/.test(materiaValue) && materiaValue.length >= 2;
+}
 
 function validarTextoGeneral(value, min = 2) {
   return normalizarTexto(value).length >= min;
@@ -1271,156 +1423,3 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-``
-// ===============================
-
-const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_MESSAGING_ID",
-  appId: "TU_APP_ID"
-};
-
-firebase.initializeApp(firebaseConfig);
-
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-let currentUserRole = null;
-let estudiantesMateria = [];
-let presentesSet = new Set();
-let presentTimes = new Map();
-let html5QrCode = null;
-let chartInstance = null;
-
-// ===============================
-// UTILIDADES
-// ===============================
-
-function $(id) {
-  return document.getElementById(id);
-}
-
-function showMessage(message, type = "info") {
-  const toast = $("toast");
-  toast.textContent = message;
-  toast.className = `toast ${type}`;
-  toast.style.display = "block";
-
-  setTimeout(() => {
-    toast.style.display = "none";
-  }, 3500);
-}
-
-function setLoginError(message) {
-  $("loginError").textContent = message || "";
-}
-
-function mostrar(id) {
-  document.querySelectorAll(".screen").forEach(screen => {
-    screen.classList.remove("active");
-  });
-
-  const screen = $(id);
-
-  if (screen) {
-    screen.classList.add("active");
-  }
-}
-
-function limpiarInput(id) {
-  const el = $(id);
-  if (el) el.value = "";
-}
-
-function limpiarLista(id) {
-  const el = $(id);
-  if (el) el.innerHTML = "";
-}
-
-function normalizarTexto(texto) {
-  return (texto || "").trim().replace(/\s+/g, " ");
-}
-
-function horaActual() {
-  return new Date().toLocaleTimeString();
-}
-
-// ===============================
-// ERRORES POR CAMPO
-// ===============================
-
-function showFieldError(fieldId, message) {
-  const field = $(fieldId);
-  const error = $(`error-${fieldId}`);
-
-  if (field) {
-    field.classList.add("invalid");
-    field.classList.remove("valid");
-  }
-
-  if (error) {
-    error.textContent = message;
-    error.classList.add("show");
-  }
-}
-
-function clearFieldError(fieldId, markValid = false) {
-  const field = $(fieldId);
-  const error = $(`error-${fieldId}`);
-
-  if (field) {
-    field.classList.remove("invalid");
-
-    if (markValid && field.value.trim() !== "") {
-      field.classList.add("valid");
-    } else {
-      field.classList.remove("valid");
-    }
-  }
-
-  if (error) {
-    error.textContent = "";
-    error.classList.remove("show");
-  }
-}
-
-function clearFields(ids) {
-  ids.forEach(id => clearFieldError(id));
-}
-
-function markFieldValid(fieldId) {
-  const field = $(fieldId);
-  if (field && field.value.trim() !== "") {
-    field.classList.remove("invalid");
-    field.classList.add("valid");
-  }
-}
-
-// ===============================
-// VALIDACIONES
-// ===============================
-
-function validarEmail(value) {
-  const emailValue = value.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
-}
-
-function validarPassword(value) {
-  return value && value.length >= 6;
-}
-
-function validarCedula(value) {
-  const cedulaValue = value.trim();
-  return /^[0-9]+$/.test(cedulaValue) && cedulaValue.length >= 4;
-}
-
-function validarNombre(value) {
-  const nombreValue = normalizarTexto(value);
-  return /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(nombreValue) && nombreValue.length >= 2;
-}
-
-function validarMateria(value) {
-  const materiaValue = normalizarTexto(value);
