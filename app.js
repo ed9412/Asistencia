@@ -1277,10 +1277,10 @@ async function cargarHistorial() {
         const materia = data.materiaNombre || data.materia;
         
         li.innerHTML = `
-        ${data.cedula}</strong><br>
-        <strong>${data.nombres || ""} ${data.apellidos || ""}<br></strong>
-        <strong>Materia: ${materia}<br></strong>
-        <strong>Fecha: ${data.fecha}<br></strong>
+        ${data.cedula}<br>
+        <strong>${data.nombres || ""} ${data.apellidos || ""}</strong><br>
+        <strong>Materia: ${materia}</strong><br>
+        <strong>Fecha: ${data.fecha}</strong><br>
         Estado: ${data.presente ? "✅ Presente" : "❌ Faltante"}<br>
         Hora: ${data.hora || "Sin hora"}<br>
         Profesor: ${data.profesor || "No registrado"}
