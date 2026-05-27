@@ -1272,14 +1272,20 @@ async function cargarHistorial() {
 
       const li = document.createElement("li");
 
-      li.innerHTML = `
+
+        // 🔹 Usa nombre si existe (nuevo), si no ID (viejo)
+        const materia = data.materiaNombre || data.materia;
+        
+        li.innerHTML = `
         <strong>${data.cedula}</strong><br>
         ${data.nombres || ""} ${data.apellidos || ""}<br>
+        📚 Materia: ${materia}<br>
         Fecha: ${data.fecha}<br>
         Estado: ${data.presente ? "✅ Presente" : "❌ Faltante"}<br>
         Hora: ${data.hora || "Sin hora"}<br>
         Profesor: ${data.profesor || "No registrado"}
-      `;
+        `;
+
 
       if (!data.presente) {
         const btn = document.createElement("button");
