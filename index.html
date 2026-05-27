@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Universidad - Asistencia</title>
+
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h1>🎓 Sistema de Asistencia</h1>
+
+<!-- LOGIN -->
+<div id="loginDiv" class="card">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Contraseña">
+  <button onclick="login()">Entrar</button>
+  <button onclick="registrar()">Crear cuenta</button>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+
+<button onclick="logout()">Cerrar sesión</button>
+<p id="rolInfo"></p>
+
+<!-- ADMIN -->
+<div id="adminPanel" class="card">
+  <h3>Crear Usuario (rol)</h3>
+  <select id="rolNuevo">
+    <option value="profesor">Profesor</option>
+    <option value="admin">Admin</option>
+  </select>
+  <button onclick="asignarRol()">Asignar a usuario actual</button>
+</div>
+
+<!-- ESTUDIANTES -->
+<div class="card">
+  <h3>Estudiantes</h3>
+  <input id="cedula">
+  <input id="nombres">
+  <input id="apellidos">
+  <button onclick="crearEstudiante()">Guardar</button>
+
+  <ul id="listaEstudiantes"></ul>
+</div>
+
+<!-- MATERIAS -->
+<div class="card">
+  <h3>Materias</h3>
+  <input id="materiaNombre">
+  <button onclick="crearMateria()">Guardar</button>
+  <select id="materiaLista"></select>
+</div>
+
+<!-- ASIGNAR -->
+<div class="card">
+  <h3>Asignar estudiante</h3>
+  <input id="cedulaAsignar">
+  <select id="materiaSelect"></select>
+  <button onclick="asignar()">Asignar</button>
+</div>
+
+<!-- LISTA -->
+<div class="card">
+<h3>Pasar lista</h3>
+
+<input type="date" id="fechaLista">
+<button onclick="iniciarLista()">Iniciar</button>
+
+<div id="zonaLista">
+  <button onclick="iniciarEscaner()">QR</button>
+  <div id="reader"></div>
+
+  <input id="manualCedula">
+  <button onclick="registrarManual()">Manual</button>
+
+  <h4>Presentes</h4>
+  <ul id="presentes"></ul>
+
+  <h4>Faltantes</h4>
+  <ul id="faltantes"></ul>
+
+  <button onclick="cerrarLista()">Guardar</button>
+</div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="card">
+  <h3>Dashboard</h3>
+  <canvas id="grafico"></canvas>
+  <button onclick="cargarDashboard()">Actualizar</button>
+</div>
+
+<!-- REPORTE -->
+<div class="card">
+  <h3>Reporte estudiante</h3>
+  <input id="cedulaReporte">
+  <button onclick="generarReporte()">Consultar</button>
+  <ul id="reporte"></ul>
+</div>
+
+<!-- ALERTAS -->
+<div class="card">
+  <h3>Alertas</h3>
+  <button onclick="generarAlertas()">Ver</button>
+  <ul id="alertas"></ul>
+</div>
+
+<!-- HISTORIAL -->
+<div class="card">
+<h3>Historial</h3>
+<input type="date" id="filtroFecha">
+<button onclick="cargarHistorial()">Buscar</button>
+<ul id="historial"></ul>
+<button onclick="exportar()">Exportar</button>
+</div>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
