@@ -24,7 +24,7 @@ let chartInstance = null;
 // UTILIDADES
 // ===============================
 
-function $(id) {c
+function $(id) {
   return document.getElementById(id);
 }
 
