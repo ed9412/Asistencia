@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Universidad - Asistencia</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Asistencia App</title>
 
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
@@ -19,11 +21,10 @@
 
 <body>
 
-<h1>🎓 Sistema de Asistencia</h1>
-
 <!-- LOGIN -->
-<div id="loginDiv" class="card">
-  <input id="email" placeholder="Email">
+<div id="loginScreen" class="screen active">
+  <h2>Login</h2>
+  <input id="email" placeholder="Correo">
   <input id="password" type="password" placeholder="Contraseña">
   <button onclick="login()">Entrar</button>
   <button onclick="registrar()">Crear cuenta</button>
@@ -32,58 +33,25 @@
 <!-- APP -->
 <div id="app" style="display:none">
 
-<button onclick="logout()">Cerrar sesión</button>
-<p id="rolInfo"></p>
-
-<!-- ADMIN -->
-<div id="adminPanel" class="card">
-  <h3>Crear Usuario (rol)</h3>
-  <select id="rolNuevo">
-    <option value="profesor">Profesor</option>
-    <option value="admin">Admin</option>
-  </select>
-  <button onclick="asignarRol()">Asignar a usuario actual</button>
+<div id="dashboard" class="screen">
+  <h2>📊 Dashboard</h2>
+  <canvas id="grafico"></canvas>
+  <button onclick="cargarDashboard()">Actualizar</button>
 </div>
 
-<!-- ESTUDIANTES -->
-<div class="card">
-  <h3>Estudiantes</h3>
-  <input id="cedula">
-  <input id="nombres">
-  <input id="apellidos">
-  <button onclick="crearEstudiante()">Guardar</button>
+<div id="lista" class="screen">
+  <h2>✅ Pasar Lista</h2>
 
-  <ul id="listaEstudiantes"></ul>
-</div>
-
-<!-- MATERIAS -->
-<div class="card">
-  <h3>Materias</h3>
-  <input id="materiaNombre">
-  <button onclick="crearMateria()">Guardar</button>
   <select id="materiaLista"></select>
-</div>
+  <input type="date" id="fechaLista">
 
-<!-- ASIGNAR -->
-<div class="card">
-  <h3>Asignar estudiante</h3>
-  <input id="cedulaAsignar">
-  <select id="materiaSelect"></select>
-  <button onclick="asignar()">Asignar</button>
-</div>
+  <button class="big-button" onclick="iniciarLista()">Iniciar</button>
 
-<!-- LISTA -->
-<div class="card">
-<h3>Pasar lista</h3>
+  <button class="big-button" onclick="iniciarEscaner()">📷 Escanear QR</button>
 
-<input type="date" id="fechaLista">
-<button onclick="iniciarLista()">Iniciar</button>
-
-<div id="zonaLista">
-  <button onclick="iniciarEscaner()">QR</button>
   <div id="reader"></div>
 
-  <input id="manualCedula">
+  <input id="manualCedula" placeholder="Cédula">
   <button onclick="registrarManual()">Manual</button>
 
   <h4>Presentes</h4>
@@ -94,37 +62,52 @@
 
   <button onclick="cerrarLista()">Guardar</button>
 </div>
+
+<div id="estudiantes" class="screen">
+  <h2>👨‍🎓 Estudiantes</h2>
+
+  <input id="cedula" placeholder="Cédula">
+  <input id="nombres" placeholder="Nombres">
+  <input id="apellidos" placeholder="Apellidos">
+
+  <button onclick="crearEstudiante()">Guardar</button>
+
+  <ul id="listaEstudiantes"></ul>
 </div>
 
-<!-- DASHBOARD -->
-<div class="card">
-  <h3>Dashboard</h3>
-  <canvas id="grafico"></canvas>
-  <button onclick="cargarDashboard()">Actualizar</button>
+<div id="historial" class="screen">
+  <h2>📅 Historial</h2>
+
+  <input type="date" id="filtroFecha">
+  <button onclick="cargarHistorial()">Buscar</button>
+
+  <ul id="historialLista"></ul>
+  <button onclick="exportar()">Exportar</button>
 </div>
 
-<!-- REPORTE -->
-<div class="card">
-  <h3>Reporte estudiante</h3>
-  <input id="cedulaReporte">
-  <button onclick="generarReporte()">Consultar</button>
+<div class="screen" id="reportes">
+  <h2>📈 Reportes</h2>
+
+  <input id="cedulaReporte" placeholder="Cédula">
+  <button onclick="generarReporte()">Ver</button>
+
   <ul id="reporte"></ul>
 </div>
 
-<!-- ALERTAS -->
-<div class="card">
-  <h3>Alertas</h3>
-  <button onclick="generarAlertas()">Ver</button>
+<div class="screen" id="alertasScreen">
+  <h2>🚨 Alertas</h2>
+  <button onclick="generarAlertas()">Actualizar</button>
   <ul id="alertas"></ul>
 </div>
 
-<!-- HISTORIAL -->
-<div class="card">
-<h3>Historial</h3>
-<input type="date" id="filtroFecha">
-<button onclick="cargarHistorial()">Buscar</button>
-<ul id="historial"></ul>
-<button onclick="exportar()">Exportar</button>
+<!-- NAVBAR -->
+<div class="navbar">
+  <button onclick="mostrar('dashboard')">📊</button>
+  <button onclick="mostrar('lista')">✅</button>
+  <button onclick="mostrar('estudiantes')">👨‍🎓</button>
+  <button onclick="mostrar('historial')">📅</button>
+  <button onclick="mostrar('reportes')">📈</button>
+  <button onclick="mostrar('alertasScreen')">🚨</button>
 </div>
 
 </div>
