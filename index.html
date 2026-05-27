@@ -5,19 +5,19 @@
   <title>Asistencia App</title>
 
   <!-- Firebase -->
-  https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js>
-  https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js
-  https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.jsscript>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
   <!-- QR -->
-  https://unpkg.com/html5-qrcodescript>
-  https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.jsscript>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <!-- Charts -->
-  https://cdn.jsdelivr.net/npm/chart.js>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- CSS -->
-  style.css
+  <link rel="stylesheet" href="style.css">
 </head>
 ``
 
@@ -40,7 +40,7 @@
       <small id="error-password" class="field-error"></small>
 
       <button onclick="login()">Entrar</button>
-
+      <button class="secondary" onclick="registrar()">Crear cuenta</button>
 
       <p id="loginError" class="error-text"></p>
     </div>
@@ -252,7 +252,8 @@
     </nav>
 
   </div>
-  
+
+
 <script src="app.js"></script>
 </body>
 </html>
