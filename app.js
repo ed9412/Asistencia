@@ -19,6 +19,7 @@ let presentesSet = new Set();
 let presentTimes = new Map();
 let html5QrCode = null;
 let chartInstance = null;
+let bloqueadoScan = false;
 
 // ===============================
 // UTILIDADES
@@ -828,10 +829,20 @@ async function iniciarEscaner() {
     await html5QrCode.start(
       { facingMode: "environment" },
       { fps: 10, qrbox: 250 },
+
       async code => {
+        if (bloqueadoScan) return;
+      
+        bloqueadoScan = true;
+      
         await registrarAsistencia(code.trim());
+      
+        // 🔹 Esperar 1 segundo antes de permitir otro escaneo
+        setTimeout(() => {
+          bloqueadoScan = false;
+        }, 1000);
       }
-    );
+
 
     showMessage("Cámara iniciada.", "success");
 
