@@ -2,6 +2,7 @@
     apiKey: "AIzaSyD7dXhlgDUd_FMiOD-2tG9Sk2CTzNIcHWU",
     authDomain: "asistencialuis-9b378.firebaseapp.com",
     projectId: "asistencialuis-9b378",
+    
     storageBucket: "asistencialuis-9b378.firebasestorage.app",
     messagingSenderId: "145173933947",
     appId: "1:145173933947:web:00930a77d5e24964aa57de"
@@ -972,7 +973,9 @@ async function cerrarLista() {
 
   const materiaId = $("materiaLista").value;
   const fechaValue = $("fechaLista").value;
+  const materiaNombre = $("materiaLista").options[$("materiaLista").selectedIndex].text; //guardar nombre materia
 
+  
   if (estudiantesMateria.length === 0) {
     showMessage("Primero debes iniciar la lista.", "error");
     return;
@@ -988,6 +991,7 @@ async function cerrarLista() {
         nombres: est.nombres,
         apellidos: est.apellidos,
         materia: materiaId,
+        materiaNombre: materiaNombre,
         fecha: fechaValue,
         presente: presente,
         hora: presente ? (presentTimes.get(est.cedula) || horaActual()) : null,
@@ -1310,8 +1314,8 @@ async function exportar() {
 
     snap.forEach(doc => {
       const data = doc.data();
-
-      csv += `"${data.cedula}";"${data.nombres || ""}";"${data.apellidos || ""}";"${data.fecha}";"${data.materia}";"${data.presente ? "Presente" : "Faltante"}";"${data.hora || ""}";"${data.profesor || ""}"\n`;
+      const materia = data.materiaNombre || data.materia;
+      csv += `"${data.cedula}";"${data.nombres || ""}";"${data.apellidos || ""}";"${data.fecha}";"${materia};"${data.presente ? "Presente" : "Faltante"}";"${data.hora || ""}";"${data.profesor || ""}"\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
