@@ -5,45 +5,7 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
- .info {  background: #f4f6f8;
-  background: #2563eb;
-}
-
-.error-text {
-  color: #dc2626;
-  font-size: 14px;
-  margin-top: 8px;
-}
-
-#reader {
-  width: 100%;
-  margin-top: 12px;
-  overflow: hidden;
-  border-radius: 14px;
-}
-
-.modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-  z-index: 1000;
-  padding: 25px;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 18px;
-  padding: 20px;
-  text-align: center;
-  margin-top: 60px;
-}
-
-hr {
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  margin: 18px 0;
-}
+  background: #f4f6f8;
   color: #111827;
 }
 
@@ -242,3 +204,42 @@ li {
   background: #dc2626;
 }
 
+.toast.info {
+  background: #2563eb;
+}
+
+.error-text {
+  color: #dc2626;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+#reader {
+  width: 100%;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 1000;
+  padding: 25px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 18px;
+  padding: 20px;
+  text-align: center;
+  margin-top: 60px;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 18px 0;
+}
