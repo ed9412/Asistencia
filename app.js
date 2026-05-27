@@ -916,6 +916,11 @@ async function registrarAsistencia(cedulaValue) {
     presentesSet.add(cedulaValue);
     presentTimes.set(cedulaValue, horaActual());
 
+    
+    // 🔊 sonido de confirmación
+    beep();
+
+
     actualizarPresentes();
     actualizarFaltantes();
 
@@ -928,6 +933,13 @@ async function registrarAsistencia(cedulaValue) {
     showMessage("No se pudo validar duplicado: " + traducirErrorFirebase(error), "error");
   }
 }
+
+
+function beep() {
+  const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+  audio.play();
+}
+
 
 function actualizarPresentes() {
   limpiarLista("presentes");
