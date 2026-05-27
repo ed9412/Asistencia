@@ -4,21 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Asistencia Profe. Luis</title>
+  <title>Asistencia App</title>
 
   <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.jsscript>
+  https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.jsscript>
+  https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.jsscript>
 
   <!-- QR -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  https://unpkg.com/html5-qrcodescript>
+  https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.jsscript>
 
   <!-- Charts -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  https://cdn.jsdelivr.net/npm/chart.jsscript>
 
-  <link rel="stylesheet" href="style.css" />
+  style.css
 </head>
 
 <body>
@@ -31,16 +31,16 @@
       <h1>🎓 Asistencia</h1>
       <p class="subtitle">Sistema de control de asistencia</p>
 
-      <label>Correo electrónico</label>
+      <label>Correo electrónico <span class="required">*</span></label>
       <input id="email" type="email" placeholder="ejemplo@correo.com" />
       <small id="error-email" class="field-error"></small>
 
-      <label>Contraseña</label>
+      <label>Contraseña <span class="required">*</span></label>
       <input id="password" type="password" placeholder="Mínimo 6 caracteres" />
       <small id="error-password" class="field-error"></small>
 
       <button onclick="login()">Entrar</button>
-
+      <button class="secondary" onclick="registrar()">Crear cuenta</button>
 
       <p id="loginError" class="error-text"></p>
     </div>
@@ -71,11 +71,11 @@
       <div class="card">
         <h2>✅ Pasar lista</h2>
 
-        <label>Materia</label>
+        <label>Materia <span class="required">*</span></label>
         <select id="materiaLista"></select>
         <small id="error-materiaLista" class="field-error"></small>
 
-        <label>Fecha de asistencia</label>
+        <label>Fecha de asistencia <span class="required">*</span></label>
         <input type="date" id="fechaLista" />
         <small id="error-fechaLista" class="field-error"></small>
 
@@ -89,7 +89,7 @@
 
           <div id="reader"></div>
 
-          <label>Cédula manual</label>
+          <label>Cédula manual <span class="required">*</span></label>
           <input id="manualCedula" placeholder="Solo números" inputmode="numeric" />
           <small id="error-manualCedula" class="field-error"></small>
 
@@ -111,15 +111,15 @@
       <div class="card">
         <h2>👨‍🎓 Estudiantes</h2>
 
-        <label>Cédula</label>
+        <label>Cédula <span class="required">*</span></label>
         <input id="cedula" placeholder="Solo números" inputmode="numeric" />
         <small id="error-cedula" class="field-error"></small>
 
-        <label>Nombres</label>
+        <label>Nombres <span class="required">*</span></label>
         <input id="nombres" placeholder="Ejemplo: Juan Carlos" />
         <small id="error-nombres" class="field-error"></small>
 
-        <label>Apellidos</label>
+        <label>Apellidos <span class="required">*</span></label>
         <input id="apellidos" placeholder="Ejemplo: Pérez Gómez" />
         <small id="error-apellidos" class="field-error"></small>
 
@@ -135,7 +135,7 @@
       <div class="card">
         <h2>📚 Materias</h2>
 
-        <label>Nombre de la materia</label>
+        <label>Nombre de la materia <span class="required">*</span></label>
         <input id="materiaNombre" placeholder="Ejemplo: Matemáticas" />
         <small id="error-materiaNombre" class="field-error"></small>
 
@@ -145,11 +145,11 @@
 
         <h4>Asignar estudiante a materia</h4>
 
-        <label>Cédula del estudiante</label>
+        <label>Cédula del estudiante <span class="required">*</span></label>
         <input id="cedulaAsignar" placeholder="Solo números" inputmode="numeric" />
         <small id="error-cedulaAsignar" class="field-error"></small>
 
-        <label>Materia</label>
+        <label>Materia <span class="required">*</span></label>
         <select id="materiaSelect"></select>
         <small id="error-materiaSelect" class="field-error"></small>
 
@@ -179,7 +179,7 @@
       <div class="card">
         <h2>📈 Reporte por estudiante</h2>
 
-        <label>Cédula</label>
+        <label>Cédula <span class="required">*</span></label>
         <input id="cedulaReporte" placeholder="Solo números" inputmode="numeric" />
         <small id="error-cedulaReporte" class="field-error"></small>
 
@@ -210,16 +210,17 @@
           Para asignar roles, copia el UID del usuario desde Firebase Authentication.
         </p>
 
-        <label>UID del usuario</label>
+        <label>UID del usuario <span class="required">*</span></label>
         <input id="uidRol" placeholder="UID de Firebase Auth" />
         <small id="error-uidRol" class="field-error"></small>
 
-        <label>Email del usuario</label>
+        <label>Email del usuario <span class="required">*</span></label>
         <input id="emailRol" placeholder="usuario@correo.com" />
         <small id="error-emailRol" class="field-error"></small>
 
-        <label>Rol</label>
+        <label>Rol <span class="required">*</span></label>
         <select id="rolNuevo">
+          <option value="">Selecciona un rol</option>
           <option value="profesor">Profesor</option>
           <option value="admin">Admin</option>
         </select>
@@ -252,6 +253,6 @@
 
   </div>
 
-  <script src="app.js"></script>
+  app.jsscript>
 </body>
 </html>
