@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Asistencia App</title>
 
 <!-- Firebase -->
@@ -10,18 +11,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
-<!-- QR -->
-<script src="https://unpkg.com/html5-qrcode"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-
-<!-- Charts -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
+<!-- LOGIN -->
 <div id="loginScreen" class="screen active">
   <div class="card">
     <h2>Login</h2>
@@ -33,35 +28,35 @@
     <small id="error-password" class="field-error"></small>
 
     <button onclick="login()">Entrar</button>
-    <button onclick="registrar()">Crear cuenta</button>
   </div>
 </div>
 
+<!-- APP -->
 <div id="app" style="display:none">
-
-<!-- DASHBOARD -->
-<div id="dashboard" class="screen">
-  <h2>Dashboard</h2>
-</div>
 
 <!-- ESTUDIANTES -->
 <div id="estudiantes" class="screen">
   <h2>Estudiantes</h2>
 
   <input id="cedula" placeholder="Cédula">
+  <small id="error-cedula" class="field-error"></small>
+
   <input id="nombres" placeholder="Nombres">
+  <small id="error-nombres" class="field-error"></small>
+
   <input id="apellidos" placeholder="Apellidos">
+  <small id="error-apellidos" class="field-error"></small>
 
   <button onclick="crearEstudiante()">Guardar</button>
 
   <ul id="listaEstudiantes"></ul>
 </div>
 
-<!-- FICHA ALUMNO -->
+<!-- FICHA DEL ALUMNO -->
 <div id="detalleAlumno" class="screen">
   <h2>Ficha alumno</h2>
 
-  <p id="detalleCedula"></p>
+  <p><b>Cédula:</b> <span id="detalleCedula"></span></p>
 
   <input id="editarNombres">
   <small id="error-editarNombres" class="field-error"></small>
@@ -69,7 +64,7 @@
   <input id="editarApellidos">
   <small id="error-editarApellidos" class="field-error"></small>
 
-  <button onclick="guardarAlumno()">Guardar</button>
+  <button onclick="guardarAlumno()">Guardar cambios</button>
 
   <h3>Materias</h3>
   <ul id="materiasAlumno"></ul>
@@ -84,7 +79,9 @@
 <div id="materiasScreen" class="screen">
   <h2>Materias</h2>
 
-  <input id="materiaNombre">
+  <input id="materiaNombre" placeholder="Nombre materia">
+  <small id="error-materiaNombre" class="field-error"></small>
+
   <button onclick="crearMateria()">Crear</button>
 
   <ul id="listaMaterias"></ul>
@@ -100,8 +97,8 @@
   <button onclick="guardarMateria()">Guardar</button>
 </div>
 
+<!-- MENU -->
 <div class="navbar">
-  <button onclick="mostrar('dashboard')">🏠</button>
   <button onclick="mostrar('estudiantes')">👨‍🎓</button>
   <button onclick="mostrar('materiasScreen')">📚</button>
 </div>
