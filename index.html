@@ -19,6 +19,7 @@
   <!-- CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
+``
 
 <body>
 
@@ -105,52 +106,56 @@
       </div>
     </section>
 
+    <!-- ESTUDIANTES -->
+    <section id="estudiantes" class="screen">
+      <div class="card">
+        <h2>👨‍🎓 Estudiantes</h2>
 
-<!-- ESTUDIANTES -->
-<section id="estudiantes" class="screen active">
-<div class="card">
+        <label>Cédula <span class="required">*</span></label>
+        <input id="cedula" placeholder="Solo números" inputmode="numeric" />
+        <small id="error-cedula" class="field-error"></small>
 
-<h2>👨‍🎓 Estudiantes</h2>
+        <label>Nombres <span class="required">*</span></label>
+        <input id="nombres" placeholder="Ejemplo: Juan Carlos" />
+        <small id="error-nombres" class="field-error"></small>
 
-<!-- ✅ BUSCADOR -->
-<input id="buscarEstudiante" placeholder="Buscar estudiante..." oninput="buscarEstudiantes()">
+        <label>Apellidos <span class="required">*</span></label>
+        <input id="apellidos" placeholder="Ejemplo: Pérez Gómez" />
+        <small id="error-apellidos" class="field-error"></small>
 
-<label>Cédula</label>
-<input id="cedula">
+        <button onclick="crearEstudiante()">Guardar estudiante</button>
 
-<label>Nombres</label>
-<input id="nombres">
+        <h4>Listado</h4>
+        <ul id="listaEstudiantes"></ul>
+      </div>
+    </section>
 
-<label>Apellidos</label>
-<input id="apellidos">
+    <!-- MATERIAS -->
+    <section id="materiasScreen" class="screen">
+      <div class="card">
+        <h2>📚 Materias</h2>
 
-<button onclick="crearEstudiante()">Guardar estudiante</button>
+        <label>Nombre de la materia <span class="required">*</span></label>
+        <input id="materiaNombre" placeholder="Ejemplo: Matemáticas" />
+        <small id="error-materiaNombre" class="field-error"></small>
 
-<h4>Listado</h4>
-<ul id="listaEstudiantes"></ul>
+        <button onclick="crearMateria()">Guardar materia</button>
 
-</div>
-</section>
+        <hr />
 
+        <h4>Asignar estudiante a materia</h4>
 
+        <label>Cédula del estudiante <span class="required">*</span></label>
+        <input id="cedulaAsignar" placeholder="Solo números" inputmode="numeric" />
+        <small id="error-cedulaAsignar" class="field-error"></small>
 
-<!-- MATERIAS -->
-<section id="materiasScreen" class="screen">
-<div class="card">
+        <label>Materia <span class="required">*</span></label>
+        <select id="materiaSelect"></select>
+        <small id="error-materiaSelect" class="field-error"></small>
 
-<h2>📚 Materias</h2>
-
-<input id="materiaNombre">
-<button onclick="crearMateria()">Guardar materia</button>
-
-<hr>
-
-<h4>Listado de materias</h4>
-<ul id="listaMaterias"></ul>
-
-</div>
-</section>
-
+        <button onclick="asignar()">Asignar</button>
+      </div>
+    </section>
 
     <!-- HISTORIAL -->
     <section id="historial" class="screen">
