@@ -1,8 +1,11 @@
-const firebaseConfig = {
-  apiKey: "TU_API",
-  authDomain: "TU_DOM",
-  projectId: "TU_ID"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyD7dXhlgDUd_FMiOD-2tG9Sk2CTzNIcHWU",
+    authDomain: "asistencialuis-9b378.firebaseapp.com",
+    projectId: "asistencialuis-9b378",
+    storageBucket: "asistencialuis-9b378.firebasestorage.app",
+    messagingSenderId: "145173933947",
+    appId: "1:145173933947:web:00930a77d5e24964aa57de"
+  };
 
 firebase.initializeApp(firebaseConfig);
 
