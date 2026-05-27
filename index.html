@@ -1,118 +1,257 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>Asistencia App</title>
+  <title>Asistencia App</title>
 
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <!-- QR -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 
-<!-- LOGIN -->
-<div id="loginScreen" class="screen active">
-  <h2>Login</h2>
-  <input id="email" placeholder="Correo">
-  <input id="password" type="password" placeholder="Contraseña">
-  <button onclick="login()">Entrar</button>
-  <button onclick="registrar()">Crear cuenta</button>
-</div>
+  <div id="toast" class="toast"></div>
 
-<!-- APP -->
-<div id="app" style="display:none">
+  <!-- LOGIN -->
+  <div id="loginScreen" class="screen active">
+    <div class="card login-card">
+      <h1>🎓 Asistencia</h1>
+      <p class="subtitle">Sistema de control de asistencia</p>
 
-<div id="dashboard" class="screen">
-  <h2>📊 Dashboard</h2>
-  <canvas id="grafico"></canvas>
-  <button onclick="cargarDashboard()">Actualizar</button>
-</div>
+      <label>Correo electrónico</label>
+      <input id="email" type="email" placeholder="ejemplo@correo.com" />
+      <small id="error-email" class="field-error"></small>
 
-<div id="lista" class="screen">
-  <h2>✅ Pasar Lista</h2>
+      <label>Contraseña</label>
+      <input id="password" type="password" placeholder="Mínimo 6 caracteres" />
+      <small id="error-password" class="field-error"></small>
 
-  <select id="materiaLista"></select>
-  <input type="date" id="fechaLista">
+      <button onclick="login()">Entrar</button>
+      <button class="secondary" onclick="registrar()">Crear cuenta</button>
 
-  <button class="big-button" onclick="iniciarLista()">Iniciar</button>
+      <p id="loginError" class="error-text"></p>
+    </div>
+  </div>
 
-  <button class="big-button" onclick="iniciarEscaner()">📷 Escanear QR</button>
+  <!-- APP -->
+  <div id="app" style="display:none">
 
-  <div id="reader"></div>
+    <header class="topbar">
+      <div>
+        <strong>Asistencia App</strong>
+        <small id="rolInfo"></small>
+      </div>
+      <button class="small danger" onclick="logout()">Salir</button>
+    </header>
 
-  <input id="manualCedula" placeholder="Cédula">
-  <button onclick="registrarManual()">Manual</button>
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="screen">
+      <div class="card">
+        <h2>📊 Dashboard</h2>
+        <canvas id="grafico"></canvas>
+        <button onclick="cargarDashboard()">Actualizar dashboard</button>
+      </div>
+    </section>
 
-  <h4>Presentes</h4>
-  <ul id="presentes"></ul>
+    <!-- PASAR LISTA -->
+    <section id="lista" class="screen">
+      <div class="card">
+        <h2>✅ Pasar lista</h2>
 
-  <h4>Faltantes</h4>
-  <ul id="faltantes"></ul>
+        <label>Materia</label>
+        <select id="materiaLista"></select>
+        <small id="error-materiaLista" class="field-error"></small>
 
-  <button onclick="cerrarLista()">Guardar</button>
-</div>
+        <label>Fecha de asistencia</label>
+        <input type="date" id="fechaLista" />
+        <small id="error-fechaLista" class="field-error"></small>
 
-<div id="estudiantes" class="screen">
-  <h2>👨‍🎓 Estudiantes</h2>
+        <button class="big-button" onclick="iniciarLista()">Iniciar lista</button>
 
-  <input id="cedula" placeholder="Cédula">
-  <input id="nombres" placeholder="Nombres">
-  <input id="apellidos" placeholder="Apellidos">
+        <div id="zonaLista" style="display:none">
+          <hr />
 
-  <button onclick="crearEstudiante()">Guardar</button>
+          <button class="big-button" onclick="iniciarEscaner()">📷 Escanear QR</button>
+          <button class="secondary" onclick="detenerEscaner()">Detener cámara</button>
 
-  <ul id="listaEstudiantes"></ul>
-</div>
+          <div id="reader"></div>
 
-<div id="historial" class="screen">
-  <h2>📅 Historial</h2>
+          <label>Cédula manual</label>
+          <input id="manualCedula" placeholder="Solo números" inputmode="numeric" />
+          <small id="error-manualCedula" class="field-error"></small>
 
-  <input type="date" id="filtroFecha">
-  <button onclick="cargarHistorial()">Buscar</button>
+          <button onclick="registrarManual()">Registrar manual</button>
 
-  <ul id="historialLista"></ul>
-  <button onclick="exportar()">Exportar</button>
-</div>
+          <h4>Presentes</h4>
+          <ul id="presentes"></ul>
 
-<div class="screen" id="reportes">
-  <h2>📈 Reportes</h2>
+          <h4>Faltantes</h4>
+          <ul id="faltantes"></ul>
 
-  <input id="cedulaReporte" placeholder="Cédula">
-  <button onclick="generarReporte()">Ver</button>
+          <button onclick="cerrarLista()">Guardar lista</button>
+        </div>
+      </div>
+    </section>
 
-  <ul id="reporte"></ul>
-</div>
+    <!-- ESTUDIANTES -->
+    <section id="estudiantes" class="screen">
+      <div class="card">
+        <h2>👨‍🎓 Estudiantes</h2>
 
-<div class="screen" id="alertasScreen">
-  <h2>🚨 Alertas</h2>
-  <button onclick="generarAlertas()">Actualizar</button>
-  <ul id="alertas"></ul>
-</div>
+        <label>Cédula</label>
+        <input id="cedula" placeholder="Solo números" inputmode="numeric" />
+        <small id="error-cedula" class="field-error"></small>
 
-<!-- NAVBAR -->
-<div class="navbar">
-  <button onclick="mostrar('dashboard')">📊</button>
-  <button onclick="mostrar('lista')">✅</button>
-  <button onclick="mostrar('estudiantes')">👨‍🎓</button>
-  <button onclick="mostrar('historial')">📅</button>
-  <button onclick="mostrar('reportes')">📈</button>
-  <button onclick="mostrar('alertasScreen')">🚨</button>
-</div>
+        <label>Nombres</label>
+        <input id="nombres" placeholder="Ejemplo: Juan Carlos" />
+        <small id="error-nombres" class="field-error"></small>
 
-</div>
+        <label>Apellidos</label>
+        <input id="apellidos" placeholder="Ejemplo: Pérez Gómez" />
+        <small id="error-apellidos" class="field-error"></small>
 
-<script src="app.js"></script>
+        <button onclick="crearEstudiante()">Guardar estudiante</button>
 
+        <h4>Listado</h4>
+        <ul id="listaEstudiantes"></ul>
+      </div>
+    </section>
+
+    <!-- MATERIAS -->
+    <section id="materiasScreen" class="screen">
+      <div class="card">
+        <h2>📚 Materias</h2>
+
+        <label>Nombre de la materia</label>
+        <input id="materiaNombre" placeholder="Ejemplo: Matemáticas" />
+        <small id="error-materiaNombre" class="field-error"></small>
+
+        <button onclick="crearMateria()">Guardar materia</button>
+
+        <hr />
+
+        <h4>Asignar estudiante a materia</h4>
+
+        <label>Cédula del estudiante</label>
+        <input id="cedulaAsignar" placeholder="Solo números" inputmode="numeric" />
+        <small id="error-cedulaAsignar" class="field-error"></small>
+
+        <label>Materia</label>
+        <select id="materiaSelect"></select>
+        <small id="error-materiaSelect" class="field-error"></small>
+
+        <button onclick="asignar()">Asignar</button>
+      </div>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section id="historial" class="screen">
+      <div class="card">
+        <h2>📅 Historial</h2>
+
+        <label>Filtrar por fecha</label>
+        <input type="date" id="filtroFecha" />
+        <small id="error-filtroFecha" class="field-error"></small>
+
+        <button onclick="cargarHistorial()">Buscar</button>
+
+        <ul id="historialLista"></ul>
+
+        <button onclick="exportar()">Exportar CSV</button>
+      </div>
+    </section>
+
+    <!-- REPORTES -->
+    <section id="reportes" class="screen">
+      <div class="card">
+        <h2>📈 Reporte por estudiante</h2>
+
+        <label>Cédula</label>
+        <input id="cedulaReporte" placeholder="Solo números" inputmode="numeric" />
+        <small id="error-cedulaReporte" class="field-error"></small>
+
+        <button onclick="generarReporte()">Ver reporte</button>
+
+        <div id="reporte"></div>
+      </div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section id="alertasScreen" class="screen">
+      <div class="card">
+        <h2>🚨 Alertas de inasistencia</h2>
+        <p class="subtitle">Se muestran estudiantes con menos de 70% de asistencia.</p>
+
+        <button onclick="generarAlertas()">Actualizar alertas</button>
+
+        <ul id="alertas"></ul>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="adminScreen" class="screen">
+      <div class="card">
+        <h2>🔐 Administración</h2>
+
+        <p class="subtitle">
+          Para asignar roles, copia el UID del usuario desde Firebase Authentication.
+        </p>
+
+        <label>UID del usuario</label>
+        <input id="uidRol" placeholder="UID de Firebase Auth" />
+        <small id="error-uidRol" class="field-error"></small>
+
+        <label>Email del usuario</label>
+        <input id="emailRol" placeholder="usuario@correo.com" />
+        <small id="error-emailRol" class="field-error"></small>
+
+        <label>Rol</label>
+        <select id="rolNuevo">
+          <option value="profesor">Profesor</option>
+          <option value="admin">Admin</option>
+        </select>
+        <small id="error-rolNuevo" class="field-error"></small>
+
+        <button onclick="asignarRol()">Guardar rol</button>
+      </div>
+    </section>
+
+    <!-- MODAL QR -->
+    <div id="qrModal" class="modal">
+      <div class="modal-content">
+        <button class="small danger" onclick="cerrarQR()">Cerrar</button>
+        <h3>Carnet QR</h3>
+        <canvas id="qrCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <button onclick="mostrar('dashboard')">📊<span>Inicio</span></button>
+      <button onclick="mostrar('lista')">✅<span>Lista</span></button>
+      <button onclick="mostrar('estudiantes')">🎓<span>Alumnos</span></button>
+      <button onclick="mostrar('materiasScreen')">📚<span>Materias</span></button>
+      <button onclick="mostrar('historial')">📅<span>Historial</span></button>
+      <button onclick="mostrar('reportes')">📈<span>Reportes</span></button>
+      <button onclick="mostrar('alertasScreen')">🚨<span>Alertas</span></button>
+      <button id="adminNavBtn" onclick="mostrar('adminScreen')" style="display:none">🔐<span>Admin</span></button>
+    </nav>
+
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
