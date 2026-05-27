@@ -840,7 +840,7 @@ async function iniciarEscaner() {
         // 🔹 Esperar 1 segundo antes de permitir otro escaneo
         setTimeout(() => {
           bloqueadoScan = false;
-        }, 1000);
+        }, 2000);
       }
 );
 
