@@ -842,7 +842,7 @@ async function iniciarEscaner() {
           bloqueadoScan = false;
         }, 1000);
       }
-
+);
 
     showMessage("Cámara iniciada.", "success");
 
