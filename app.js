@@ -12,48 +12,30 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-let role = null;
 let estudiantesMateria = [];
 let presentesSet = new Set();
 
-// 🔐 AUTH
-async function login(){
-  const cred = await auth.signInWithEmailAndPassword(email.value, password.value);
-  const doc = await db.collection("users").doc(cred.user.uid).get();
-  role = doc.data()?.role || "profesor";
-  initApp();
+// 🔐 LOGIN
+function login(){
+  auth.signInWithEmailAndPassword(email.value, password.value)
+  .then(() => initApp());
 }
 
 function registrar(){
   auth.createUserWithEmailAndPassword(email.value, password.value);
 }
 
-function logout(){
-  auth.signOut();
-  location.reload();
-}
-
-// 🔧 INIT
 function initApp(){
-  loginDiv.style.display="none";
+  loginScreen.style.display="none";
   app.style.display="block";
-
-  rolInfo.textContent = "Rol: " + role;
-
-  if(role !== "admin"){
-    adminPanel.style.display="none";
-  }
-
+  mostrar("dashboard");
   cargarMaterias();
   listarEstudiantes();
 }
 
-// 👥 ROLES
-function asignarRol(){
-  db.collection("users").doc(auth.currentUser.uid).set({
-    email: auth.currentUser.email,
-    role: rolNuevo.value
-  });
+function mostrar(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
 }
 
 // 👨‍🎓 ESTUDIANTES
@@ -71,15 +53,8 @@ async function listarEstudiantes(){
   const snap = await db.collection("estudiantes").get();
 
   snap.forEach(doc=>{
-    let d = doc.data();
-    let li = document.createElement("li");
-    li.textContent = d.cedula;
-
-    let btn = document.createElement("button");
-    btn.textContent="QR";
-    btn.onclick=()=>QRCode.toCanvas(null, d.cedula);
-
-    li.appendChild(btn);
+    let li=document.createElement("li");
+    li.textContent=doc.id;
     listaEstudiantes.appendChild(li);
   });
 }
@@ -87,33 +62,15 @@ async function listarEstudiantes(){
 // 📚 MATERIAS
 async function cargarMaterias(){
   materiaLista.innerHTML="";
-  materiaSelect.innerHTML="";
-
   const snap = await db.collection("materias").get();
 
   snap.forEach(doc=>{
-    let opt=new Option(doc.data().nombre, doc.id);
-    materiaLista.add(opt);
-    materiaSelect.add(opt.cloneNode(true));
+    materiaLista.add(new Option(doc.data().nombre, doc.id));
   });
 }
 
-function crearMateria(){
-  db.collection("materias").add({ nombre: materiaNombre.value });
-  cargarMaterias();
-}
-
-// 🔗 ASIGNAR
-function asignar(){
-  db.collection("materia_estudiante").add({
-    cedula: cedulaAsignar.value,
-    materiaId: materiaSelect.value
-  });
-}
-
-// ▶️ LISTA
+// ▶ LISTA
 async function iniciarLista(){
-
   presentesSet.clear();
   presentes.innerHTML="";
 
@@ -123,9 +80,8 @@ async function iniciarLista(){
   estudiantesMateria=[];
 
   for(let r of rel.docs){
-    let est = await db.collection("estudiantes")
+    let est=await db.collection("estudiantes")
       .doc(r.data().cedula).get();
-
     estudiantesMateria.push(est.data());
   }
 
@@ -144,7 +100,7 @@ function registrarManual(){
   registrarAsistencia(manualCedula.value);
 }
 
-// ✅ EVITAR DUPLICADOS
+// ✅ SIN DUPLICADOS
 async function registrarAsistencia(cedula){
 
   const key = `${cedula}_${fechaLista.value}_${materiaLista.value}`;
@@ -163,13 +119,12 @@ function actualizarFaltantes(){
     if(!presentesSet.has(est.cedula)){
       let li=document.createElement("li");
       li.textContent=est.cedula;
-      li.onclick=()=>corregir(est.cedula);
       faltantes.appendChild(li);
     }
   });
 }
 
-// 🔒 GUARDAR
+// 💾 GUARDAR
 async function cerrarLista(){
 
   for(let est of estudiantesMateria){
@@ -181,37 +136,18 @@ async function cerrarLista(){
       materia: materiaLista.value,
       fecha: fechaLista.value,
       presente: presentesSet.has(est.cedula),
-      hora: new Date().toLocaleTimeString(),
       profesor: auth.currentUser.email
     });
   }
 
-  alert("Lista guardada");
-}
-
-// 🔐 CORREGIR + AUDITORÍA
-async function corregir(cedula){
-
-  let pass = prompt("Contraseña");
-
-  await auth.signInWithEmailAndPassword(auth.currentUser.email, pass);
-
-  presentesSet.add(cedula);
-
-  await db.collection("auditoria").add({
-    accion: "Correccion",
-    usuario: auth.currentUser.email,
-    fecha: new Date(),
-    detalle: cedula
-  });
-
-  actualizarFaltantes();
+  alert("Guardado");
 }
 
 // 📊 DASHBOARD
 async function cargarDashboard(){
+
   let p=0,f=0;
-  const snap=await db.collection("asistencias").get();
+  const snap = await db.collection("asistencias").get();
 
   snap.forEach(d=>{
     d.data().presente ? p++ : f++;
@@ -228,18 +164,18 @@ async function cargarDashboard(){
 
 // 📈 REPORTE
 async function generarReporte(){
-  reporte.innerHTML="";
+
   const snap = await db.collection("asistencias")
     .where("cedula","==",cedulaReporte.value).get();
 
-  let total=0, pres=0;
+  let t=0,p=0;
 
   snap.forEach(d=>{
-    total++;
-    if(d.data().presente) pres++;
+    t++;
+    if(d.data().presente) p++;
   });
 
-  reporte.innerHTML=`Asistencia: ${(pres/total*100||0).toFixed(1)}%`;
+  reporte.innerHTML=`${(p/t*100||0).toFixed(1)}% asistencia`;
 }
 
 // 🚨 ALERTAS
@@ -250,10 +186,11 @@ async function generarAlertas(){
 
   for(let e of est.docs){
 
-    const snap = await db.collection("asistencias")
+    let snap = await db.collection("asistencias")
       .where("cedula","==",e.id).get();
 
     let t=0,p=0;
+
     snap.forEach(d=>{
       t++;
       if(d.data().presente) p++;
@@ -261,28 +198,28 @@ async function generarAlertas(){
 
     if(t>0 && p/t < 0.7){
       let li=document.createElement("li");
-      li.textContent=e.id+" baja asistencia";
+      li.textContent=e.id + " baja asistencia";
       alertas.appendChild(li);
     }
   }
 }
 
-// 📊 HISTORIAL
+// 📅 HISTORIAL
 async function cargarHistorial(){
 
-  historial.innerHTML="";
+  historialLista.innerHTML="";
   let q=db.collection("asistencias");
 
   if(filtroFecha.value){
     q=q.where("fecha","==",filtroFecha.value);
   }
 
-  const snap=await q.get();
+  const snap = await q.get();
 
   snap.forEach(d=>{
     let li=document.createElement("li");
-    li.textContent=d.data().cedula;
-    historial.appendChild(li);
+    li.textContent=`${d.data().cedula} - ${d.data().fecha}`;
+    historialLista.appendChild(li);
   });
 }
 
@@ -302,3 +239,4 @@ async function exportar(){
   a.download="asistencia.csv";
   a.click();
 }
+``
