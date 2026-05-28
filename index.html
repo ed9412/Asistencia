@@ -124,6 +124,16 @@
 
         <button onclick="crearEstudiante()">Guardar estudiante</button>
 
+        <hr>
+        
+        <h4>Buscar estudiante</h4>
+        
+        <label>Nombre</label>
+        <input id="buscarNombre" oninput="buscarEstudiantes()">
+        
+        <label>Materia</label>
+        <select id="buscarMateria" onchange="buscarEstudiantes()"></select>
+
         <h4>Listado</h4>
         <ul id="listaEstudiantes"></ul>
       </div>
