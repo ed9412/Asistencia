@@ -125,6 +125,44 @@ function markFieldValid(fieldId) {
 // VALIDACIONES
 // ===============================
 
+function validarRangoFechas() {
+  clearFields(["filtroFechaInicio", "filtroFechaFin"]);
+  
+  const fechaInicio = $("filtroFechaInicio").value;
+  const fechaFin = $("filtroFechaFin").value;
+
+  // Si ambos campos están vacíos, permitimos la búsqueda (traerá todo el historial)
+  if (!fechaInicio && !fechaFin) {
+    return true;
+  }
+
+  let ok = true;
+
+  if (fechaInicio && !fechaFin) {
+    showFieldError("filtroFechaFin", "Selecciona una fecha de fin.");
+    ok = false;
+  }
+
+  if (!fechaInicio && fechaFin) {
+    showFieldError("filtroFechaInicio", "Selecciona una fecha de inicio.");
+    ok = false;
+  }
+
+  // Validar que la fecha de inicio no sea mayor a la de fin
+  if (fechaInicio && fechaFin) {
+    if (new Date(fechaInicio) > new Date(fechaFin)) {
+      showFieldError("filtroFechaInicio", "La fecha de inicio no puede ser mayor.");
+      showFieldError("filtroFechaFin", "La fecha de fin no puede ser menor.");
+      ok = false;
+    } else {
+      markFieldValid("filtroFechaInicio");
+      markFieldValid("filtroFechaFin");
+    }
+  }
+
+  return ok;
+}
+
 function validarEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); }
 function validarPassword(value) { return value && value.length >= 6; }
 function validarCedula(value) { return /^[0-9]+$/.test(value.trim()) && value.trim().length >= 4; }
@@ -856,22 +894,62 @@ async function corregirRegistroCerrado(docId, cedula) {
 // ===============================
 
 async function cargarHistorial() {
-  limpiarLista("historialLista"); clearFieldError("filtroFecha");
+  if (!validarRangoFechas()) return;
+
+  limpiarLista("historialLista");
+
+  const fechaInicio = $("filtroFechaInicio").value;
+  const fechaFin = $("filtroFechaFin").value;
+
   try {
     let query = db.collection("asistencias");
-    if ($("filtroFecha").value) { query = query.where("fecha", "==", $("filtroFecha").value); markFieldValid("filtroFecha"); }
+
+    // Si hay un rango de fechas, aplicamos los filtros
+    if (fechaInicio && fechaFin) {
+      query = query
+        .where("fecha", ">=", fechaInicio)
+        .where("fecha", "<=", fechaFin);
+    }
+    
+    // Ordenar por fecha descendente (lo más nuevo arriba)
+    query = query.orderBy("fecha", "desc");
+
     const snap = await query.get();
-    if (snap.empty) return $("historialLista").innerHTML = "<li>No hay registros.</li>";
+
+    if (snap.empty) {
+      $("historialLista").innerHTML = "<li>No hay registros para mostrar en estas fechas.</li>";
+      return;
+    }
+
     snap.forEach(doc => {
-      const d = doc.data(); const mat = d.materiaNombre || d.materia;
+      const d = doc.data(); 
+      const mat = d.materiaNombre || d.materia;
       const li = document.createElement("li");
-      li.innerHTML = `${d.cedula}<br><strong>${d.nombres || ""} ${d.apellidos || ""}</strong><br><strong>Materia: ${mat}</strong><br><strong>Fecha: ${d.fecha}</strong><br>Estado: ${d.presente ? "✅" : "❌"}<br>Hora: ${d.hora || ""}<br>Profesor: ${d.profesor || ""}`;
+      
+      li.innerHTML = `
+        ${d.cedula}<br>
+        <strong>${d.nombres || ""} ${d.apellidos || ""}</strong><br>
+        <strong>Materia: ${mat}</strong><br>
+        <strong>Fecha: ${d.fecha}</strong><br>
+        Estado: ${d.presente ? "✅ Presente" : "❌ Faltante"}<br>
+        Hora: ${d.hora || "Sin hora"}<br>
+        Profesor: ${d.profesor || "No registrado"}
+      `;
+      
       if (!d.presente) {
-        const b = document.createElement("button"); b.className = "secondary"; b.textContent = "Corregir"; b.onclick = () => corregirRegistroCerrado(doc.id, d.cedula); li.appendChild(b);
+        const b = document.createElement("button"); 
+        b.className = "secondary"; 
+        b.textContent = "Corregir registro"; 
+        b.onclick = () => corregirRegistroCerrado(doc.id, d.cedula); 
+        li.appendChild(b);
       }
+      
       $("historialLista").appendChild(li);
     });
-  } catch (e) {}
+
+  } catch (error) {
+    showMessage("No se pudo cargar el historial: " + traducirErrorFirebase(error), "error");
+  }
 }
 
 async function generarReporte() {
