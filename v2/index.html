@@ -187,19 +187,34 @@
     </section>
 
     <!-- REPORTES -->
-    <section id="reportes" class="screen">
-      <div class="card">
-        <h2>📈 Reporte por estudiante</h2>
+<section id="reportes" class="screen">
+  <div class="card">
+    <h2>📈 Reporte personalizado</h2>
 
-        <label>Cédula <span class="required">*</span></label>
-        <input id="cedulaReporte" placeholder="Solo números" inputmode="numeric" />
-        <small id="error-cedulaReporte" class="field-error"></small>
+    <label>Cédula del estudiante (opcional)</label>
+    <input type="text" id="cedulaReporte" placeholder="Ej: 12345678">
 
-        <button onclick="generarReporte()">Ver reporte</button>
+    <label>Materia</label>
+    <select id="materiaReporte">
+      <option value="todas">Todas las materias</option>
+      </select>
 
-        <div id="reporte"></div>
+    <div style="display: flex; gap: 10px;">
+      <div style="flex: 1;">
+        <label>Desde:</label>
+        <input type="date" id="fechaInicioReporte">
       </div>
-    </section>
+      <div style="flex: 1;">
+        <label>Hasta:</label>
+        <input type="date" id="fechaFinReporte">
+      </div>
+    </div>
+
+    <button onclick="generarReporte()" style="margin-top: 15px; width: 100%;">Buscar</button>
+
+    <div id="reporte"></div>
+  </div>
+</section>
 
     
     <section id="alertasScreen" class="screen">
