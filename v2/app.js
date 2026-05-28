@@ -1007,20 +1007,76 @@ async function cargarHistorial() {
 }
 
 async function generarReporte() {
-  if (!validarReporteCampos()) return;
-  const ced = $("cedulaReporte").value.trim();
+  const contenedor = $("reporte");
+  contenedor.innerHTML = "<h3>Generando reporte...</h3>";
+
   try {
-    const est = await db.collection("estudiantes").doc(ced).get();
-    if (!est.exists) return showFieldError("cedulaReporte", "No existe.");
-    const snap = await db.collection("asistencias").where("cedula", "==", ced).get();
-    if (snap.empty) return $("reporte").innerHTML = "<p>Sin registros.</p>";
-    let tot = 0, pres = 0, h = "";
-    snap.forEach(d => {
-      tot++; if (d.data().presente) pres++;
-      h += `<li>${d.data().fecha} · ${d.data().presente ? "✅" : "❌"} ${d.data().hora ? "<small>" + d.data().hora + "</small>" : ""}</li>`;
+    const snap = await db.collection("asistencias").orderBy("fecha", "desc").get();
+    
+    if (snap.empty) {
+      contenedor.innerHTML = "<p>No hay datos de asistencia para reportar.</p>";
+      return;
+    }
+
+    // Creamos una estructura básica para el reporte
+    let html = `
+      <table style="width:100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
+        <thead>
+          <tr style="background: #f3f4f6; text-align: left;">
+            <th style="padding: 8px;">Cédula</th>
+            <th style="padding: 8px;">Estudiante</th>
+            <th style="padding: 8px;">Materia</th>
+            <th style="padding: 8px;">Fecha</th>
+            <th style="padding: 8px;">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    snap.forEach(doc => {
+      const d = doc.data();
+      html += `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.cedula}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.nombres || ""} ${d.apellidos || ""}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.materiaNombre || "N/A"}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.fecha}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.presente ? "✅ Presente" : "❌ Faltante"}</td>
+        </tr>
+      `;
     });
-    $("reporte").innerHTML = `<p>Asistencia: ${((pres / tot) * 100).toFixed(1)}%</p><ul>${h}</ul>`;
-  } catch (e) {}
+
+    html += `</tbody></table>`;
+    
+    // Botón de exportar
+    html += `<button onclick="exportarReporte()">Descargar CSV</button>`;
+    
+    contenedor.innerHTML = html;
+
+  } catch (error) {
+    contenedor.innerHTML = `<p style="color:red;">Error al generar el reporte: ${error.message}</p>`;
+  }
+}
+
+function exportarReporte() {
+  let csv = "Cédula,Nombre,Materia,Fecha,Estado\n";
+  
+  // Aquí volvemos a obtener los datos o podrías tenerlos en memoria
+  db.collection("asistencias").get().then(snap => {
+    snap.forEach(doc => {
+      const d = doc.data();
+      const linea = `${d.cedula},"${d.nombres} ${d.apellidos}","${d.materiaNombre}",${d.fecha},${d.presente ? "Presente" : "Faltante"}\n`;
+      csv += linea;
+    });
+
+    // Crear el archivo para descarga
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.setAttribute("href", url);
+    a.setAttribute("download", "reporte_asistencia.csv");
+    a.click();
+  });
 }
 
 async function generarAlertas() {
