@@ -25,32 +25,6 @@ let bloqueadoScan = false;
 // UTILIDADES
 // ===============================
 
-// Antiduplicado
-
-async function existeMateria(nombre, excluirId = null) {
- const snap = await db.collection("materias")
-  .where("nombre", "==", normalizarTexto(nombre))
-  .get();
-
- if (snap.empty) return false;
-
- if (excluirId) {
-  return snap.docs.some(doc => doc.id !== excluirId);
- }
-
- return true;
-}
-
-async function existeRelacion(cedula, materiaId) {
- const snap = await db.collection("materia_estudiante")
-  .where("cedula", "==", cedula)
-  .where("materiaId", "==", materiaId)
-  .get();
-
- return !snap.empty;
-}
-
-
 function $(id) {
   return document.getElementById(id);
 }
@@ -606,203 +580,43 @@ async function crearEstudiante() {
   }
 }
 
-//Fun Lista estudiante
 async function listarEstudiantes() {
- limpiarLista("listaEstudiantes");
+  limpiarLista("listaEstudiantes");
 
- try {
-  const estudiantesSnap = await db.collection("estudiantes")
-   .orderBy("apellidos")
-   .get();
+  try {
+    const snap = await db.collection("estudiantes")
+      .orderBy("apellidos")
+      .get();
 
-  if (estudiantesSnap.empty) {
-   $("listaEstudiantes").innerHTML = "<li>No hay estudiantes.</li>";
-   return;
+    if (snap.empty) {
+      $("listaEstudiantes").innerHTML = "<li>No hay estudiantes registrados.</li>";
+      return;
+    }
+
+    snap.forEach(doc => {
+      const estudiante = doc.data();
+
+      const li = document.createElement("li");
+
+      li.innerHTML = `
+        <strong>${estudiante.cedula}</strong><br>
+        ${estudiante.nombres} ${estudiante.apellidos}
+      `;
+
+      const btn = document.createElement("button");
+      btn.textContent = "Ver QR";
+      btn.className = "secondary";
+      btn.onclick = () => mostrarQR(estudiante.cedula);
+
+      li.appendChild(btn);
+      $("listaEstudiantes").appendChild(li);
+    });
+
+  } catch (error) {
+    showMessage("Error cargando estudiantes: " + traducirErrorFirebase(error), "error");
   }
-
-  const materiasSnap = await db.collection("materias").get();
-  let mapaMaterias = {};
-
-  materiasSnap.forEach(doc => {
-   mapaMaterias[doc.id] = doc.data().nombre;
-  });
-
-  for (const doc of estudiantesSnap.docs) {
-   const est = doc.data();
-
-   const rel = await db.collection("materia_estudiante")
-    .where("cedula", "==", est.cedula)
-    .get();
-
-   let materiaNombre = "Sin asignar";
-
-   if (!rel.empty) {
-    const matId = rel.docs[0].data().materiaId;
-    materiaNombre = mapaMaterias[matId] || "Sin asignar";
-   }
-
-   const li = document.createElement("li");
-
-   li.innerHTML = `
-    <strong>${est.cedula}</strong><br>
-    ${est.nombres} ${est.apellidos}<br>
-    <small>Materia: ${materiaNombre}</small><br>
-   `;
-
-   // EDITAR
-   const btnEdit = document.createElement("button");
-   btnEdit.className = "small";
-   btnEdit.textContent = "Editar";
-   btnEdit.onclick = () => editarEstudiante(est);
-
-   // CAMBIAR MATERIA
-   const btnMat = document.createElement("button");
-   btnMat.className = "small";
-   btnMat.textContent = "Cambiar materia";
-   btnMat.onclick = () => cambiarMateriaEstudiante(est.cedula);
-
-   // ELIMINAR
-   const btnDel = document.createElement("button");
-   btnDel.className = "small danger";
-   btnDel.textContent = "Eliminar";
-   btnDel.onclick = () => eliminarEstudiante(est.cedula);
-
-   li.append(btnEdit, btnMat, btnDel);
-   $("listaEstudiantes").appendChild(li);
-  }
-
- } catch (error) {
-  showMessage("Error cargando estudiantes", "error");
- }
 }
 
-//Fun Editar estu
-async function editarEstudiante(est) {
- const nombre = prompt("Nuevo nombre:", est.nombres);
- const apellido = prompt("Nuevo apellido:", est.apellidos);
-
- if (!validarNombre(nombre) || !validarNombre(apellido)) {
-  showMessage("Datos inválidos", "error");
-  return;
- }
-
- const password = prompt("Confirma tu contraseña:");
- if (!password) return;
-
- try {
-  await auth.signInWithEmailAndPassword(auth.currentUser.email, password);
-
-  await db.collection("estudiantes").doc(est.cedula).update({
-   nombres: normalizarTexto(nombre),
-   apellidos: normalizarTexto(apellido),
-   actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  showMessage("Estudiante actualizado", "success");
-  listarEstudiantes();
-
- } catch {
-  showMessage("Contraseña incorrecta", "error");
- }
-}
-
-//FunCambiarMAteria
-
-async function cambiarMateriaEstudiante(cedula) {
-
- const mats = await db.collection("materias").orderBy("nombre").get();
-
- if (mats.empty) {
-  showMessage("No hay materias disponibles", "error");
-  return;
- }
-
- let opciones = "";
- let mapa = {};
- let i = 1;
-
- mats.forEach(doc => {
-  opciones += `${i}. ${doc.data().nombre}\n`;
-  mapa[i] = doc.id;
-  i++;
- });
-
- const seleccion = prompt("Selecciona materia:\n\n" + opciones);
-
- if (!mapa[seleccion]) {
-  showMessage("Selección inválida", "error");
-  return;
- }
-
- const materiaId = mapa[seleccion];
-
- // 🚫 validar duplicado
- if (await existeRelacion(cedula, materiaId)) {
-  showMessage("El estudiante ya está en esa materia", "error");
-  return;
- }
-
- const password = prompt("Confirma tu contraseña:");
- if (!password) return;
-
- try {
-  await auth.signInWithEmailAndPassword(auth.currentUser.email, password);
-
-  // eliminar anteriores
-  const rel = await db.collection("materia_estudiante")
-   .where("cedula", "==", cedula)
-   .get();
-
-  for (const r of rel.docs) {
-   await db.collection("materia_estudiante").doc(r.id).delete();
-  }
-
-  // agregar nuevo
-  await db.collection("materia_estudiante").add({
-   cedula: cedula,
-   materiaId: materiaId,
-   actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  showMessage("Materia actualizada", "success");
-  listarEstudiantes();
-
- } catch {
-  showMessage("Error al cambiar materia", "error");
- }
-}
-
-//Fun eliminarestu
-
-async function eliminarEstudiante(cedula) {
- if (!confirm("¿Eliminar estudiante?")) return;
-
- const password = prompt("Confirma tu contraseña:");
- if (!password) return;
-
- try {
-  await auth.signInWithEmailAndPassword(auth.currentUser.email, password);
-
-  const rel = await db.collection("materia_estudiante")
-   .where("cedula", "==", cedula)
-   .get();
-
-  for (const r of rel.docs) {
-   await db.collection("materia_estudiante").doc(r.id).delete();
-  }
-
-  await db.collection("estudiantes").doc(cedula).delete();
-
-  showMessage("Estudiante eliminado", "success");
-  listarEstudiantes();
-
- } catch {
-  showMessage("Error al eliminar", "error");
- }
-}
-
-
-// funMOSTRARQR
 function mostrarQR(cedulaValue) {
   $("qrModal").style.display = "block";
 
@@ -862,107 +676,34 @@ async function crearMateria() {
   }
 }
 
-//CargarMat v2
 async function cargarMaterias() {
+  $("materiaLista").innerHTML = "";
+  $("materiaSelect").innerHTML = "";
 
- $("materiaLista").innerHTML = "";
- $("materiaSelect").innerHTML = "";
- limpiarLista("listaMaterias");
+  try {
+    const snap = await db.collection("materias")
+      .orderBy("nombre")
+      .get();
 
- try {
-  const snap = await db.collection("materias")
-   .orderBy("nombre")
-   .get();
+    if (snap.empty) {
+      $("materiaLista").add(new Option("No hay materias registradas", ""));
+      $("materiaSelect").add(new Option("No hay materias registradas", ""));
+      return;
+    }
 
-  if (snap.empty) return;
+    $("materiaLista").add(new Option("Selecciona una materia", ""));
+    $("materiaSelect").add(new Option("Selecciona una materia", ""));
 
-  $("materiaLista").add(new Option("Selecciona", ""));
-  $("materiaSelect").add(new Option("Selecciona", ""));
+    snap.forEach(doc => {
+      const materia = doc.data();
 
-  snap.forEach(doc => {
-   const mat = doc.data();
+      $("materiaLista").add(new Option(materia.nombre, doc.id));
+      $("materiaSelect").add(new Option(materia.nombre, doc.id));
+    });
 
-   $("materiaLista").add(new Option(mat.nombre, doc.id));
-   $("materiaSelect").add(new Option(mat.nombre, doc.id));
-
-   const li = document.createElement("li");
-   li.innerHTML = `<strong>${mat.nombre}</strong><br>`;
-
-   const btnEdit = document.createElement("button");
-   btnEdit.className = "small";
-   btnEdit.textContent = "Editar";
-   btnEdit.onclick = () => editarMateria(doc.id, mat.nombre);
-
-   const btnDel = document.createElement("button");
-   btnDel.className = "small danger";
-   btnDel.textContent = "Eliminar";
-   btnDel.onclick = () => eliminarMateria(doc.id);
-
-   li.append(btnEdit, btnDel);
-   $("listaMaterias").appendChild(li);
-  });
-
- } catch {
-  showMessage("Error cargando materias", "error");
- }
-}
-
-//FUn EditarMat
-async function editarMateria(id, actual) {
- const nuevo = prompt("Nuevo nombre:", actual);
- if (!nuevo) return;
-
- if (await existeMateria(nuevo, id)) {
-  showMessage("Ya existe una materia con ese nombre", "error");
-  return;
- }
-
- const password = prompt("Confirma tu contraseña:");
- if (!password) return;
-
- try {
-  await auth.signInWithEmailAndPassword(auth.currentUser.email, password);
-
-  await db.collection("materias").doc(id).update({
-   nombre: normalizarTexto(nuevo),
-   actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  showMessage("Materia actualizada", "success");
-  cargarMaterias();
-
- } catch {
+  } catch (error) {
     showMessage("Error cargando materias: " + traducirErrorFirebase(error), "error");
- }
-}
-
-//FUn Eliminar materia
-
-async function eliminarMateria(id) {
- if (!confirm("¿Eliminar materia?")) return;
-
- const password = prompt("Confirma tu contraseña:");
- if (!password) return;
-
- try {
-  await auth.signInWithEmailAndPassword(auth.currentUser.email, password);
-
-  const rel = await db.collection("materia_estudiante")
-   .where("materiaId", "==", id)
-   .get();
-
-  for (const r of rel.docs) {
-   await db.collection("materia_estudiante").doc(r.id).delete();
   }
-
-  await db.collection("materias").doc(id).delete();
-
-  showMessage("Materia eliminada", "success");
-  cargarMaterias();
-
- } catch {
-  showMessage("Error eliminando materia", "error");
- }
 }
 
 // ===============================
