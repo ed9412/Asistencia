@@ -47,13 +47,64 @@ function setLoginError(message) {
   $("loginError").textContent = message || "";
 }
 
-function mostrar(id) {
+async function mostrar(id) {
+  // 1. Apagar la cámara si el usuario cambia de sección mientras estaba escaneando
+  if (html5QrCode) {
+    await detenerEscaner();
+  }
+
+  // 2. Ocultar todas las pantallas
   document.querySelectorAll(".screen").forEach(screen => {
     screen.classList.remove("active");
   });
+
+  // 3. Reiniciar todos los campos de texto, contraseñas, fechas y listas desplegables
+  document.querySelectorAll(".screen input").forEach(input => {
+    input.value = "";
+    input.classList.remove("valid", "invalid"); // Quitar bordes verdes/rojos
+  });
+
+  document.querySelectorAll(".screen select").forEach(select => {
+    select.selectedIndex = 0;
+    select.classList.remove("valid", "invalid");
+  });
+
+  // 4. Limpiar todos los textos de error
+  document.querySelectorAll(".field-error").forEach(error => {
+    error.textContent = "";
+    error.classList.remove("show");
+  });
+
+  // 5. Ocultar zonas dinámicas y vaciar listas de resultados
+  const zonaLista = $("zonaLista");
+  if (zonaLista) zonaLista.style.display = "none";
+  
+  limpiarLista("presentes");
+  limpiarLista("faltantes");
+  limpiarLista("historialLista");
+  limpiarLista("alertas");
+  
+  const reporte = $("reporte");
+  if (reporte) reporte.innerHTML = "";
+
+  // 6. Limpiar la memoria temporal de la lista de asistencia
+  presentesSet.clear();
+  presentTimes.clear();
+  estudiantesMateria = [];
+
+  // 7. Mostrar la nueva pantalla solicitada
   const screen = $(id);
   if (screen) {
     screen.classList.add("active");
+  }
+
+  // 8. Cargar los datos por defecto según la sección elegida
+  if (id === "estudiantes") {
+    buscarEstudiantes(); // Al estar vacíos los filtros, cargará todos
+  } else if (id === "materiasScreen") {
+    listarMaterias();
+  } else if (id === "dashboard") {
+    cargarDashboard();
   }
 }
 
