@@ -1011,46 +1011,59 @@ async function cargarHistorial() {
 // ===============================
 
 async function generarReporte() {
- // 1. LIMPIEZA INMEDIATA: Borra lo que haya quedado de una búsqueda previa
-  const contenedorReporte = $("reporte");
-  contenedorReporte.innerHTML = "<p>Buscando...</p>"; // Opcional: feedback visual
+  const contenedor = $("reporte");
+  // Limpieza inmediata antes de buscar
+  contenedor.innerHTML = "<p>Buscando...</p>";
 
-  if (!validarReporteCampos()) {
-    contenedorReporte.innerHTML = ""; // Limpia si la validación falla
+  const ced = $("cedulaReporte").value.trim();
+  const mat = $("materiaReporte").value;
+  const fInicio = $("fechaInicioReporte").value;
+  const fFin = $("fechaFinReporte").value;
+
+  // Validación: al menos uno debe tener valor
+  if (!ced && mat === "todas" && !fInicio && !fFin) {
+    contenedor.innerHTML = "<p style='color:red'>Por favor, ingresa al menos un criterio de búsqueda.</p>";
     return;
   }
-  const ced = $("cedulaReporte").value.trim();
+
   try {
-    const estDoc = await db.collection("estudiantes").doc(ced).get();
-    if (!estDoc.exists) return showFieldError("cedulaReporte", "Estudiante no existe.");
+    let query = db.collection("asistencias");
+    const snap = await query.get();
     
-    const snap = await db.collection("asistencias").where("cedula", "==", ced).orderBy("fecha", "desc").get();
-    
-    if (snap.empty) return $("reporte").innerHTML = "<p>Sin registros.</p>";
-
-    let tot = 0, pres = 0;
-    let html = `<h3>Historial de ${estDoc.data().nombres} ${estDoc.data().apellidos}</h3>`;
-    
-    // Botón de exportar
-    html += `<button class="secondary" onclick="exportarReporteIndividual('${ced}')">Exportar a CSV este reporte</button>`;
-    html += `<ul>`;
-
-    snap.forEach(d => {
-      const x = d.data();
-      tot++; if (x.presente) pres++;
+    let resultados = [];
+    snap.forEach(doc => {
+      const x = doc.data();
+      const m = x.materiaNombre || x.materia;
       
+      const cumpleCed = !ced || x.cedula === ced;
+      const cumpleMat = mat === "todas" || m === mat;
+      const cumpleFecha = (!fInicio || x.fecha >= fInicio) && (!fFin || x.fecha <= fFin);
+
+      if (cumpleCed && cumpleMat && cumpleFecha) {
+        resultados.push(x);
+      }
+    });
+
+    if (resultados.length === 0) {
+      return contenedor.innerHTML = "<p>No se encontraron registros con esos criterios.</p>";
+    }
+
+    // Renderizado con datos del estudiante en cada fila
+    let html = `<hr><button class="secondary" onclick="exportarBusqueda()">Exportar a CSV</button><ul>`;
+    resultados.forEach(x => {
       html += `<li>
-        <strong>Fecha:</strong> ${x.fecha} | <strong>Materia:</strong> ${x.materiaNombre || x.materia}<br>
-        <strong>Estado:</strong> ${x.presente ? "✅ Presente" : "❌ Faltante"}<br>
-        <strong>Hora:</strong> ${x.hora || "N/A"}<br>
-        <strong>Profesor:</strong> ${x.profesor || "N/A"}
+        <strong>${x.cedula}</strong> - ${x.nombres || ''} ${x.apellidos || ''}<br>
+        <strong>Materia:</strong> ${x.materiaNombre || x.materia} | <strong>Fecha:</strong> ${x.fecha}<br>
+        <strong>Estado:</strong> ${x.presente ? "✅ Presente" : "❌ Faltante"}
       </li>`;
     });
+    html += `</ul>`;
     
-    html += `</ul><p><strong>Porcentaje de asistencia:</strong> ${((pres / tot) * 100).toFixed(1)}%</p>`;
-    $("reporte").innerHTML = html;
+    window.resultadosBusquedaActual = resultados; // Guardamos para exportar
+    contenedor.innerHTML = html;
+
   } catch (e) {
-    showMessage("Error al generar reporte: " + e.message, "error");
+    contenedor.innerHTML = "Error al obtener datos: " + e.message;
   }
 }
 
