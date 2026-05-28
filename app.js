@@ -1648,7 +1648,7 @@ async function exportar() {
     snap.forEach(doc => {
       const data = doc.data();
       const materia = data.materiaNombre || data.materia;
-      csv += `"${data.cedula}";"${data.nombres || ""}";"${data.apellidos || ""}";"${data.fecha}";"${materia};"${data.presente ? "Presente" : "Faltante"}";"${data.hora || ""}";"${data.profesor || ""}"\n`;
+      csv += `"${data.cedula}";"${data.nombres || ""}";"${data.apellidos || ""}";"${data.fecha}";"${materia}";${data.presente ? "Presente" : "Faltante"}";"${data.hora || ""}";"${data.profesor || ""}"\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
