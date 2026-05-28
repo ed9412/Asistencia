@@ -780,7 +780,9 @@ async function buscarEstudiantes() {
   renderListaEstudiantes(lista);
 }
 
-async function renderListaEstudiantes(lista) {async function renderListaEstudianteslistaEstudiantes");
+async function renderListaEstudiantes(lista) {
+
+  limpiarLista("listaEstudiantes");
 
   for (const est of lista) {
 
