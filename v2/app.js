@@ -1011,7 +1011,14 @@ async function cargarHistorial() {
 // ===============================
 
 async function generarReporte() {
-  if (!validarReporteCampos()) return;
+ // 1. LIMPIEZA INMEDIATA: Borra lo que haya quedado de una búsqueda previa
+  const contenedorReporte = $("reporte");
+  contenedorReporte.innerHTML = "<p>Buscando...</p>"; // Opcional: feedback visual
+
+  if (!validarReporteCampos()) {
+    contenedorReporte.innerHTML = ""; // Limpia si la validación falla
+    return;
+  }
   const ced = $("cedulaReporte").value.trim();
   try {
     const estDoc = await db.collection("estudiantes").doc(ced).get();
