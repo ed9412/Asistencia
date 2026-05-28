@@ -89,8 +89,6 @@ async function mostrar(id) {
     if (reporte) reporte.innerHTML = "";
   }
   
-  const reporte = $("reporte");
-  if (reporte) reporte.innerHTML = "";
 
   // 6. Limpiar la memoria temporal de la lista de asistencia
   presentesSet.clear();
