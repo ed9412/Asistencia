@@ -251,7 +251,7 @@ async function login() {
   if (!validarLoginCampos()) return;
   try {
     await auth.signInWithEmailAndPassword($("email").value.trim(), $("password").value);
-    await initApp();
+    // 🔹 Eliminado el "await initApp();" para evitar que se ejecute dos veces
     showMessage("Inicio de sesión correcto.", "success");
   } catch (error) {
     const msg = traducirErrorFirebase(error);
@@ -327,14 +327,15 @@ async function crearMateria() {
 }
 
 async function cargarMaterias() {
-  const selects = ["materiaLista", "materiaSelect", "searchEstudianteMateria", "editEstAddMateria"];
-  selects.forEach(id => {
-      const el = $(id);
-      if(el) el.innerHTML = "";
-  });
-
   try {
     const snap = await db.collection("materias").orderBy("nombre").get();
+    
+    // 🔹 Limpiamos los selects DESPUÉS de esperar la respuesta de la BD
+    const selects = ["materiaLista", "materiaSelect", "searchEstudianteMateria", "editEstAddMateria"];
+    selects.forEach(id => {
+        const el = $(id);
+        if(el) el.innerHTML = "";
+    });
     
     $("searchEstudianteMateria").add(new Option("Todas las materias", "todas"));
     $("editEstAddMateria").add(new Option("Selecciona materia a añadir", ""));
@@ -344,6 +345,7 @@ async function cargarMaterias() {
       $("materiaSelect").add(new Option("Sin materias", ""));
       return;
     }
+    
     $("materiaLista").add(new Option("Selecciona una materia", ""));
     $("materiaSelect").add(new Option("Selecciona una materia", ""));
 
@@ -360,13 +362,17 @@ async function cargarMaterias() {
 }
 
 async function listarMaterias() {
-  limpiarLista("listaMateriasUl");
   try {
     const snap = await db.collection("materias").orderBy("nombre").get();
+    
+    // 🔹 Limpiamos la lista justo antes de insertar los nuevos datos
+    limpiarLista("listaMateriasUl");
+
     if (snap.empty) {
       $("listaMateriasUl").innerHTML = "<li>No hay materias registradas.</li>";
       return;
     }
+    
     snap.forEach(doc => {
       const data = doc.data();
       const li = document.createElement("li");
@@ -386,6 +392,7 @@ async function listarMaterias() {
     });
   } catch (e) {}
 }
+
 
 function abrirEditarMateria(id, nombre) {
   if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
@@ -481,7 +488,6 @@ async function crearEstudiante() {
 }
 
 async function buscarEstudiantes() {
-  limpiarLista("listaEstudiantes");
   const texto = normalizarTexto($("searchEstudianteText").value).toLowerCase();
   const materiaId = $("searchEstudianteMateria").value;
   
@@ -497,7 +503,6 @@ async function buscarEstudiantes() {
       matSnap.forEach(d => cedulasFiltradas.add(d.data().cedula));
     }
     
-    // Obtener nombres de materias para mostrar inline
     const matNombres = {};
     const matsDocSnap = await db.collection("materias").get();
     matsDocSnap.forEach(d => matNombres[d.id] = d.data().nombre);
@@ -510,6 +515,9 @@ async function buscarEstudiantes() {
        if (!matsMap[cd]) matsMap[cd] = [];
        if (matNombres[mid]) matsMap[cd].push(matNombres[mid]);
     });
+    
+    // 🔹 Limpiamos la lista DESPUÉS de que todas las consultas a la BD terminaron
+    limpiarLista("listaEstudiantes");
     
     let mostrados = new Set();
     
