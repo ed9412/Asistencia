@@ -1008,45 +1008,58 @@ async function cargarHistorial() {
   }
 }
 
+let cacheReporte = []; 
+
 async function generarReporte() {
   const contenedor = $("reporte");
   contenedor.innerHTML = "<h3>Cargando datos...</h3>";
 
   try {
+    // 1. Obtener datos de Firestore
     const snap = await db.collection("asistencias").orderBy("fecha", "desc").get();
-    cacheReporte = []; // Limpiar cache
+    cacheReporte = []; 
     
     snap.forEach(doc => {
       cacheReporte.push({ id: doc.id, ...doc.data() });
     });
 
-    renderizarTabla(cacheReporte);
+    // 2. Si hay datos, renderizar. Si no, avisar.
+    if (cacheReporte.length === 0) {
+      contenedor.innerHTML = "<p>No hay registros de asistencia disponibles.</p>";
+    } else {
+      renderizarTabla(cacheReporte);
+    }
   } catch (error) {
-    contenedor.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+    contenedor.innerHTML = `<p style="color:red;">Error al cargar: ${error.message}</p>`;
   }
 }
 
-// Función para filtrar en tiempo real
 function filtrarReporte() {
-  const texto = $("busquedaReporte").value.toLowerCase();
-  const filtrados = cacheReporte.filter(d => 
-    (d.cedula || "").toLowerCase().includes(texto) ||
-    (`${d.nombres} ${d.apellidos}`.toLowerCase()).includes(texto) ||
-    (d.materiaNombre || "").toLowerCase().includes(texto)
-  );
-  renderizarTabla(filtrados);
+  const texto = $("busquedaReporte").value.toLowerCase().trim();
+  
+  // Si el usuario borra todo, mostramos todo el caché
+  const datosFiltrados = (texto === "") 
+    ? cacheReporte 
+    : cacheReporte.filter(d => 
+        (d.cedula || "").toLowerCase().includes(texto) ||
+        (d.nombres || "").toLowerCase().includes(texto) ||
+        (d.apellidos || "").toLowerCase().includes(texto) ||
+        (d.materiaNombre || "").toLowerCase().includes(texto)
+      );
+
+  renderizarTabla(datosFiltrados);
 }
 
-// Función que dibuja la tabla
 function renderizarTabla(datos) {
   const contenedor = $("reporte");
+  
   if (datos.length === 0) {
     contenedor.innerHTML = "<p>No se encontraron resultados.</p>";
     return;
   }
 
   let html = `
-    <table style="width:100%; border-collapse: collapse; font-size: 12px;">
+    <table style="width:100%; border-collapse: collapse; font-size: 13px; margin-top: 10px;">
       <thead>
         <tr style="background: #f3f4f6;">
           <th style="padding: 8px; border: 1px solid #ddd;">Cédula</th>
@@ -1064,7 +1077,7 @@ function renderizarTabla(datos) {
       <td style="padding: 8px; border: 1px solid #ddd;">${d.nombres || ""} ${d.apellidos || ""}</td>
       <td style="padding: 8px; border: 1px solid #ddd;">${d.materiaNombre || "N/A"}</td>
       <td style="padding: 8px; border: 1px solid #ddd;">${d.fecha}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.presente ? "✅ Presente" : "❌ Faltante"}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.presente ? "✅" : "❌"}</td>
     </tr>`;
   });
 
@@ -1073,56 +1086,34 @@ function renderizarTabla(datos) {
   contenedor.innerHTML = html;
 }
 
-// CORRECCIÓN DE CSV Y CARACTERES ESPECIALES
 function exportarReporte() {
-  // Obtenemos los datos actuales (filtrados si existen)
-  const textoBusqueda = $("busquedaReporte").value.toLowerCase();
-  const datosAExportar = cacheReporte.filter(d => 
-    (d.cedula || "").toLowerCase().includes(textoBusqueda) ||
-    (`${d.nombres} ${d.apellidos}`.toLowerCase()).includes(textoBusqueda) ||
-    (d.materiaNombre || "").toLowerCase().includes(textoBusqueda)
-  );
+  const textoBusqueda = $("busquedaReporte").value.toLowerCase().trim();
+  const datosAExportar = (textoBusqueda === "") 
+    ? cacheReporte 
+    : cacheReporte.filter(d => 
+        (d.cedula || "").toLowerCase().includes(textoBusqueda) ||
+        (d.nombres || "").toLowerCase().includes(textoBusqueda) ||
+        (d.apellidos || "").toLowerCase().includes(textoBusqueda) ||
+        (d.materiaNombre || "").toLowerCase().includes(textoBusqueda)
+      );
 
-  // Cabecera CSV
   let csv = "Cédula,Nombre,Materia,Fecha,Estado\n";
   
   datosAExportar.forEach(d => {
-    // Usamos comillas para evitar problemas con comas en nombres y reemplazamos caracteres
-    const nombreCompleto = `${d.nombres || ""} ${d.apellidos || ""}`.replace(/"/g, '""');
+    const nombre = `${d.nombres || ""} ${d.apellidos || ""}`.replace(/"/g, '""');
     const materia = (d.materiaNombre || "N/A").replace(/"/g, '""');
-    const linea = `${d.cedula},"${nombreCompleto}","${materia}",${d.fecha},${d.presente ? "Presente" : "Faltante"}\n`;
+    const linea = `${d.cedula},"${nombre}","${materia}",${d.fecha},${d.presente ? "Presente" : "Faltante"}\n`;
     csv += linea;
   });
 
-  // La magia para los acentos: Agregar BOM (Byte Order Mark) UTF-8
   const blob = new Blob(["\ufeff", csv], { type: 'text/csv;charset=utf-8;' });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "reporte_asistencia.csv";
+  a.download = "reporte_filtrado.csv";
   a.click();
 }
 
-function exportarReporte() {
-  let csv = "Cédula,Nombre,Materia,Fecha,Estado\n";
-  
-  // Aquí volvemos a obtener los datos o podrías tenerlos en memoria
-  db.collection("asistencias").get().then(snap => {
-    snap.forEach(doc => {
-      const d = doc.data();
-      const linea = `${d.cedula},"${d.nombres} ${d.apellidos}","${d.materiaNombre}",${d.fecha},${d.presente ? "Presente" : "Faltante"}\n`;
-      csv += linea;
-    });
-
-    // Crear el archivo para descarga
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.setAttribute("href", url);
-    a.setAttribute("download", "reporte_asistencia.csv");
-    a.click();
-  });
-}
 
 async function generarAlertas() {
   limpiarLista("alertas");
