@@ -20,10 +20,131 @@ let presentTimes = new Map();
 let html5QrCode = null;
 let chartInstance = null;
 let bloqueadoScan = false;
+let contextoModal = null;
+let estudianteActual = null;
+let materiaActual = null;
+
 
 // ===============================
 // UTILIDADES
 // ===============================
+
+async function confirmarModal() {
+
+  try {
+
+    if (contextoModal === "editarEstudiante") {
+
+      const nombres = normalizarTexto($("modalNombres").value);
+      const apellidos = normalizarTexto($("modalApellidos").value);
+      const materiaId = $("modalMateria").value;
+
+      if (!validarNombre(nombres) || !validarNombre(apellidos)) {
+        showMessage("Datos inválidos", "error");
+        return;
+      }
+
+      await db.collection("estudiantes")
+        .doc(estudianteActual.cedula)
+        .update({ nombres, apellidos });
+
+      // eliminar relaciones anteriores
+      const rel = await db.collection("materia_estudiante")
+        .where("cedula", "==", estudianteActual.cedula)
+        .get();
+
+      for (const r of rel.docs) {
+        await db.collection("materia_estudiante").doc(r.id).delete();
+      }
+
+      // insertar nueva (sin duplicado)
+      const dup = await db.collection("materia_estudiante")
+        .where("cedula", "==", estudianteActual.cedula)
+        .where("materiaId", "==", materiaId)
+        .get();
+
+      if (dup.empty) {
+        await db.collection("materia_estudiante").add({
+          cedula: estudianteActual.cedula,
+          materiaId
+        });
+      }
+
+      showMessage("Estudiante actualizado", "success");
+      listarEstudiantes();
+    }
+
+    if (contextoModal === "eliminarEstudiante") {
+
+      const pass = $("modalPassword").value;
+
+      await auth.signInWithEmailAndPassword(
+        auth.currentUser.email,
+        pass
+      );
+
+      await db.collection("estudiantes")
+        .doc(estudianteActual.cedula)
+        .delete();
+
+      showMessage("Estudiante eliminado", "success");
+      listarEstudiantes();
+    }
+
+    if (contextoModal === "editarMateria") {
+
+      const nombre = normalizarTexto($("modalNombreMateria").value);
+
+      if (!validarMateria(nombre)) {
+        showMessage("Nombre inválido", "error");
+        return;
+      }
+
+      const dup = await db.collection("materias")
+        .where("nombre", "==", nombre)
+        .get();
+
+      if (!dup.empty) {
+        showMessage("Materia duplicada", "error");
+        return;
+      }
+
+      await db.collection("materias")
+        .doc(materiaActual.id)
+        .update({ nombre });
+
+      showMessage("Materia actualizada", "success");
+      cargarMaterias();
+    }
+
+    if (contextoModal === "eliminarMateria") {
+
+      const pass = $("modalPassword").value;
+
+      await auth.signInWithEmailAndPassword(
+        auth.currentUser.email,
+        pass
+      );
+
+      await db.collection("materias")
+        .doc(materiaActual.id)
+        .delete();
+
+      showMessage("Materia eliminada", "success");
+      cargarMaterias();
+    }
+
+    cerrarModal();
+
+  } catch {
+    showMessage("Error o contraseña incorrecta", "error");
+  }
+}
+
+function cerrarModal() {
+  $("modalGeneral").style.display = "none";
+}
+
 
 function $(id) {
   return document.getElementById(id);
@@ -631,6 +752,147 @@ function cerrarQR() {
   $("qrModal").style.display = "none";
 }
 
+async function buscarEstudiantes() {
+
+  const nombre = $("buscarNombre").value.toLowerCase();
+  const materiaId = $("buscarMateria").value;
+
+  let lista = [];
+
+  const snap = await db.collection("estudiantes").get();
+  snap.forEach(d => lista.push(d.data()));
+
+  if (materiaId) {
+    const rel = await db.collection("materia_estudiante")
+      .where("materiaId", "==", materiaId)
+      .get();
+
+    const cedulas = rel.docs.map(r => r.data().cedula);
+    lista = lista.filter(e => cedulas.includes(e.cedula));
+  }
+
+  if (nombre) {
+    lista = lista.filter(e =>
+      `${e.nombres} ${e.apellidos}`.toLowerCase().includes(nombre)
+    );
+  }
+
+  renderListaEstudiantes(lista);
+}
+
+async function renderListaEstudiantes(lista) {async function renderListaEstudianteslistaEstudiantes");
+
+  for (const est of lista) {
+
+    let materiaNombre = "Sin materia";
+
+    const rel = await db.collection("materia_estudiante")
+      .where("cedula", "==", est.cedula)
+      .get();
+
+    if (!rel.empty) {
+      const materiaId = rel.docs[0].data().materiaId;
+
+      const mat = await db.collection("materias").doc(materiaId).get();
+      if (mat.exists) materiaNombre = mat.data().nombre;
+    }
+
+    const li = document.createElement("li");
+
+    li.innerHTML = `
+      <strong>${est.cedula}</strong><br>
+      ${est.nombres} ${est.apellidos}<br>
+      <small>📚 ${materiaNombre}</small>
+    `;
+
+    const qr = document.createElement("button");
+    qr.textContent = "QR";
+    qr.className = "secondary small";
+    qr.onclick = () => mostrarQR(est.cedula);
+
+    const edit = document.createElement("button");
+    edit.textContent = "Editar";
+    edit.className = "small";
+    edit.onclick = () => abrirEditarEstudiante(est);
+
+    const del = document.createElement("button");
+    del.textContent = "Eliminar";
+    del.className = "danger small";
+    del.onclick = () => abrirEliminarEstudiante(est.cedula);
+
+    li.append(qr, edit, del);
+
+    $("listaEstudiantes").appendChild(li);
+  }
+}
+
+async function abrirEditarEstudiante(est) {
+
+  estudianteActual = est;
+  contextoModal = "editarEstudiante";
+
+  let materiaActualNombre = "Sin materia";
+  let materiaActualId = "";
+
+  const rel = await db.collection("materia_estudiante")
+    .where("cedula", "==", est.cedula)
+    .get();
+
+  if (!rel.empty) {
+    materiaActualId = rel.docs[0].data().materiaId;
+
+    const mat = await db.collection("materias").doc(materiaActualId).get();
+    if (mat.exists) materiaActualNombre = mat.data().nombre;
+  }
+
+  const snap = await db.collection("materias").orderBy("nombre").get();
+
+  let opciones = "";
+  snap.forEach(doc => {
+    const m = doc.data();
+    opciones += `<option value="${doc.id}" ${
+      doc.id === materiaActualId ? "selected" : ""
+    }>${m.nombre}</option>`;
+  });
+
+  $("modalTitulo").textContent = "Editar estudiante";
+
+  $("modalBody").innerHTML = `
+    <label>Nombres</label>
+    <input id="modalNombres" value="${est.nombres}">
+
+    <label>Apellidos</label>
+    <input id="modalApellidos" value="${est.apellidos}">
+
+    <label>Materia actual</label>
+    <input value="${materiaActualNombre}" disabled>
+
+    <label>Cambiar materia</label>
+    <select id="modalMateria">${opciones}</select>
+  `;
+
+  $("modalGeneral").style.display = "block";
+}
+
+function abrirEliminarEstudiante(cedula) {
+
+  estudianteActual = { cedula };
+  contextoModal = "eliminarEstudiante";
+
+  $("modalTitulo").textContent = "Eliminar estudiante";
+
+  $("modalBody").innerHTML = `
+    <p>Ingresa tu contraseña:</p>
+    <input type="password" id="modalPassword">
+  `;
+
+  $("modalGeneral").style.display = "block";
+}
+
+
+
+
+
 // ===============================
 // MATERIAS
 // ===============================
@@ -701,9 +963,51 @@ async function cargarMaterias() {
       $("materiaSelect").add(new Option(materia.nombre, doc.id));
     });
 
+    const selectBuscar = $("buscarMateria");
+    if (selectBuscar) {
+      selectBuscar.innerHTML = "";
+      selectBuscar.add(new Option("Todas", ""));
+    
+      snap.forEach(doc => {
+        const m = doc.data();
+        selectBuscar.add(new Option(m.nombre, doc.id));
+      });
+    }
+
+    //Fin mat buscador v1
   } catch (error) {
     showMessage("Error cargando materias: " + traducirErrorFirebase(error), "error");
   }
+}
+
+function abrirEditarMateria(id, nombre) {
+
+  materiaActual = { id };
+  contextoModal = "editarMateria";
+
+  $("modalTitulo").textContent = "Editar materia";
+
+  $("modalBody").innerHTML = `
+    <label>Nombre</label>
+    <input id="modalNombreMateria" value="${nombre}">
+  `;
+
+  $("modalGeneral").style.display = "block";
+}
+
+function abrirEliminarMateria(id) {
+
+  materiaActual = { id };
+  contextoModal = "eliminarMateria";
+
+  $("modalTitulo").textContent = "Eliminar materia";
+
+  $("modalBody").innerHTML = `
+    <p>Ingresa tu contraseña:</p>
+    <input type="password" id="modalPassword">
+  `;
+
+  $("modalGeneral").style.display = "block";
 }
 
 // ===============================
