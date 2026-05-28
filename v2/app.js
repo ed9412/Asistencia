@@ -83,6 +83,11 @@ async function mostrar(id) {
   limpiarLista("faltantes");
   limpiarLista("historialLista");
   limpiarLista("alertas");
+
+  if (id !== "reporte") {
+    const reporte = $("reporte");
+    if (reporte) reporte.innerHTML = "";
+  }
   
   const reporte = $("reporte");
   if (reporte) reporte.innerHTML = "";
