@@ -190,8 +190,11 @@
 <section id="reportes" class="screen">
   <div class="card">
     <h2>📈 Reporte de Asistencia</h2>
-    <button onclick="generarReporte()">Actualizar Datos</button>
-    <div id="reporte"></div>
+    
+    <label>Buscar por cédula, nombre o materia</label>
+    <input type="text" id="busquedaReporte" placeholder="Ej: 12345, Juan, Matemáticas" oninput="filtrarReporte()">
+    
+    <div id="reporte" style="margin-top: 20px;"></div>
   </div>
 </section>
 
