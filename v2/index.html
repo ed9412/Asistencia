@@ -187,20 +187,16 @@
     </section>
 
     <!-- REPORTES -->
-    <section id="reportes" class="screen">
-      <div class="card">
-        <h2>📈 Reporte por estudiante</h2>
+<section id="reportes" class="screen">
+  <div class="card">
+    <h2>📈 Reporte de Asistencia</h2>
+    <button onclick="generarReporte()">Actualizar Datos</button>
+    <div id="reporte"></div>
+  </div>
+</section>
 
-        <label>Cédula <span class="required">*</span></label>
-        <input id="cedulaReporte" placeholder="Solo números" inputmode="numeric" />
-        <small id="error-cedulaReporte" class="field-error"></small>
 
-        <button onclick="generarReporte()">Ver reporte</button>
-
-        <div id="reporte"></div>
-      </div>
-    </section>
-
+    
     
     <section id="alertasScreen" class="screen">
       <div class="card">
