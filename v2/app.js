@@ -1008,7 +1008,6 @@ async function cargarHistorial() {
   }
 }
 
-let cacheReporte = []; 
 
 async function generarReporte() {
   const contenedor = $("reporte");
