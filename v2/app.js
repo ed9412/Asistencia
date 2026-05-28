@@ -1006,22 +1006,71 @@ async function cargarHistorial() {
   }
 }
 
+// ===============================
+// REPORTES ACTUALIZADO
+// ===============================
+
 async function generarReporte() {
   if (!validarReporteCampos()) return;
   const ced = $("cedulaReporte").value.trim();
   try {
-    const est = await db.collection("estudiantes").doc(ced).get();
-    if (!est.exists) return showFieldError("cedulaReporte", "No existe.");
-    const snap = await db.collection("asistencias").where("cedula", "==", ced).get();
+    const estDoc = await db.collection("estudiantes").doc(ced).get();
+    if (!estDoc.exists) return showFieldError("cedulaReporte", "Estudiante no existe.");
+    
+    const snap = await db.collection("asistencias").where("cedula", "==", ced).orderBy("fecha", "desc").get();
+    
     if (snap.empty) return $("reporte").innerHTML = "<p>Sin registros.</p>";
-    let tot = 0, pres = 0, h = "";
+
+    let tot = 0, pres = 0;
+    let html = `<h3>Historial de ${estDoc.data().nombres} ${estDoc.data().apellidos}</h3>`;
+    
+    // Botón de exportar
+    html += `<button class="secondary" onclick="exportarReporteIndividual('${ced}')">Exportar a CSV este reporte</button>`;
+    html += `<ul>`;
+
     snap.forEach(d => {
-      tot++; if (d.data().presente) pres++;
-      h += `<li>${d.data().fecha} · ${d.data().presente ? "✅" : "❌"} ${d.data().hora ? "<small>" + d.data().hora + "</small>" : ""}</li>`;
+      const x = d.data();
+      tot++; if (x.presente) pres++;
+      
+      html += `<li>
+        <strong>Fecha:</strong> ${x.fecha} | <strong>Materia:</strong> ${x.materiaNombre || x.materia}<br>
+        <strong>Estado:</strong> ${x.presente ? "✅ Presente" : "❌ Faltante"}<br>
+        <strong>Hora:</strong> ${x.hora || "N/A"}<br>
+        <strong>Profesor:</strong> ${x.profesor || "N/A"}
+      </li>`;
     });
-    $("reporte").innerHTML = `<p>Asistencia: ${((pres / tot) * 100).toFixed(1)}%</p><ul>${h}</ul>`;
-  } catch (e) {}
+    
+    html += `</ul><p><strong>Porcentaje de asistencia:</strong> ${((pres / tot) * 100).toFixed(1)}%</p>`;
+    $("reporte").innerHTML = html;
+  } catch (e) {
+    showMessage("Error al generar reporte: " + e.message, "error");
+  }
 }
+
+async function exportarReporteIndividual(cedula) {
+  try {
+    const snap = await db.collection("asistencias").where("cedula", "==", cedula).get();
+    if (snap.empty) return showMessage("Sin datos para exportar.", "error");
+
+    let csvContent = "\uFEFFCedula;Nombres;Apellidos;Fecha;Materia;Presente;Hora;Profesor\n";
+    
+    snap.forEach(d => { 
+      const x = d.data(); 
+      const m = x.materiaNombre || x.materia; 
+      csvContent += `"${x.cedula}";"${x.nombres}";"${x.apellidos}";"${x.fecha}";"${m}";"${x.presente ? "Presente" : "Faltante"}";"${x.hora || ""}";"${x.profesor || ""}"\n`; 
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); 
+    a.href = url; 
+    a.download = `reporte_asistencia_${cedula}.csv`; 
+    a.click();
+  } catch (e) {
+    showMessage("Error al exportar: " + e.message, "error");
+  }
+}
+
 
 async function generarAlertas() {
   limpiarLista("alertas");
