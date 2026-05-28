@@ -20,8 +20,6 @@ let html5QrCode = null;
 let chartInstance = null;
 let bloqueadoScan = false;
 
-let cacheReporte = []; // Variable global para guardar los datos cargados
-
 // Variables Temporales para Edición
 let tempMateriasEstudiante = []; 
 let resolvePassword = null; 
@@ -1008,111 +1006,22 @@ async function cargarHistorial() {
   }
 }
 
-
 async function generarReporte() {
-  const contenedor = $("reporte");
-  contenedor.innerHTML = "<h3>Cargando datos...</h3>";
-
+  if (!validarReporteCampos()) return;
+  const ced = $("cedulaReporte").value.trim();
   try {
-    // 1. Obtener datos de Firestore
-    const snap = await db.collection("asistencias").orderBy("fecha", "desc").get();
-    cacheReporte = []; 
-    
-    snap.forEach(doc => {
-      cacheReporte.push({ id: doc.id, ...doc.data() });
+    const est = await db.collection("estudiantes").doc(ced).get();
+    if (!est.exists) return showFieldError("cedulaReporte", "No existe.");
+    const snap = await db.collection("asistencias").where("cedula", "==", ced).get();
+    if (snap.empty) return $("reporte").innerHTML = "<p>Sin registros.</p>";
+    let tot = 0, pres = 0, h = "";
+    snap.forEach(d => {
+      tot++; if (d.data().presente) pres++;
+      h += `<li>${d.data().fecha} · ${d.data().presente ? "✅" : "❌"} ${d.data().hora ? "<small>" + d.data().hora + "</small>" : ""}</li>`;
     });
-
-    // 2. Si hay datos, renderizar. Si no, avisar.
-    if (cacheReporte.length === 0) {
-      contenedor.innerHTML = "<p>No hay registros de asistencia disponibles.</p>";
-    } else {
-      renderizarTabla(cacheReporte);
-    }
-  } catch (error) {
-    contenedor.innerHTML = `<p style="color:red;">Error al cargar: ${error.message}</p>`;
-  }
+    $("reporte").innerHTML = `<p>Asistencia: ${((pres / tot) * 100).toFixed(1)}%</p><ul>${h}</ul>`;
+  } catch (e) {}
 }
-
-function filtrarReporte() {
-  const texto = $("busquedaReporte").value.toLowerCase().trim();
-  
-  // Si el usuario borra todo, mostramos todo el caché
-  const datosFiltrados = (texto === "") 
-    ? cacheReporte 
-    : cacheReporte.filter(d => 
-        (d.cedula || "").toLowerCase().includes(texto) ||
-        (d.nombres || "").toLowerCase().includes(texto) ||
-        (d.apellidos || "").toLowerCase().includes(texto) ||
-        (d.materiaNombre || "").toLowerCase().includes(texto)
-      );
-
-  renderizarTabla(datosFiltrados);
-}
-
-function renderizarTabla(datos) {
-  const contenedor = $("reporte");
-  
-  if (datos.length === 0) {
-    contenedor.innerHTML = "<p>No se encontraron resultados.</p>";
-    return;
-  }
-
-  let html = `
-    <table style="width:100%; border-collapse: collapse; font-size: 13px; margin-top: 10px;">
-      <thead>
-        <tr style="background: #f3f4f6;">
-          <th style="padding: 8px; border: 1px solid #ddd;">Cédula</th>
-          <th style="padding: 8px; border: 1px solid #ddd;">Estudiante</th>
-          <th style="padding: 8px; border: 1px solid #ddd;">Materia</th>
-          <th style="padding: 8px; border: 1px solid #ddd;">Fecha</th>
-          <th style="padding: 8px; border: 1px solid #ddd;">Estado</th>
-        </tr>
-      </thead>
-      <tbody>`;
-
-  datos.forEach(d => {
-    html += `<tr>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.cedula}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.nombres || ""} ${d.apellidos || ""}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.materiaNombre || "N/A"}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.fecha}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.presente ? "✅" : "❌"}</td>
-    </tr>`;
-  });
-
-  html += `</tbody></table>
-           <button style="margin-top:15px;" onclick="exportarReporte()">Descargar CSV</button>`;
-  contenedor.innerHTML = html;
-}
-
-function exportarReporte() {
-  const textoBusqueda = $("busquedaReporte").value.toLowerCase().trim();
-  const datosAExportar = (textoBusqueda === "") 
-    ? cacheReporte 
-    : cacheReporte.filter(d => 
-        (d.cedula || "").toLowerCase().includes(textoBusqueda) ||
-        (d.nombres || "").toLowerCase().includes(textoBusqueda) ||
-        (d.apellidos || "").toLowerCase().includes(textoBusqueda) ||
-        (d.materiaNombre || "").toLowerCase().includes(textoBusqueda)
-      );
-
-  let csv = "Cédula,Nombre,Materia,Fecha,Estado\n";
-  
-  datosAExportar.forEach(d => {
-    const nombre = `${d.nombres || ""} ${d.apellidos || ""}`.replace(/"/g, '""');
-    const materia = (d.materiaNombre || "N/A").replace(/"/g, '""');
-    const linea = `${d.cedula},"${nombre}","${materia}",${d.fecha},${d.presente ? "Presente" : "Faltante"}\n`;
-    csv += linea;
-  });
-
-  const blob = new Blob(["\ufeff", csv], { type: 'text/csv;charset=utf-8;' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "reporte_filtrado.csv";
-  a.click();
-}
-
 
 async function generarAlertas() {
   limpiarLista("alertas");
