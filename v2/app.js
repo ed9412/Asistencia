@@ -20,6 +20,8 @@ let html5QrCode = null;
 let chartInstance = null;
 let bloqueadoScan = false;
 
+let cacheReporte = []; // Variable global para guardar los datos cargados
+
 // Variables Temporales para Edición
 let tempMateriasEstudiante = []; 
 let resolvePassword = null; 
@@ -1008,54 +1010,97 @@ async function cargarHistorial() {
 
 async function generarReporte() {
   const contenedor = $("reporte");
-  contenedor.innerHTML = "<h3>Generando reporte...</h3>";
+  contenedor.innerHTML = "<h3>Cargando datos...</h3>";
 
   try {
     const snap = await db.collection("asistencias").orderBy("fecha", "desc").get();
+    cacheReporte = []; // Limpiar cache
     
-    if (snap.empty) {
-      contenedor.innerHTML = "<p>No hay datos de asistencia para reportar.</p>";
-      return;
-    }
-
-    // Creamos una estructura básica para el reporte
-    let html = `
-      <table style="width:100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
-        <thead>
-          <tr style="background: #f3f4f6; text-align: left;">
-            <th style="padding: 8px;">Cédula</th>
-            <th style="padding: 8px;">Estudiante</th>
-            <th style="padding: 8px;">Materia</th>
-            <th style="padding: 8px;">Fecha</th>
-            <th style="padding: 8px;">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
     snap.forEach(doc => {
-      const d = doc.data();
-      html += `
-        <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.cedula}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.nombres || ""} ${d.apellidos || ""}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.materiaNombre || "N/A"}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.fecha}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${d.presente ? "✅ Presente" : "❌ Faltante"}</td>
-        </tr>
-      `;
+      cacheReporte.push({ id: doc.id, ...doc.data() });
     });
 
-    html += `</tbody></table>`;
-    
-    // Botón de exportar
-    html += `<button onclick="exportarReporte()">Descargar CSV</button>`;
-    
-    contenedor.innerHTML = html;
-
+    renderizarTabla(cacheReporte);
   } catch (error) {
-    contenedor.innerHTML = `<p style="color:red;">Error al generar el reporte: ${error.message}</p>`;
+    contenedor.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
   }
+}
+
+// Función para filtrar en tiempo real
+function filtrarReporte() {
+  const texto = $("busquedaReporte").value.toLowerCase();
+  const filtrados = cacheReporte.filter(d => 
+    (d.cedula || "").toLowerCase().includes(texto) ||
+    (`${d.nombres} ${d.apellidos}`.toLowerCase()).includes(texto) ||
+    (d.materiaNombre || "").toLowerCase().includes(texto)
+  );
+  renderizarTabla(filtrados);
+}
+
+// Función que dibuja la tabla
+function renderizarTabla(datos) {
+  const contenedor = $("reporte");
+  if (datos.length === 0) {
+    contenedor.innerHTML = "<p>No se encontraron resultados.</p>";
+    return;
+  }
+
+  let html = `
+    <table style="width:100%; border-collapse: collapse; font-size: 12px;">
+      <thead>
+        <tr style="background: #f3f4f6;">
+          <th style="padding: 8px; border: 1px solid #ddd;">Cédula</th>
+          <th style="padding: 8px; border: 1px solid #ddd;">Estudiante</th>
+          <th style="padding: 8px; border: 1px solid #ddd;">Materia</th>
+          <th style="padding: 8px; border: 1px solid #ddd;">Fecha</th>
+          <th style="padding: 8px; border: 1px solid #ddd;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  datos.forEach(d => {
+    html += `<tr>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.cedula}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.nombres || ""} ${d.apellidos || ""}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.materiaNombre || "N/A"}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.fecha}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.presente ? "✅ Presente" : "❌ Faltante"}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>
+           <button style="margin-top:15px;" onclick="exportarReporte()">Descargar CSV</button>`;
+  contenedor.innerHTML = html;
+}
+
+// CORRECCIÓN DE CSV Y CARACTERES ESPECIALES
+function exportarReporte() {
+  // Obtenemos los datos actuales (filtrados si existen)
+  const textoBusqueda = $("busquedaReporte").value.toLowerCase();
+  const datosAExportar = cacheReporte.filter(d => 
+    (d.cedula || "").toLowerCase().includes(textoBusqueda) ||
+    (`${d.nombres} ${d.apellidos}`.toLowerCase()).includes(textoBusqueda) ||
+    (d.materiaNombre || "").toLowerCase().includes(textoBusqueda)
+  );
+
+  // Cabecera CSV
+  let csv = "Cédula,Nombre,Materia,Fecha,Estado\n";
+  
+  datosAExportar.forEach(d => {
+    // Usamos comillas para evitar problemas con comas en nombres y reemplazamos caracteres
+    const nombreCompleto = `${d.nombres || ""} ${d.apellidos || ""}`.replace(/"/g, '""');
+    const materia = (d.materiaNombre || "N/A").replace(/"/g, '""');
+    const linea = `${d.cedula},"${nombreCompleto}","${materia}",${d.fecha},${d.presente ? "Presente" : "Faltante"}\n`;
+    csv += linea;
+  });
+
+  // La magia para los acentos: Agregar BOM (Byte Order Mark) UTF-8
+  const blob = new Blob(["\ufeff", csv], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "reporte_asistencia.csv";
+  a.click();
 }
 
 function exportarReporte() {
