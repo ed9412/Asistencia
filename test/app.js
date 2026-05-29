@@ -789,13 +789,39 @@ async function eliminarEstudiante(cedula) {
   }
 }
 
-function mostrarQR(cedulaValue) {
-  $("qrModal").style.display = "block";
-  QRCode.toCanvas($("qrCanvas"), cedulaValue, error => {
-    if (error) showMessage("No se pudo generar QR.", "error");
+function mostrarQR(estudiante) {
+$("qrNombre").textContent = `${estudiante.nombres} ${estudiante.apellidos}`;
+  $("qrCedula").textContent = `Cédula: ${estudiante.cedula}`;
+  
+  // Tamaño grande para mayor legibilidad
+  QRCode.toCanvas($("qrCanvas"), estudiante.cedula, { width: 200, margin: 2 }, (error) => {
+    if (error) console.error(error);
   });
+  
+  $("qrModal").style.display = "block";
+  window.estudianteActual = estudiante; // Guardamos para exportar
 }
-function cerrarQR() { $("qrModal").style.display = "none"; }
+
+// 2. Nueva función de exportación
+async function exportarQR(formato) {
+  const elemento = $("carnetEstudiante");
+  
+  // Capturar como imagen
+  const canvas = await html2canvas(elemento, { scale: 2 });
+  
+  if (formato === 'imagen') {
+    const link = document.createElement('a');
+    link.download = `carnet_${window.estudianteActual.cedula}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  } else if (formato === 'pdf') {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a6'); // Tamaño compacto (A6)
+    pdf.addImage(imgData, 'PNG', 10, 20, 85, 90);
+    pdf.save(`carnet_${window.estudianteActual.cedula}.pdf`);
+  }
+}
 
 // ===============================
 // ASIGNACIÓN RÁPIDA
