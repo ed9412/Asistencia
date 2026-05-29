@@ -789,7 +789,10 @@ async function eliminarEstudiante(cedula) {
   }
 }
 
-function mostrarQR(estudiante) {
+function mostrarQR(cedula) {
+
+  const estudiante = listaGlobalEstudiantes.find(e => e.cedula === cedula);
+    if (!estudiante) return showMessage("Estudiante no encontrado", "error");
   // 1. Verificación de seguridad
   if (!estudiante || !estudiante.cedula) {
     console.error("Error: El objeto estudiante no tiene una cédula válida", estudiante);
