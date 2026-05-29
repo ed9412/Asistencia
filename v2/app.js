@@ -109,6 +109,10 @@ async function mostrar(id) {
   } else if (id === "dashboard") {
     cargarDashboard();
   }
+
+  establecerFechaActualPorDefecto(); 
+  
+  document.getElementById(id).classList.add("active");
 }
 
 function limpiarInput(id) {
