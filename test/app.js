@@ -802,6 +802,8 @@ $("qrNombre").textContent = `${estudiante.nombres} ${estudiante.apellidos}`;
   window.estudianteActual = estudiante; // Guardamos para exportar
 }
 
+function cerrarQR() { $("qrModal").style.display = "none"; }
+
 // 2. Nueva función de exportación
 async function exportarQR(formato) {
   const elemento = $("carnetEstudiante");
