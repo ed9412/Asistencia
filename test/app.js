@@ -790,16 +790,32 @@ async function eliminarEstudiante(cedula) {
 }
 
 function mostrarQR(estudiante) {
-$("qrNombre").textContent = `${estudiante.nombres} ${estudiante.apellidos}`;
-  $("qrCedula").textContent = `Cédula: ${estudiante.cedula}`;
+  // 1. Verificación de seguridad
+  if (!estudiante || !estudiante.cedula) {
+    console.error("Error: El objeto estudiante no tiene una cédula válida", estudiante);
+    showMessage("Error al generar el código QR.", "error");
+    return;
+  }
+
+  // 2. Llenado de datos (usando los IDs que definimos en el HTML)
+  const nombreField = $("qrNombre");
+  const cedulaField = $("qrCedula");
   
-  // Tamaño grande para mayor legibilidad
-  QRCode.toCanvas($("qrCanvas"), estudiante.cedula, { width: 200, margin: 2 }, (error) => {
-    if (error) console.error(error);
+  if (nombreField) nombreField.textContent = `${estudiante.nombres || ''} ${estudiante.apellidos || ''}`;
+  if (cedulaField) cedulaField.textContent = `Cédula: ${estudiante.cedula}`;
+  
+  // 3. Generación del QR
+  const canvas = $("qrCanvas");
+  QRCode.toCanvas(canvas, estudiante.cedula, { width: 200, margin: 2 }, (error) => {
+    if (error) {
+      console.error("Error al generar QR:", error);
+      showMessage("No se pudo generar el QR", "error");
+    }
   });
   
+  // 4. Mostrar el modal
   $("qrModal").style.display = "block";
-  window.estudianteActual = estudiante; // Guardamos para exportar
+  window.estudianteActual = estudiante;
 }
 
 function cerrarQR() { $("qrModal").style.display = "none"; }
