@@ -14,7 +14,9 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -256,13 +258,23 @@
       </div>
     </section>
 
-    <div id="qrModal" class="modal">
-      <div class="modal-content">
-        <button class="small danger" onclick="cerrarQR()">Cerrar</button>
-        <h3>Carnet QR</h3>
-        <canvas id="qrCanvas"></canvas>
-      </div>
+<div id="qrModal" class="modal">
+  <div class="modal-content" style="text-align: center; max-width: 350px;">
+    <button class="small" onclick="cerrarQR()" style="float: right;">X</button>
+    <h3>Carnet Digital</h3>
+    
+    <div id="carnetEstudiante" style="border: 1px solid #ddd; padding: 20px; border-radius: 20px; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin: 15px 0;">
+      <canvas id="qrCanvas"></canvas>
+      <h4 id="qrNombre" style="margin: 15px 0 0 0; color: #333;"></h4>
+      <p id="qrCedula" style="margin: 5px 0; color: #666; font-size: 14px;"></p>
     </div>
+
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <button onclick="exportarQR('imagen')">💾 Imagen</button>
+      <button onclick="exportarQR('pdf')" class="secondary">📄 PDF</button>
+    </div>
+  </div>
+</div>
     
     <div id="editStudentModal" class="modal">
       <div class="modal-content">
