@@ -1,31 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Asistencia App</title>
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
-  <!-- QR -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
-  <!-- Charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
-
-
 <body>
 
   <div id="toast" class="toast"></div>
 
-  <!-- LOGIN -->
   <div id="loginScreen" class="screen active">
     <div class="card login-card">
       <h1>🎓 Asistencia del Prof. Luis</h1>
@@ -45,7 +40,6 @@
     </div>
   </div>
 
-  <!-- APP -->
   <div id="app" style="display:none">
 
     <header class="topbar">
@@ -56,7 +50,6 @@
       <button class="small danger" onclick="logout()">Salir</button>
     </header>
 
-    <!-- DASHBOARD -->
     <section id="dashboard" class="screen">
       <div class="card">
         <h2>📊 Dashboard</h2>
@@ -65,7 +58,6 @@
       </div>
     </section>
 
-    <!-- PASAR LISTA -->
     <section id="lista" class="screen">
       <div class="card">
         <h2>✅ Pasar lista</h2>
@@ -105,7 +97,6 @@
       </div>
     </section>
 
-    <!-- ESTUDIANTES -->
     <section id="estudiantes" class="screen">
       <div class="card">
         <h2>👨‍🎓 Estudiantes</h2>
@@ -123,25 +114,23 @@
         <small id="error-apellidos" class="field-error"></small>
 
         <button onclick="crearEstudiante()">Guardar estudiante</button>
+        
+        <hr />
+        
+        <h4>Buscador de Estudiantes</h4>
+        <div class="search-box">
+           <input id="searchEstudianteText" placeholder="Buscar por cédula o nombre..." />
+           <select id="searchEstudianteMateria">
+              <option value="todas">Todas las materias</option>
+           </select>
+           <button onclick="buscarEstudiantes()">Buscar</button>
+        </div>
 
-        <hr>
-        
-        <h4>Buscar estudiante</h4>
-        
-        <label>Nombre</label>
-        <input id="buscarNombre" oninput="buscarEstudiantes()">
-        
-        <label>Materia</label>
-        <select id="buscarMateria" onchange="buscarEstudiantes()"></select>
-
-        <hr>
-        
         <h4>Listado</h4>
         <ul id="listaEstudiantes"></ul>
       </div>
     </section>
 
-    <!-- MATERIAS -->
     <section id="materiasScreen" class="screen">
       <div class="card">
         <h2>📚 Materias</h2>
@@ -154,8 +143,12 @@
 
         <hr />
 
-        <h4>Asignar estudiante a materia</h4>
+        <h4>Listado de Materias</h4>
+        <ul id="listaMateriasUl"></ul>
 
+        <hr />
+
+        <h4>Asignar estudiante a materia (Rápido)</h4>
         <label>Cédula del estudiante <span class="required">*</span></label>
         <input id="cedulaAsignar" placeholder="Solo números" inputmode="numeric" />
         <small id="error-cedulaAsignar" class="field-error"></small>
@@ -168,14 +161,22 @@
       </div>
     </section>
 
-    <!-- HISTORIAL -->
-    <section id="historial" class="screen">
+<section id="historial" class="screen">
       <div class="card">
         <h2>📅 Historial</h2>
 
-        <label>Filtrar por fecha</label>
-        <input type="date" id="filtroFecha" />
-        <small id="error-filtroFecha" class="field-error"></small>
+        <div style="display: flex; gap: 12px; margin-top: 10px;">
+          <div style="flex: 1;">
+            <label style="margin-top: 0;">Fecha de inicio</label>
+            <input type="date" id="filtroFechaInicio" />
+            <small id="error-filtroFechaInicio" class="field-error"></small>
+          </div>
+          <div style="flex: 1;">
+            <label style="margin-top: 0;">Fecha de fin</label>
+            <input type="date" id="filtroFechaFin" />
+            <small id="error-filtroFechaFin" class="field-error"></small>
+          </div>
+        </div>
 
         <button onclick="cargarHistorial()">Buscar</button>
 
@@ -186,21 +187,36 @@
     </section>
 
     <!-- REPORTES -->
-    <section id="reportes" class="screen">
-      <div class="card">
-        <h2>📈 Reporte por estudiante</h2>
+<section id="reportes" class="screen">
+  <div class="card">
+    <h2>📈 Reporte personalizado</h2>
 
-        <label>Cédula <span class="required">*</span></label>
-        <input id="cedulaReporte" placeholder="Solo números" inputmode="numeric" />
-        <small id="error-cedulaReporte" class="field-error"></small>
+    <label>Cédula del estudiante (opcional)</label>
+    <input type="text" id="cedulaReporte" placeholder="Ej: 12345678">
 
-        <button onclick="generarReporte()">Ver reporte</button>
+    <label>Materia</label>
+    <select id="materiaReporte">
+      <option value="todas">Todas las materias</option>
+      </select>
 
-        <div id="reporte"></div>
+    <div style="display: flex; gap: 10px;">
+      <div style="flex: 1;">
+        <label>Desde:</label>
+        <input type="date" id="fechaInicioReporte">
       </div>
-    </section>
+      <div style="flex: 1;">
+        <label>Hasta:</label>
+        <input type="date" id="fechaFinReporte">
+      </div>
+    </div>
 
-    <!-- ALERTAS -->
+    <button onclick="generarReporte()" style="margin-top: 15px; width: 100%;">Buscar</button>
+
+    <div id="reporte"></div>
+  </div>
+</section>
+
+    
     <section id="alertasScreen" class="screen">
       <div class="card">
         <h2>🚨 Alertas de inasistencia</h2>
@@ -212,7 +228,6 @@
       </div>
     </section>
 
-    <!-- ADMIN -->
     <section id="adminScreen" class="screen">
       <div class="card">
         <h2>🔐 Administración</h2>
@@ -241,7 +256,6 @@
       </div>
     </section>
 
-    <!-- MODAL QR -->
     <div id="qrModal" class="modal">
       <div class="modal-content">
         <button class="small danger" onclick="cerrarQR()">Cerrar</button>
@@ -249,8 +263,57 @@
         <canvas id="qrCanvas"></canvas>
       </div>
     </div>
+    
+    <div id="editStudentModal" class="modal">
+      <div class="modal-content">
+        <h3>Editar Estudiante</h3>
+        <label>Cédula</label>
+        <input id="editEstCedula" readonly disabled />
+        <label>Nombres</label>
+        <input id="editEstNombres" />
+        <small id="error-editEstNombres" class="field-error"></small>
+        <label>Apellidos</label>
+        <input id="editEstApellidos" />
+        <small id="error-editEstApellidos" class="field-error"></small>
+        
+        <h4>Materias Asignadas</h4>
+        <ul id="editEstMateriasList" class="compact-list"></ul>
+        
+        <label>Añadir nueva materia</label>
+        <div style="display:flex; gap:8px;">
+          <select id="editEstAddMateria"></select>
+          <button class="small" onclick="addMateriaToEditEst()">Añadir</button>
+        </div>
+        
+        <br>
+        <button onclick="guardarEdicionEstudiante()">Guardar Cambios</button>
+        <button class="secondary" onclick="cerrarEditStudentModal()">Cancelar</button>
+      </div>
+    </div>
+    
+    <div id="editMateriaModal" class="modal">
+       <div class="modal-content">
+          <h3>Editar Materia</h3>
+          <input id="editMatId" type="hidden" />
+          <label>Nombre de la materia</label>
+          <input id="editMatNombre" />
+          <small id="error-editMatNombre" class="field-error"></small>
+          <button onclick="guardarEdicionMateria()">Guardar</button>
+          <button class="secondary" onclick="cerrarEditMateriaModal()">Cancelar</button>
+       </div>
+    </div>
+    
+    <div id="passwordModal" class="modal">
+      <div class="modal-content">
+        <h3>Confirmación requerida</h3>
+        <p>Por seguridad, ingresa tu contraseña para autorizar esta acción:</p>
+        <input type="password" id="modalPasswordInput" placeholder="Contraseña..." />
+        <small id="error-modalPasswordInput" class="field-error"></small>
+        <button onclick="confirmarPassword()">Confirmar</button>
+        <button class="secondary" onclick="cerrarPasswordModal()">Cancelar</button>
+      </div>
+    </div>
 
-    <!-- NAVBAR -->
     <nav class="navbar">
       <button onclick="mostrar('dashboard')">📊<span>Inicio</span></button>
       <button onclick="mostrar('lista')">✅<span>Lista</span></button>
@@ -264,23 +327,6 @@
 
   </div>
 
-
 <script src="app.js"></script>
-
-  <div id="modalGeneral" class="modal">
-  <div class="modal-content">
-
-    <h3 id="modalTitulo"></h3>
-
-    <div id="modalBody"></div>
-
-    <hr>
-
-    <button onclick="confirmarModal()" class="small">Confirmar</button>
-    <button onclick="cerrarModal()" class="small danger">Cancelar</button>
-
-  </div>
-</div>
-
 </body>
 </html>

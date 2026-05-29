@@ -46,6 +46,7 @@ label {
   font-weight: bold;
   margin-top: 10px;
   color: #374151;
+  text-align: left;
 }
 
 input, select {
@@ -78,6 +79,7 @@ input.valid, select.valid {
   color: #dc2626;
   font-size: 12px;
   margin-bottom: 8px;
+  text-align: left;
 }
 
 .field-error.show {
@@ -114,6 +116,9 @@ button.small {
   width: auto;
   padding: 8px 12px;
   font-size: 13px;
+  margin-top: 4px;
+  display: inline-block;
+  margin-right: 4px;
 }
 
 .big-button {
@@ -149,6 +154,25 @@ li {
   padding: 12px;
   border-radius: 12px;
   margin-bottom: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.compact-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+}
+
+.compact-list button {
+  margin: 0;
+}
+
+.search-box {
+  background: #f9fafb;
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 16px;
   border: 1px solid #e5e7eb;
 }
 
@@ -228,6 +252,7 @@ li {
   background: rgba(0,0,0,0.65);
   z-index: 1000;
   padding: 25px;
+  overflow-y: auto;
 }
 
 .modal-content {
@@ -236,6 +261,7 @@ li {
   padding: 20px;
   text-align: center;
   margin-top: 60px;
+  margin-bottom: 60px;
 }
 
 hr {
