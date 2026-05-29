@@ -179,6 +179,21 @@ function markFieldValid(fieldId) {
 // VALIDACIONES
 // ===============================
 
+/**
+ * Configura todos los inputs de tipo date con la fecha actual (YYYY-MM-DD)
+ */
+function establecerFechaActualPorDefecto() {
+  const hoy = new Date().toISOString().split('T')[0];
+  const inputsDate = document.querySelectorAll('input[type="date"]');
+  
+  inputsDate.forEach(input => {
+    // Solo asignamos si el campo está vacío para no sobreescribir selecciones previas
+    if (!input.value) {
+      input.value = hoy;
+    }
+  });
+}
+
 function validarRangoFechas() {
   clearFields(["filtroFechaInicio", "filtroFechaFin"]);
   
@@ -383,6 +398,8 @@ async function initApp() {
     $("rolInfo").textContent = `${user.email} · Rol: ${currentUserRole}`;
     $("adminNavBtn").style.display = currentUserRole === "admin" ? "block" : "none";
 
+    establecerFechaActualPorDefecto();
+    
     mostrar("dashboard");
     await cargarMaterias();
     await listarMaterias();
