@@ -1067,6 +1067,27 @@ async function generarReporte() {
   }
 }
 
+async function cargarMateriasEnReportes() {
+  const select = document.getElementById("materiaReporte");
+  if (!select) return;
+
+  // Limpiar opciones anteriores, manteniendo solo la primera
+  select.innerHTML = '<option value="todas">Todas las materias</option>';
+  
+  try {
+    const snap = await db.collection("materias").get();
+    snap.forEach(doc => {
+      const mat = doc.data().nombre;
+      const opt = document.createElement("option");
+      opt.value = mat;
+      opt.textContent = mat;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.error("Error al cargar materias:", e);
+  }
+}
+
 async function exportarReporteIndividual(cedula) {
   try {
     const snap = await db.collection("asistencias").where("cedula", "==", cedula).get();
@@ -1142,7 +1163,10 @@ async function exportar() {
 
 // Escuchadores de Validación
 document.addEventListener("DOMContentLoaded", () => {
+  
   ["cedula", "cedulaAsignar", "manualCedula", "cedulaReporte"].forEach(id => {
     if ($(id)) $(id).addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, ""); });
   });
+  // Si ya tienes una lógica de autenticación, pon esto dentro del bloque que carga la App
+    cargarMateriasEnReportes();
 });
