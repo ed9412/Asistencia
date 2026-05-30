@@ -789,60 +789,13 @@ async function eliminarEstudiante(cedula) {
   }
 }
 
-function mostrarQR(cedula) {
-
-  const estudiante = estudiantesMateria.find(e => e.cedula === cedula);
-    if (!estudiante) return showMessage("Estudiante no encontrado", "error");
-  // 1. Verificación de seguridad
-  if (!estudiante || !estudiante.cedula) {
-    console.error("Error: El objeto estudiante no tiene una cédula válida", estudiante);
-    showMessage("Error al generar el código QR.", "error");
-    return;
-  }
-
-  // 2. Llenado de datos (usando los IDs que definimos en el HTML)
-  const nombreField = $("qrNombre");
-  const cedulaField = $("qrCedula");
-  
-  if (nombreField) nombreField.textContent = `${estudiante.nombres || ''} ${estudiante.apellidos || ''}`;
-  if (cedulaField) cedulaField.textContent = `Cédula: ${estudiante.cedula}`;
-  
-  // 3. Generación del QR
-  const canvas = $("qrCanvas");
-  QRCode.toCanvas(canvas, estudiante.cedula, { width: 200, margin: 2 }, (error) => {
-    if (error) {
-      console.error("Error al generar QR:", error);
-      showMessage("No se pudo generar el QR", "error");
-    }
-  });
-  
-  // 4. Mostrar el modal
+function mostrarQR(cedulaValue) {
   $("qrModal").style.display = "block";
-  window.estudianteActual = estudiante;
+  QRCode.toCanvas($("qrCanvas"), cedulaValue, error => {
+    if (error) showMessage("No se pudo generar QR.", "error");
+  });
 }
-
 function cerrarQR() { $("qrModal").style.display = "none"; }
-
-// 2. Nueva función de exportación
-async function exportarQR(formato) {
-  const elemento = $("carnetEstudiante");
-  
-  // Capturar como imagen
-  const canvas = await html2canvas(elemento, { scale: 2 });
-  
-  if (formato === 'imagen') {
-    const link = document.createElement('a');
-    link.download = `carnet_${window.estudianteActual.cedula}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  } else if (formato === 'pdf') {
-    const { jsPDF } = window.jspdf;
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a6'); // Tamaño compacto (A6)
-    pdf.addImage(imgData, 'PNG', 10, 20, 85, 90);
-    pdf.save(`carnet_${window.estudianteActual.cedula}.pdf`);
-  }
-}
 
 // ===============================
 // ASIGNACIÓN RÁPIDA
