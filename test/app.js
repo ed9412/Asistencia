@@ -651,7 +651,7 @@ async function buscarEstudiantes() {
             <small style="color:#2563eb; font-weight:bold;">Materias: ${matsStr}</small><br>
           `;
           
-          const btnQr = document.createElement("button"); btnQr.className = "small secondary"; btnQr.textContent = "QR"; btnQr.onclick = () => mostrarQR(est.cedula);
+          const btnQr = document.createElement("button"); btnQr.className = "small secondary"; btnQr.textContent = "QR"; btnQr.onclick = () => mostrarQR(est.cedula, `${est.nombres} ${est.apellidos}`);
           const btnEd = document.createElement("button"); btnEd.className = "small"; btnEd.textContent = "Editar"; btnEd.onclick = () => abrirEditarEstudiante(est.cedula);
           const btnDe = document.createElement("button"); btnDe.className = "small danger"; btnDe.textContent = "Eliminar"; btnDe.onclick = () => eliminarEstudiante(est.cedula);
           
@@ -789,9 +789,15 @@ async function eliminarEstudiante(cedula) {
   }
 }
 
-function mostrarQR(cedulaValue) {
+function mostrarQR(cedulaValue, nombreCompleto) {
   $("qrModal").style.display = "block";
-  QRCode.toCanvas($("qrCanvas"), cedulaValue, error => {
+  
+  // Llenar los datos en la tarjeta
+  $("qrNombreDisplay").textContent = nombreCompleto || "Estudiante";
+  $("qrCedulaDisplay").textContent = `Cédula: ${cedulaValue}`;
+  
+  // Generar QR más grande (250px)
+  QRCode.toCanvas($("qrCanvas"), cedulaValue, { width: 250, margin: 2 }, error => {
     if (error) showMessage("No se pudo generar QR.", "error");
   });
 }
