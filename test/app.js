@@ -1172,6 +1172,34 @@ async function cargarMateriasEnReportes() {
   }
 }
 
+function exportarBusqueda() {
+  const resultados = window.resultadosBusquedaActual;
+  
+  if (!resultados || resultados.length === 0) {
+    return showMessage("No hay datos para exportar.", "error");
+  }
+
+  try {
+    let csvContent = "\uFEFFCedula;Nombres;Apellidos;Fecha;Materia;Presente;Hora;Profesor\n";
+    
+    resultados.forEach(x => {
+      const m = x.materiaNombre || x.materia;
+      csvContent += `"${x.cedula}";"${x.nombres || ''}";"${x.apellidos || ''}";"${x.fecha}";"${m}";"${x.presente ? "Presente" : "Faltante"}";"${x.hora || ""}";"${x.profesor || ""}"\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "reporte_busqueda.csv";
+    a.click();
+    
+    showMessage("Reporte exportado exitosamente.", "success");
+  } catch (e) {
+    showMessage("Error al generar el archivo: " + e.message, "error");
+  }
+}
+
 async function exportarReporteIndividual(cedula) {
   try {
     const snap = await db.collection("asistencias").where("cedula", "==", cedula).get();
