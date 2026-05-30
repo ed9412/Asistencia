@@ -797,8 +797,16 @@ async function exportarQRPNG() {
   const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
   try {
-    // Tomar "foto" del contenedor con buena calidad (scale: 2)
-    const canvas = await html2canvas(exportArea, { scale: 2, backgroundColor: "#ffffff" });
+    // Aquí está el ajuste para la advertencia
+    const canvas = await html2canvas(exportArea, { 
+      scale: 2, 
+      backgroundColor: "#ffffff",
+      onclone: (doc) => {
+        const c = doc.querySelector('#qrCanvas');
+        c.getContext('2d', { willReadFrequently: true });
+      }
+    });
+    
     const link = document.createElement("a");
     link.download = `Carnet_${cedulaStr}.png`;
     link.href = canvas.toDataURL("image/png");
@@ -813,20 +821,23 @@ async function exportarQRPDF() {
   const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
   try {
-    // Tomar "foto" del contenedor
-    const canvas = await html2canvas(exportArea, { scale: 2, backgroundColor: "#ffffff" });
-    const imgData = canvas.toDataURL("image/png");
+    const canvas = await html2canvas(exportArea, { 
+      scale: 2, 
+      backgroundColor: "#ffffff",
+      onclone: (doc) => {
+        const c = doc.querySelector('#qrCanvas');
+        c.getContext('2d', { willReadFrequently: true });
+      }
+    });
     
-    // Configurar PDF (Formato A6, ideal para carnets)
+    const imgData = canvas.toDataURL("image/png");
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("portrait", "mm", "a6");
     
-    // Calcular el tamaño manteniendo proporciones
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const imgProps = pdf.getImageProperties(imgData);
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
     
-    // Añadir imagen y guardar
     pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
     pdf.save(`Carnet_${cedulaStr}.pdf`);
     showMessage("Documento PDF descargado.", "success");
