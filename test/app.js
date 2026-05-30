@@ -789,6 +789,52 @@ async function eliminarEstudiante(cedula) {
   }
 }
 
+// ===============================
+// EXPORTACIÓN DE CARNET QR
+// ===============================
+
+async function exportarQRPNG() {
+  const exportArea = $("qrExportArea");
+  const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  try {
+    // Tomar "foto" del contenedor con buena calidad (scale: 2)
+    const canvas = await html2canvas(exportArea, { scale: 2, backgroundColor: "#ffffff" });
+    const link = document.createElement("a");
+    link.download = `Carnet_${cedulaStr}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    showMessage("Imagen PNG descargada.", "success");
+  } catch (error) {
+    showMessage("Error al exportar PNG.", "error");
+  }
+}
+
+async function exportarQRPDF() {
+  const exportArea = $("qrExportArea");
+  const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  try {
+    // Tomar "foto" del contenedor
+    const canvas = await html2canvas(exportArea, { scale: 2, backgroundColor: "#ffffff" });
+    const imgData = canvas.toDataURL("image/png");
+    
+    // Configurar PDF (Formato A6, ideal para carnets)
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("portrait", "mm", "a6");
+    
+    // Calcular el tamaño manteniendo proporciones
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    
+    // Añadir imagen y guardar
+    pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+    pdf.save(`Carnet_${cedulaStr}.pdf`);
+    showMessage("Documento PDF descargado.", "success");
+  } catch (error) {
+    showMessage("Error al exportar PDF.", "error");
+  }
+}
+
 function mostrarQR(cedulaValue, nombreCompleto) {
   $("qrModal").style.display = "block";
   
