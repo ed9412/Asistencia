@@ -651,7 +651,7 @@ async function buscarEstudiantes() {
             <small style="color:#2563eb; font-weight:bold;">Materias: ${matsStr}</small><br>
           `;
           
-          const btnQr = document.createElement("button"); btnQr.className = "small secondary"; btnQr.textContent = "QR"; btnQr.onclick = () => mostrarQR(est.cedula);
+          const btnQr = document.createElement("button"); btnQr.className = "small secondary"; btnQr.textContent = "QR"; btnQr.onclick = () => mostrarQR(est.cedula, `${est.nombres} ${est.apellidos}`);
           const btnEd = document.createElement("button"); btnEd.className = "small"; btnEd.textContent = "Editar"; btnEd.onclick = () => abrirEditarEstudiante(est.cedula);
           const btnDe = document.createElement("button"); btnDe.className = "small danger"; btnDe.textContent = "Eliminar"; btnDe.onclick = () => eliminarEstudiante(est.cedula);
           
@@ -789,9 +789,72 @@ async function eliminarEstudiante(cedula) {
   }
 }
 
-function mostrarQR(cedulaValue) {
+// ===============================
+// EXPORTACIÓN DE CARNET QR
+// ===============================
+
+async function exportarQRPNG() {
+  const exportArea = $("qrExportArea");
+  const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  try {
+    // Aquí está el ajuste para la advertencia
+    const canvas = await html2canvas(exportArea, { 
+      scale: 2, 
+      backgroundColor: "#ffffff",
+      onclone: (doc) => {
+        const c = doc.querySelector('#qrCanvas');
+        c.getContext('2d', { willReadFrequently: true });
+      }
+    });
+    
+    const link = document.createElement("a");
+    link.download = `Carnet_${cedulaStr}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    showMessage("Imagen PNG descargada.", "success");
+  } catch (error) {
+    showMessage("Error al exportar PNG.", "error");
+  }
+}
+
+async function exportarQRPDF() {
+  const exportArea = $("qrExportArea");
+  const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  try {
+    const canvas = await html2canvas(exportArea, { 
+      scale: 2, 
+      backgroundColor: "#ffffff",
+      onclone: (doc) => {
+        const c = doc.querySelector('#qrCanvas');
+        c.getContext('2d', { willReadFrequently: true });
+      }
+    });
+    
+    const imgData = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("portrait", "mm", "a6");
+    
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    
+    pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+    pdf.save(`Carnet_${cedulaStr}.pdf`);
+    showMessage("Documento PDF descargado.", "success");
+  } catch (error) {
+    showMessage("Error al exportar PDF.", "error");
+  }
+}
+
+function mostrarQR(cedulaValue, nombreCompleto) {
   $("qrModal").style.display = "block";
-  QRCode.toCanvas($("qrCanvas"), cedulaValue, error => {
+  
+  // Llenar los datos en la tarjeta
+  $("qrNombreDisplay").textContent = nombreCompleto || "Estudiante";
+  $("qrCedulaDisplay").textContent = `Cédula: ${cedulaValue}`;
+  
+  // Generar QR más grande (250px)
+  QRCode.toCanvas($("qrCanvas"), cedulaValue, { width: 250, margin: 2 }, error => {
     if (error) showMessage("No se pudo generar QR.", "error");
   });
 }
@@ -1106,6 +1169,34 @@ async function cargarMateriasEnReportes() {
     });
   } catch (e) {
     console.error("Error al cargar materias:", e);
+  }
+}
+
+function exportarBusqueda() {
+  const resultados = window.resultadosBusquedaActual;
+  
+  if (!resultados || resultados.length === 0) {
+    return showMessage("No hay datos para exportar.", "error");
+  }
+
+  try {
+    let csvContent = "\uFEFFCedula;Nombres;Apellidos;Fecha;Materia;Presente;Hora;Profesor\n";
+    
+    resultados.forEach(x => {
+      const m = x.materiaNombre || x.materia;
+      csvContent += `"${x.cedula}";"${x.nombres || ''}";"${x.apellidos || ''}";"${x.fecha}";"${m}";"${x.presente ? "Presente" : "Faltante"}";"${x.hora || ""}";"${x.profesor || ""}"\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "reporte_busqueda.csv";
+    a.click();
+    
+    showMessage("Reporte exportado exitosamente.", "success");
+  } catch (e) {
+    showMessage("Error al generar el archivo: " + e.message, "error");
   }
 }
 

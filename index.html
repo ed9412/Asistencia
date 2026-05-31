@@ -15,6 +15,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -256,11 +259,22 @@
       </div>
     </section>
 
-    <div id="qrModal" class="modal">
+<div id="qrModal" class="modal">
       <div class="modal-content">
-        <button class="small danger" onclick="cerrarQR()">Cerrar</button>
-        <h3>Carnet QR</h3>
-        <canvas id="qrCanvas"></canvas>
+        <button class="small danger" onclick="cerrarQR()" style="float: right; margin-bottom: 10px;">X</button>
+        
+        <div id="qrExportArea" style="padding: 20px; background: white; text-align: center; border-radius: 12px; border: 2px solid #e5e7eb; clear: both;">
+          <h3 style="margin-bottom: 10px; color: #2563eb;">Carnet Estudiantil</h3>
+          <p id="qrNombreDisplay" style="font-size: 20px; font-weight: bold; margin: 5px 0;"></p>
+          <p id="qrCedulaDisplay" style="font-size: 16px; color: #6b7280; margin: 0 0 15px 0;"></p>
+          
+          <canvas id="qrCanvas"></canvas>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button class="secondary" onclick="exportarQRPNG()">📷 PNG</button>
+          <button class="secondary" onclick="exportarQRPDF()">📄 PDF</button>
+        </div>
       </div>
     </div>
     
