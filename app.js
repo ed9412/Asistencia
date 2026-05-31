@@ -404,7 +404,7 @@ async function initApp() {
 
     establecerFechaActualPorDefecto();
     
-    mostrar("dashboard");
+    mostrar("lista");
     await cargarMaterias();
     await listarMaterias();
     await buscarEstudiantes();
