@@ -558,6 +558,7 @@ async function guardarEdicionMateria() {
     cargarMaterias();
     listarMaterias();
     buscarEstudiantes(); // Actualizar nombres en listados
+    await cargarMateriasEnReportes();
   } catch (e) {
     showMessage("Error actualizando: " + e.message, "error");
   }
