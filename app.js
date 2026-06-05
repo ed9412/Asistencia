@@ -1060,7 +1060,7 @@ async function registrarAsistencia(ced) {
     actualizarFaltantes();
     limpiarInput("manualCedula"); 
     clearFieldError("manualCedula");
-    showMessage("Temporal registrado.", "success");
+    showMessage("Estudiante registrado.", "success");
   } catch (e) { 
     beepError(); // 🚨 Sonido de error en caso de fallo de conexión con Firestore
     showMessage("Error.", "error"); 
