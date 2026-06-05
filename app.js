@@ -1072,7 +1072,7 @@ function beep() {
 }
 
 function beepError() {
-  const audio = new Audio("https://actions.google.com/sounds/v1/impacts/glass_drop_and_roll.ogg"); audio.play();
+  const audio = new Audio("https://actions.google.com/sounds/v1/emergency/emergency_siren_short_burst.ogg"); audio.play();
 }
 
 function actualizarPresentes() {
