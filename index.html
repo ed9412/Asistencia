@@ -61,19 +61,26 @@
       </div>
     </section>
 
-    <section id="lista" class="screen">
+<section id="lista" class="screen">
       <div class="card">
         <h2>✅ Pasar lista</h2>
 
-        <label>Materia <span class="required">*</span></label>
-        <select id="materiaLista"></select>
-        <small id="error-materiaLista" class="field-error"></small>
+        <div id="infoListaActiva" style="display: none; background: #e0f2fe; padding: 12px; border-radius: 12px; margin-bottom: 16px; border: 1px solid #bae6fd;">
+          <p style="margin: 0; font-size: 16px;">📚 <strong>Materia:</strong> <span id="txtMateriaActiva"></span></p>
+          <p style="margin: 4px 0 0 0; font-size: 15px; color: #4b5563;">📅 <strong>Fecha:</strong> <span id="txtFechaActiva"></span></p>
+        </div>
 
-        <label>Fecha de asistencia <span class="required">*</span></label>
-        <input type="date" id="fechaLista" />
-        <small id="error-fechaLista" class="field-error"></small>
+        <div id="formInicioLista">
+          <label>Materia <span class="required">*</span></label>
+          <select id="materiaLista"></select>
+          <small id="error-materiaLista" class="field-error"></small>
 
-        <button class="big-button" onclick="iniciarLista()">Iniciar lista</button>
+          <label>Fecha de asistencia <span class="required">*</span></label>
+          <input type="date" id="fechaLista" />
+          <small id="error-fechaLista" class="field-error"></small>
+
+          <button class="big-button" onclick="iniciarLista()">Iniciar lista</button>
+        </div>
 
         <div id="zonaLista" style="display:none">
           <hr />
@@ -95,7 +102,10 @@
           <h4>Faltantes</h4>
           <ul id="faltantes"></ul>
 
-          <button onclick="cerrarLista()">Guardar lista</button>
+          <div style="display: flex; gap: 12px; margin-top: 15px;">
+            <button onclick="cerrarLista()" style="flex: 2;">Guardar lista</button>
+            <button class="danger" onclick="cancelarLista()" style="flex: 1;">❌ Cancelar</button>
+          </div>
         </div>
       </div>
     </section>
