@@ -448,6 +448,7 @@ async function crearMateria() {
     clearFieldError("materiaNombre");
     await cargarMaterias();
     await listarMaterias();
+    await cargarMateriasEnReportes();
   } catch (error) {
     showMessage("Error: " + traducirErrorFirebase(error), "error");
   }
@@ -582,6 +583,7 @@ async function eliminarMateria(id) {
     cargarMaterias();
     listarMaterias();
     buscarEstudiantes();
+    await cargarMateriasEnReportes();
   } catch (e) {
     showMessage("Contraseña incorrecta o error al eliminar.", "error");
   }
