@@ -48,6 +48,12 @@ function setLoginError(message) {
 }
 
 async function mostrar(id) {
+  // Restricción de seguridad por si intentan forzar la vista desde consola
+  if (currentUserRole !== "admin" && ["estudiantes", "materiasScreen", "adminScreen"].includes(id)) {
+    showMessage("No tienes permisos para acceder a esta sección.", "error");
+    return;
+  }
+
   // 1. Apagar la cámara si el usuario cambia de sección mientras estaba escaneando
   if (html5QrCode) {
     await detenerEscaner();
@@ -61,7 +67,7 @@ async function mostrar(id) {
   // 3. Reiniciar todos los campos de texto, contraseñas, fechas y listas desplegables
   document.querySelectorAll(".screen input").forEach(input => {
     input.value = "";
-    input.classList.remove("valid", "invalid"); // Quitar bordes verdes/rojos
+    input.classList.remove("valid", "invalid");
   });
 
   document.querySelectorAll(".screen select").forEach(select => {
@@ -89,7 +95,6 @@ async function mostrar(id) {
     if (reporte) reporte.innerHTML = "";
   }
   
-
   // 6. Limpiar la memoria temporal de la lista de asistencia
   presentesSet.clear();
   presentTimes.clear();
@@ -103,7 +108,7 @@ async function mostrar(id) {
 
   // 8. Cargar los datos por defecto según la sección elegida
   if (id === "estudiantes") {
-    buscarEstudiantes(); // Al estar vacíos los filtros, cargará todos
+    buscarEstudiantes();
   } else if (id === "materiasScreen") {
     listarMaterias();
   } else if (id === "dashboard") {
@@ -111,8 +116,6 @@ async function mostrar(id) {
   }
 
   establecerFechaActualPorDefecto(); 
-  
-  document.getElementById(id).classList.add("active");
 }
 
 function limpiarInput(id) {
@@ -400,7 +403,17 @@ async function initApp() {
     $("loginScreen").style.display = "none";
     $("app").style.display = "block";
     $("rolInfo").textContent = `${user.email} · Rol: ${currentUserRole}`;
-    $("adminNavBtn").style.display = currentUserRole === "admin" ? "block" : "none";
+    
+    // 🔹 CONTROL DE ROLES EN LA NAVEGACIÓN PRINCIPAL
+    if (currentUserRole === "admin") {
+      $("adminNavBtn").style.display = "block";
+      $("estudiantesNavBtn").style.display = "block";
+      $("materiasNavBtn").style.display = "block";
+    } else {
+      $("adminNavBtn").style.display = "none";
+      $("estudiantesNavBtn").style.display = "none";
+      $("materiasNavBtn").style.display = "none";
+    }
 
     establecerFechaActualPorDefecto();
     
@@ -477,8 +490,6 @@ async function cargarMaterias() {
 async function listarMaterias() {
   try {
     const snap = await db.collection("materias").orderBy("nombre").get();
-    
-    // 🔹 Limpiamos la lista justo antes de insertar los nuevos datos
     limpiarLista("listaMateriasUl");
 
     if (snap.empty) {
@@ -491,16 +502,20 @@ async function listarMaterias() {
       const li = document.createElement("li");
       li.innerHTML = `<strong>${data.nombre}</strong><br>`;
 
-      const btnEdit = document.createElement("button");
-      btnEdit.className = "small"; btnEdit.textContent = "Editar";
-      btnEdit.onclick = () => abrirEditarMateria(doc.id, data.nombre);
+      // 🔹 Solo agregar botones de acción si el usuario es Administrador
+      if (currentUserRole === "admin") {
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "small"; btnEdit.textContent = "Editar";
+        btnEdit.onclick = () => abrirEditarMateria(doc.id, data.nombre);
 
-      const btnDel = document.createElement("button");
-      btnDel.className = "small danger"; btnDel.textContent = "Eliminar";
-      btnDel.onclick = () => eliminarMateria(doc.id);
+        const btnDel = document.createElement("button");
+        btnDel.className = "small danger"; btnDel.textContent = "Eliminar";
+        btnDel.onclick = () => eliminarMateria(doc.id);
 
-      li.appendChild(btnEdit);
-      li.appendChild(btnDel);
+        li.appendChild(btnEdit);
+        li.appendChild(btnDel);
+      }
+      
       $("listaMateriasUl").appendChild(li);
     });
   } catch (e) {}
@@ -629,9 +644,7 @@ async function buscarEstudiantes() {
        if (matNombres[mid]) matsMap[cd].push(matNombres[mid]);
     });
     
-    // 🔹 Limpiamos la lista DESPUÉS de que todas las consultas a la BD terminaron
     limpiarLista("listaEstudiantes");
-    
     let mostrados = new Set();
     
     estudiantesBase.sort((a,b)=> a.apellidos.localeCompare(b.apellidos)).forEach(est => {
@@ -651,11 +664,18 @@ async function buscarEstudiantes() {
             <small style="color:#2563eb; font-weight:bold;">Materias: ${matsStr}</small><br>
           `;
           
+          // El botón QR lo dejamos visible para ambos roles por si el profesor necesita verificar el carnet
           const btnQr = document.createElement("button"); btnQr.className = "small secondary"; btnQr.textContent = "QR"; btnQr.onclick = () => mostrarQR(est.cedula, `${est.nombres} ${est.apellidos}`);
-          const btnEd = document.createElement("button"); btnEd.className = "small"; btnEd.textContent = "Editar"; btnEd.onclick = () => abrirEditarEstudiante(est.cedula);
-          const btnDe = document.createElement("button"); btnDe.className = "small danger"; btnDe.textContent = "Eliminar"; btnDe.onclick = () => eliminarEstudiante(est.cedula);
+          li.appendChild(btnQr); 
+
+          // 🔹 Solo el Admin ve los botones de "Editar" y "Eliminar"
+          if (currentUserRole === "admin") {
+            const btnEd = document.createElement("button"); btnEd.className = "small"; btnEd.textContent = "Editar"; btnEd.onclick = () => abrirEditarEstudiante(est.cedula);
+            const btnDe = document.createElement("button"); btnDe.className = "small danger"; btnDe.textContent = "Eliminar"; btnDe.onclick = () => eliminarEstudiante(est.cedula);
+            li.appendChild(btnEd); 
+            li.appendChild(btnDe);
+          }
           
-          li.appendChild(btnQr); li.appendChild(btnEd); li.appendChild(btnDe);
           $("listaEstudiantes").appendChild(li);
        }
     });
