@@ -136,6 +136,14 @@ function horaActual() {
   return new Date().toLocaleTimeString();
 }
 
+function formatarFechaUI(fechaString) {
+  if (!fechaString) return "Sin fecha";
+  // Asumiendo que el formato viene como AAAA-MM-DD
+  const partes = fechaString.split("-");
+  if (partes.length !== 3) return fechaString; // Por si acaso viene en otro formato
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
 // ===============================
 // ERRORES POR CAMPO
 // ===============================
@@ -1092,7 +1100,7 @@ async function cargarHistorial() {
         ${d.cedula}<br>
         <strong>${d.nombres || ""} ${d.apellidos || ""}</strong><br>
         <strong>Materia: ${mat}</strong><br>
-        <strong>Fecha: ${d.fecha}</strong><br>
+        <strong>Fecha: ${formatarFechaUI(d.fecha)}</strong><br> 
         Estado: ${d.presente ? "✅ Presente" : "❌ Faltante"}<br>
         Hora: ${d.hora || "Sin hora"}<br>
         Profesor: ${d.profesor || "No registrado"}
@@ -1159,9 +1167,10 @@ async function generarReporte() {
     // Renderizado con datos del estudiante en cada fila
     let html = `<hr><button class="secondary" onclick="exportarBusqueda()">Exportar a CSV</button><ul>`;
     resultados.forEach(x => {
+      // 🔹 Cambiado x.fecha por formatarFechaUI(x.fecha)
       html += `<li>
         <strong>${x.cedula}</strong> - ${x.nombres || ''} ${x.apellidos || ''}<br>
-        <strong>Materia:</strong> ${x.materiaNombre || x.materia} | <strong>Fecha:</strong> ${x.fecha}<br>
+        <strong>Materia:</strong> ${x.materiaNombre || x.materia} | <strong>Fecha:</strong> ${formatarFechaUI(x.fecha)}<br>
         <strong>Estado:</strong> ${x.presente ? "✅ Presente" : "❌ Faltante"}
       </li>`;
     });
