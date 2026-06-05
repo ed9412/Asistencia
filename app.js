@@ -421,6 +421,7 @@ async function initApp() {
     await cargarMaterias();
     await listarMaterias();
     await buscarEstudiantes();
+    await cargarMateriasEnReportes();
   } catch (error) {
     showMessage("Error inicializando: " + traducirErrorFirebase(error), "error");
   }
@@ -1300,5 +1301,5 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($(id)) $(id).addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, ""); });
   });
   // Si ya tienes una lógica de autenticación, pon esto dentro del bloque que carga la App
-    cargarMateriasEnReportes();
+    //cargarMateriasEnReportes();
 });
