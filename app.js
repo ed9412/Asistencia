@@ -920,6 +920,12 @@ async function asignar() {
 async function iniciarLista() {
   if (!validarInicioListaCampos()) return;
   const materiaId = $("materiaLista").value;
+  const fechaSeleccionada = $("fechaLista").value;
+  
+  // Obtener el nombre visible de la materia seleccionada
+  const comboMateria = $("materiaLista");
+  const materiaNombre = comboMateria.options[comboMateria.selectedIndex].text;
+
   try {
     presentesSet.clear(); presentTimes.clear();
     limpiarLista("presentes"); limpiarLista("faltantes");
@@ -933,10 +939,49 @@ async function iniciarLista() {
       if (doc.exists) estudiantesMateria.push(doc.data());
     }
     if (estudiantesMateria.length === 0) return showMessage("No hay válidos.", "error");
+    
+    // 🔹 REPASO DE FORMATO DE FECHA PARA LA INTERFAZ
+    // Usamos la función formatarFechaUI que creamos en el paso anterior
+    $("txtMateriaActiva").textContent = materiaNombre;
+    $("txtFechaActiva").textContent = formatarFechaUI(fechaSeleccionada);
+
+    // 🔹 INTERCAMBIO DE VISTAS (Esconder selectores y mostrar texto fijo)
+    $("formInicioLista").style.display = "none";
+    $("infoListaActiva").style.display = "block";
     $("zonaLista").style.display = "block";
+    
     actualizarPresentes(); actualizarFaltantes();
     showMessage("Lista iniciada.", "success");
   } catch (e) { showMessage("Error: " + e.message, "error"); }
+}
+
+async function cancelarLista() {
+  // 1. Apagar la cámara si estaba encendida
+  if (html5QrCode) {
+    await detenerEscaner();
+  }
+
+  // 2. Limpiar memoria temporal del escaneo
+  presentesSet.clear();
+  presentTimes.clear();
+  estudiantesMateria = [];
+
+  // 3. Limpiar los campos y listas de la pantalla
+  limpiarInput("manualCedula");
+  limpiarLista("presentes");
+  limpiarLista("faltantes");
+  clearFieldError("manualCedula");
+
+  // 4. Restaurar la UI original (volver a mostrar selectores y ocultar la zona activa)
+  $("zonaLista").style.display = "none";
+  $("infoListaActiva").style.display = "none";
+  $("formInicioLista").style.display = "block";
+
+  // 5. Restablecer la fecha actual por defecto y limpiar la selección de materia
+  $("materiaLista").selectedIndex = 0;
+  establecerFechaActualPorDefecto();
+
+  showMessage("Proceso cancelado. Se reinició la pantalla.", "info");
 }
 
 async function iniciarEscaner() {
@@ -1033,6 +1078,13 @@ async function cerrarLista() {
     }
     showMessage("Lista guardada.", "success");
     await detenerEscaner();
+
+    // 🔹 REGRESAR LA INTERFAZ A SU ESTADO INICIAL TRAS GUARDAR
+    $("zonaLista").style.display = "none";
+    $("infoListaActiva").style.display = "none";
+    $("formInicioLista").style.display = "block";
+    $("materiaLista").selectedIndex = 0;
+    establecerFechaActualPorDefecto();
   } catch (e) { showMessage("Error.", "error"); }
 }
 
