@@ -328,14 +328,14 @@
       </div>
     </div>
 
-    <nav class="navbar">
-      <button onclick="mostrar('dashboard')">📊<span>Inicio</span></button>
+<nav class="navbar">
       <button onclick="mostrar('lista')">✅<span>Lista</span></button>
-      <button onclick="mostrar('estudiantes')">🎓<span>Alumnos</span></button>
-      <button onclick="mostrar('materiasScreen')">📚<span>Materias</span></button>
+      <button id="estudiantesNavBtn" onclick="mostrar('estudiantes')" style="display:none">🎓<span>Estudiantes</span></button>
+      <button id="materiasNavBtn" onclick="mostrar('materiasScreen')" style="display:none">📚<span>Materias</span></button>
       <button onclick="mostrar('historial')">📅<span>Historial</span></button>
       <button onclick="mostrar('reportes')">📈<span>Reportes</span></button>
       <button onclick="mostrar('alertasScreen')">🚨<span>Alertas</span></button>
+      <button onclick="mostrar('dashboard')">📊<span>Dashboard</span></button>
       <button id="adminNavBtn" onclick="mostrar('adminScreen')" style="display:none">🔐<span>Admin</span></button>
     </nav>
 
