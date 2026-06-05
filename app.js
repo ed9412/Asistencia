@@ -1015,10 +1015,21 @@ function registrarManual() {
 
 async function registrarAsistencia(ced) {
   clearFieldError("manualCedula");
-  if (!validarCedula(ced)) { showFieldError("manualCedula", "Inválido."); return showMessage("Inválido.", "error"); }
+  if (!validarCedula(ced)) { 
+    showFieldError("manualCedula", "Inválido."); 
+    return showMessage("Inválido.", "error"); 
+  }
   if (estudiantesMateria.length === 0) return showMessage("Inicia lista.", "error");
-  const materiaId = $("materiaLista").value; const fecha = $("fechaLista").value;
-  if (!estudiantesMateria.some(e => e.cedula === ced)) { showFieldError("manualCedula", "No pertenece."); return; }
+  
+  const materiaId = $("materiaLista").value; 
+  const fecha = $("fechaLista").value;
+  
+  // 🔹 VALIDACIÓN: Si el estudiante no pertenece a esta materia
+  if (!estudiantesMateria.some(e => e.cedula === ced)) { 
+    showFieldError("manualCedula", "No pertenece."); 
+    return showMessage("No pertenece", "error"); // ✅ Lanzar el popup superior de error
+  }
+  
   if (presentesSet.has(ced)) return showMessage("Ya presente.", "error");
   
   const key = `${ced}_${fecha}_${materiaId}`;
