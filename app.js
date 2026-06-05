@@ -1072,7 +1072,7 @@ function beep() {
 }
 
 function beepError() {
-  const audio = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"); audio.play();
+  const audio = new Audio("https://actions.google.com/sounds/v1/interfaces/simple_click.ogg"); audio.play();
 }
 
 function actualizarPresentes() {
