@@ -1017,35 +1017,62 @@ async function registrarAsistencia(ced) {
   clearFieldError("manualCedula");
   if (!validarCedula(ced)) { 
     showFieldError("manualCedula", "Inválido."); 
+    beepError(); // 🚨 Sonido de error
     return showMessage("Inválido.", "error"); 
   }
-  if (estudiantesMateria.length === 0) return showMessage("Inicia lista.", "error");
+  if (estudiantesMateria.length === 0) {
+    beepError(); // 🚨 Sonido de error
+    return showMessage("Inicia lista.", "error");
+  }
   
   const materiaId = $("materiaLista").value; 
   const fecha = $("fechaLista").value;
   
-  // 🔹 VALIDACIÓN: Si el estudiante no pertenece a esta materia
+  // VALIDACIÓN: Si el estudiante no pertenece a esta materia
   if (!estudiantesMateria.some(e => e.cedula === ced)) { 
     showFieldError("manualCedula", "No pertenece."); 
-    return showMessage("No pertenece", "error"); // ✅ Lanzar el popup superior de error
+    beepError(); // 🚨 Sonido de error
+    return showMessage("No pertenece", "error"); 
   }
   
-  if (presentesSet.has(ced)) return showMessage("Ya presente.", "error");
+  // VALIDACIÓN: Si el estudiante ya fue escaneado en esta sesión temporal
+  if (presentesSet.has(ced)) {
+    beepError(); // 🚨 Sonido de error
+    return showMessage("Ya presente.", "error");
+  }
   
   const key = `${ced}_${fecha}_${materiaId}`;
   try {
     const asis = await db.collection("asistencias").doc(key).get();
-    if (asis.exists) return showMessage("Registro guardado.", "error");
-    presentesSet.add(ced); presentTimes.set(ced, horaActual());
-    beep();
-    actualizarPresentes(); actualizarFaltantes();
-    limpiarInput("manualCedula"); clearFieldError("manualCedula");
+    
+    // VALIDACIÓN: Si ya existe un registro guardado en la base de datos para hoy
+    if (asis.exists) {
+      beepError(); // 🚨 Sonido de error
+      return showMessage("Registro guardado.", "error");
+    }
+    
+    // REGISTRO CORRECTO
+    presentesSet.add(ced); 
+    presentTimes.set(ced, horaActual());
+    beep(); // ✅ Sonido de éxito original
+    
+    actualizarPresentes(); 
+    actualizarFaltantes();
+    limpiarInput("manualCedula"); 
+    clearFieldError("manualCedula");
     showMessage("Temporal registrado.", "success");
-  } catch (e) { showMessage("Error.", "error"); }
+  } catch (e) { 
+    beepError(); // 🚨 Sonido de error en caso de fallo de conexión con Firestore
+    showMessage("Error.", "error"); 
+  }
 }
 
 function beep() {
   const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg"); audio.play();
+}
+
+function beepError() {
+  const audio = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"); audio.play();
 }
 
 function actualizarPresentes() {
