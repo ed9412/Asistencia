@@ -92,6 +92,7 @@
 
         <div id="formInicioLista">
           <label>Materia <span class="required">*</span></label>
+          <p id="avisoSinMaterias" class="subtitle" style="display:none">No tienes materias asignadas todavía. Pide a un administrador que te asigne una para poder pasar lista.</p>
           <select id="materiaLista"></select>
           <small id="error-materiaLista" class="field-error"></small>
 
@@ -114,6 +115,7 @@
           <select id="modoRegistro">
             <option value="presente">✅ Presente</option>
             <option value="tardanza">⏰ Tardanza</option>
+            <option value="justificado">📝 Justificado (pide el motivo)</option>
           </select>
 
           <label>Cédula manual <span class="required">*</span></label>
@@ -215,7 +217,7 @@
 
         <h4>Asignar estudiante a materia (Rápido)</h4>
         <label>Cédula del estudiante <span class="required">*</span></label>
-        <input id="cedulaAsignar" placeholder="Solo números" inputmode="numeric" />
+        <input id="cedulaAsignar" placeholder="Solo números" inputmode="numeric" onchange="filtrarMateriasAsignar()" />
         <small id="error-cedulaAsignar" class="field-error"></small>
 
         <label>Materia <span class="required">*</span></label>
@@ -228,38 +230,53 @@
 
     <section id="historial" class="screen">
       <div class="card">
-        <h2>📅 Historial</h2>
+        <h2>📅 Asistencias</h2>
+        <p class="subtitle">Revisa las listas ya pasadas, corrige errores y completa las de hoy. Por defecto se muestran los últimos 30 días.</p>
+
+        <div id="historialEnCurso"></div>
 
         <label>Materia</label>
         <select id="materiaHistorial"></select>
 
         <div style="display: flex; gap: 12px; margin-top: 10px;">
           <div style="flex: 1;">
-            <label style="margin-top: 0;">Fecha de inicio</label>
+            <label style="margin-top: 0;">Desde</label>
             <input type="date" id="filtroFechaInicio" />
             <small id="error-filtroFechaInicio" class="field-error"></small>
           </div>
           <div style="flex: 1;">
-            <label style="margin-top: 0;">Fecha de fin</label>
+            <label style="margin-top: 0;">Hasta</label>
             <input type="date" id="filtroFechaFin" />
             <small id="error-filtroFechaFin" class="field-error"></small>
           </div>
         </div>
 
-        <button onclick="cargarHistorial()">Buscar</button>
+        <button onclick="cargarHistorial()">Buscar listas</button>
 
         <ul id="historialLista"></ul>
+        <button id="btnHistMas" class="secondary" style="display:none" onclick="historialMostrarMas()">Mostrar más</button>
 
-        <button id="btnHistMas" class="secondary" style="display:none" onclick="cargarHistorial(false)">Cargar más</button>
+        <button class="secondary" onclick="exportar()">Exportar CSV (detalle del periodo)</button>
+      </div>
 
-        <button onclick="exportar()">Exportar CSV (según las fechas)</button>
+      <div id="historialDetalle" class="card" style="display:none">
+        <h3 id="detalleTitulo"></h3>
+        <p id="detalleResumen" class="subtitle"></p>
+        <p id="detalleAviso" class="subtitle" style="display:none"></p>
+
+        <button class="secondary" onclick="continuarListaDesdeHistorial()">▶ Continuar / completar esta lista</button>
+        <button id="btnAnularLista" class="danger" style="display:none" onclick="anularLista()">🗑 Anular lista completa</button>
+        <button class="secondary" onclick="cerrarDetalleHistorial()">Cerrar</button>
+
+        <ul id="detalleLista"></ul>
       </div>
     </section>
 
     <!-- REPORTES -->
     <section id="reportes" class="screen">
       <div class="card">
-        <h2>📈 Reporte personalizado</h2>
+        <h2>📈 Reporte por estudiante</h2>
+        <p class="subtitle">Asistencias, tardanzas, justificadas, faltas y porcentaje de cada estudiante, para exportar. (Para revisar o corregir una lista concreta usa «Asistencias».)</p>
 
         <label>Cédula del estudiante (opcional)</label>
         <input type="text" id="cedulaReporte" placeholder="Ej: 12345678" inputmode="numeric">
@@ -317,6 +334,14 @@
     <section id="adminScreen" class="screen">
       <div class="card">
         <h2>🔐 Administración</h2>
+
+        <h4>Mi nombre</h4>
+        <p class="subtitle">Es el nombre que aparece como docente en las listas que tú pases y en los reportes.</p>
+        <input id="miNombre" placeholder="Tu nombre y apellido" />
+        <small id="error-miNombre" class="field-error"></small>
+        <button class="secondary" onclick="guardarMiNombre()">Guardar mi nombre</button>
+
+        <hr />
 
         <h4>Crear docente</h4>
         <label>Nombre completo <span class="required">*</span></label>
@@ -450,9 +475,11 @@
         <input id="correccionMotivo" maxlength="200" placeholder="Ejemplo: cita médica" />
         <small id="error-correccionMotivo" class="field-error"></small>
 
-        <label>Tu contraseña <span class="required">*</span></label>
-        <input type="password" id="correccionPassword" placeholder="Contraseña..." />
-        <small id="error-correccionPassword" class="field-error"></small>
+        <div id="correccionPasswordBloque">
+          <label>Tu contraseña <span class="required">*</span></label>
+          <input type="password" id="correccionPassword" placeholder="Contraseña..." />
+          <small id="error-correccionPassword" class="field-error"></small>
+        </div>
 
         <button onclick="confirmarCorreccion()">Confirmar</button>
         <button class="secondary" onclick="cerrarCorreccion()">Cancelar</button>
@@ -474,7 +501,7 @@
       <button onclick="mostrar('lista')">✅<span>Lista</span></button>
       <button id="estudiantesNavBtn" onclick="mostrar('estudiantes')" style="display:none">🎓<span id="estudiantesNavTexto">Estudiantes</span></button>
       <button id="materiasNavBtn" onclick="mostrar('materiasScreen')" style="display:none">📚<span>Materias</span></button>
-      <button onclick="mostrar('historial')">📅<span>Historial</span></button>
+      <button onclick="mostrar('historial')">📅<span>Asistencias</span></button>
       <button onclick="mostrar('reportes')">📈<span>Reportes</span></button>
       <button onclick="mostrar('alertasScreen')">🚨<span>Alertas</span></button>
       <button onclick="mostrar('dashboard')">📊<span>Dashboard</span></button>
