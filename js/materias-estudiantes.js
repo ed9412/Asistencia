@@ -1,0 +1,661 @@
+// ===============================
+// MATERIAS
+// ===============================
+
+// Única consulta de materias: llena la memoria y repinta todo lo que las usa.
+// El admin recibe todas; un docente solo las que tiene asignadas.
+async function cargarMaterias() {
+  try {
+    const esAdmin = currentUserRole === "admin";
+    const snap = esAdmin
+      ? await db.collection("materias").orderBy("nombre").get()
+      : await db.collection("materias").where("profesores", "array-contains", auth.currentUser.uid).get();
+
+    materiasMap = {};
+    materiasLista = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      materiasMap[doc.id] = d.nombre;
+      materiasLista.push({ id: doc.id, nombre: d.nombre, profesores: d.profesores || [] });
+    });
+    materiasLista.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    if (esAdmin) await cargarUsuariosCache();
+
+    renderSelectsMaterias();
+    listarMaterias();
+    cargarMateriasEnReportes();
+  } catch (e) {
+    showMessage("Error cargando materias: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+function renderSelectsMaterias() {
+  ["materiaLista", "materiaSelect", "searchEstudianteMateria", "editEstAddMateria", "csvMateria"].forEach(id => {
+    const el = $(id);
+    if (el) el.innerHTML = "";
+  });
+
+  const vacio = materiasLista.length === 0;
+  const textoBase = vacio ? "Sin materias" : "Selecciona una materia";
+
+  $("searchEstudianteMateria").add(new Option("Todas las materias", "todas"));
+  $("editEstAddMateria").add(new Option("Selecciona materia a añadir", ""));
+  $("materiaLista").add(new Option(textoBase, ""));
+  $("materiaSelect").add(new Option(textoBase, ""));
+  if ($("csvMateria")) $("csvMateria").add(new Option("No asignar a ninguna materia", ""));
+
+  materiasLista.forEach(m => {
+    $("materiaLista").add(new Option(m.nombre, m.id));
+    $("materiaSelect").add(new Option(m.nombre, m.id));
+    $("searchEstudianteMateria").add(new Option(m.nombre, m.id));
+    $("editEstAddMateria").add(new Option(m.nombre, m.id));
+    if ($("csvMateria")) $("csvMateria").add(new Option(`Asignar a: ${m.nombre}`, m.id));
+  });
+}
+
+// Selects de historial, reportes y dashboard
+function cargarMateriasEnReportes() {
+  const esAdmin = currentUserRole === "admin";
+
+  // Historial: el admin puede ver todas; un docente siempre ve una materia concreta
+  const hist = $("materiaHistorial");
+  if (hist) {
+    hist.innerHTML = "";
+    if (esAdmin) hist.add(new Option("Todas las materias", ""));
+    else if (materiasLista.length === 0) hist.add(new Option("Sin materias", ""));
+    materiasLista.forEach(m => hist.add(new Option(m.nombre, m.id)));
+  }
+
+  ["materiaReporte", "dashboardMateria"].forEach(id => {
+    const select = $(id);
+    if (!select) return;
+    select.innerHTML = "";
+    select.add(new Option(esAdmin ? "Todas las materias" : "Todas mis materias", "todas"));
+    materiasLista.forEach(m => select.add(new Option(m.nombre, m.id)));
+  });
+}
+
+// Pinta el listado desde la memoria (no consulta Firestore)
+function listarMaterias() {
+  const ul = $("listaMateriasUl");
+  ul.innerHTML = "";
+
+  if (materiasLista.length === 0) {
+    ul.innerHTML = "<li>No hay materias registradas.</li>";
+    return;
+  }
+
+  materiasLista.forEach(m => {
+    const li = document.createElement("li");
+    const docentes = (m.profesores || []).map(uid => {
+      const u = usuariosMap[uid];
+      return u ? (u.nombre || u.email) : "cuenta desconocida";
+    });
+    li.innerHTML = `<strong>${esc(m.nombre)}</strong><br><small>Docentes: ${esc(docentes.length ? docentes.join(", ") : "ninguno")}</small><br>`;
+
+    if (currentUserRole === "admin") {
+      const btnEdit = document.createElement("button");
+      btnEdit.className = "small";
+      btnEdit.textContent = "Editar";
+      btnEdit.onclick = () => abrirEditarMateria(m.id, m.nombre);
+
+      const btnDel = document.createElement("button");
+      btnDel.className = "small danger";
+      btnDel.textContent = "Eliminar";
+      btnDel.onclick = () => eliminarMateria(m.id);
+
+      const btnDoc = document.createElement("button");
+      btnDoc.className = "small secondary";
+      btnDoc.textContent = "Docentes";
+      btnDoc.onclick = () => abrirDocentesMateria(m.id);
+
+      li.appendChild(btnDoc);
+      li.appendChild(btnEdit);
+      li.appendChild(btnDel);
+    }
+
+    ul.appendChild(li);
+  });
+}
+
+async function crearMateria() {
+  if (currentUserRole !== "admin") return showMessage("Solo un admin puede crear materias.", "error");
+  if (!validarMateriaCampos()) return;
+  const nombre = normalizarTexto($("materiaNombre").value);
+
+  if (materiasLista.some(m => m.nombre.toLowerCase() === nombre.toLowerCase())) {
+    showFieldError("materiaNombre", "Ya existe esta materia.");
+    return showMessage("Ya existe una materia con ese nombre.", "error");
+  }
+
+  try {
+    await db.collection("materias").add({ nombre, profesores: [], creadoEn: serverTs(), creadoPor: auth.currentUser.email });
+    showMessage("Materia creada.", "success");
+    limpiarInput("materiaNombre");
+    clearFieldError("materiaNombre");
+    await cargarMaterias();
+  } catch (error) {
+    showMessage("Error: " + traducirErrorFirebase(error), "error");
+  }
+}
+
+function abrirEditarMateria(id, nombre) {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
+  clearFieldError("editMatNombre");
+  $("editMatId").value = id;
+  $("editMatNombre").value = nombre;
+  $("editMateriaModal").style.display = "block";
+}
+
+function cerrarEditMateriaModal() {
+  $("editMateriaModal").style.display = "none";
+}
+
+async function guardarEdicionMateria() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
+  clearFieldError("editMatNombre");
+  const id = $("editMatId").value;
+  const nuevoNombre = normalizarTexto($("editMatNombre").value);
+
+  if (!validarMateria(nuevoNombre)) {
+    return showFieldError("editMatNombre", "Nombre inválido.");
+  }
+
+  const duplicada = materiasLista.some(m => m.id !== id && m.nombre.toLowerCase() === nuevoNombre.toLowerCase());
+  if (duplicada) {
+    return showFieldError("editMatNombre", "Ya existe una materia con ese nombre.");
+  }
+
+  try {
+    await db.collection("materias").doc(id).update({ nombre: nuevoNombre });
+    showMessage("Materia actualizada.", "success");
+    cerrarEditMateriaModal();
+    await cargarMaterias();
+    if (cacheEst.ts) buscarEstudiantes();
+  } catch (e) {
+    showMessage("Error actualizando: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+async function eliminarMateria(id) {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede eliminar.", "error");
+
+  const password = await pedirPassword();
+  if (!password) return;
+
+  try {
+    await reautenticar(password);
+  } catch (e) {
+    return showMessage("Contraseña incorrecta.", "error");
+  }
+
+  try {
+    const relSnap = await db.collection("materia_estudiante").where("materiaId", "==", id).get();
+    const refs = relSnap.docs.map(d => d.ref);
+    refs.push(db.collection("materias").doc(id));
+    await borrarEnLotes(refs);
+
+    invalidarCacheEstudiantes();
+    showMessage("Materia y asignaciones eliminadas. El historial de asistencias se conserva.", "success");
+    await cargarMaterias();
+  } catch (e) {
+    showMessage("Error al eliminar: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+// ===============================
+// ESTUDIANTES
+// ===============================
+
+function invalidarCacheEstudiantes() {
+  cacheEst.ts = 0;
+}
+
+async function cargarCacheEstudiantes(force = false) {
+  const vigente = cacheEst.ts && (Date.now() - cacheEst.ts) < CACHE_TTL_MS;
+  if (!force && vigente) return;
+
+  const [estSnap, relSnap] = await Promise.all([
+    db.collection("estudiantes").get(),
+    db.collection("materia_estudiante").get()
+  ]);
+
+  cacheEst.estudiantes = estSnap.docs.map(d => d.data());
+  cacheEst.relaciones = relSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  cacheEst.ts = Date.now();
+}
+
+async function crearEstudiante() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede crear.", "error");
+  if (!validarEstudianteCampos()) return;
+
+  const cedula = $("cedula").value.trim();
+  const nombres = normalizarTexto($("nombres").value);
+  const apellidos = normalizarTexto($("apellidos").value);
+
+  try {
+    const ref = db.collection("estudiantes").doc(cedula);
+    const ex = await ref.get();
+    if (ex.exists) {
+      showFieldError("cedula", "Ya existe.");
+      return showMessage("Ya existe esta cédula.", "error");
+    }
+    await ref.set({ cedula, nombres, apellidos, creadoEn: serverTs() });
+    showMessage("Estudiante creado.", "success");
+    limpiarInput("cedula"); limpiarInput("nombres"); limpiarInput("apellidos");
+    clearFields(["cedula", "nombres", "apellidos"]);
+    invalidarCacheEstudiantes();
+    buscarEstudiantes();
+  } catch (e) {
+    showMessage("Error: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+async function buscarEstudiantes() {
+  const texto = normalizarTexto($("searchEstudianteText").value).toLowerCase();
+  const materiaId = $("searchEstudianteMateria").value || "todas";
+
+  try {
+    await cargarCacheEstudiantes();
+
+    const materiasPorCedula = {};
+    const cedulasDeMateria = new Set();
+    cacheEst.relaciones.forEach(r => {
+      const nombre = materiasMap[r.materiaId];
+      if (nombre) {
+        if (!materiasPorCedula[r.cedula]) materiasPorCedula[r.cedula] = new Set();
+        materiasPorCedula[r.cedula].add(nombre);
+      }
+      if (materiaId !== "todas" && r.materiaId === materiaId) cedulasDeMateria.add(r.cedula);
+    });
+
+    const ul = $("listaEstudiantes");
+    ul.innerHTML = "";
+    let mostrados = 0;
+
+    const ordenados = [...cacheEst.estudiantes].sort((a, b) => a.apellidos.localeCompare(b.apellidos));
+
+    const esAdmin = currentUserRole === "admin";
+
+    ordenados.forEach(est => {
+      if (materiaId !== "todas" && !cedulasDeMateria.has(est.cedula)) return;
+      // El docente solo ve estudiantes de sus propias materias
+      if (!esAdmin && !materiasPorCedula[est.cedula]) return;
+
+      const nombreCompleto = `${est.nombres} ${est.apellidos}`;
+      const coincide = !texto || est.cedula.includes(texto) || nombreCompleto.toLowerCase().includes(texto);
+      if (!coincide) return;
+
+      mostrados++;
+      const mats = materiasPorCedula[est.cedula] ? Array.from(materiasPorCedula[est.cedula]).join(", ") : "Ninguna";
+
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <strong>${esc(est.cedula)}</strong><br>
+        ${esc(nombreCompleto)}<br>
+        <small class="acento">Materias: ${esc(mats)}</small><br>
+      `;
+
+      const btnQr = document.createElement("button");
+      btnQr.className = "small secondary";
+      btnQr.textContent = "QR";
+      btnQr.onclick = () => mostrarQR(est.cedula, nombreCompleto);
+      li.appendChild(btnQr);
+
+      if (esAdmin) {
+
+        const btnEd = document.createElement("button");
+        btnEd.className = "small";
+        btnEd.textContent = "Editar";
+        btnEd.onclick = () => abrirEditarEstudiante(est.cedula);
+
+        const btnDe = document.createElement("button");
+        btnDe.className = "small danger";
+        btnDe.textContent = "Eliminar";
+        btnDe.onclick = () => eliminarEstudiante(est.cedula);
+
+        li.appendChild(btnEd);
+        li.appendChild(btnDe);
+      }
+
+      ul.appendChild(li);
+    });
+
+    if (mostrados === 0) {
+      ul.innerHTML = "<li>No se encontraron estudiantes.</li>";
+    }
+  } catch (error) {
+    showMessage("Error al buscar estudiantes: " + traducirErrorFirebase(error), "error");
+  }
+}
+
+// ===============================
+// EDICIÓN / ELIMINACIÓN DE ESTUDIANTE
+// ===============================
+
+async function abrirEditarEstudiante(cedula) {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
+  clearFields(["editEstNombres", "editEstApellidos"]);
+
+  try {
+    const doc = await db.collection("estudiantes").doc(cedula).get();
+    if (!doc.exists) return showMessage("El estudiante no existe.", "error");
+
+    const data = doc.data();
+    $("editEstCedula").value = data.cedula;
+    $("editEstNombres").value = data.nombres;
+    $("editEstApellidos").value = data.apellidos;
+
+    const snap = await db.collection("materia_estudiante").where("cedula", "==", cedula).get();
+    relacionesOriginales = snap.docs.map(d => ({ id: d.id, materiaId: d.data().materiaId }));
+    tempMateriasEstudiante = Array.from(new Set(relacionesOriginales.map(r => r.materiaId)));
+
+    actualizarUIEditMateriasEst();
+    $("editStudentModal").style.display = "block";
+  } catch (e) {
+    showMessage("Error: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+function cerrarEditStudentModal() {
+  $("editStudentModal").style.display = "none";
+}
+
+function actualizarUIEditMateriasEst() {
+  const ul = $("editEstMateriasList");
+  ul.innerHTML = "";
+
+  if (tempMateriasEstudiante.length === 0) {
+    ul.innerHTML = "<li><small>Ninguna materia asignada.</small></li>";
+    return;
+  }
+
+  tempMateriasEstudiante.forEach(matId => {
+    const li = document.createElement("li");
+
+    const span = document.createElement("span");
+    span.textContent = materiasMap[matId] || "Materia desconocida";
+
+    const btn = document.createElement("button");
+    btn.className = "small danger";
+    btn.textContent = "X";
+    btn.onclick = () => removerTempMateria(matId);
+
+    li.appendChild(span);
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
+
+function removerTempMateria(matId) {
+  tempMateriasEstudiante = tempMateriasEstudiante.filter(id => id !== matId);
+  actualizarUIEditMateriasEst();
+}
+
+function addMateriaToEditEst() {
+  const matId = $("editEstAddMateria").value;
+  if (!matId) return;
+  if (tempMateriasEstudiante.includes(matId)) {
+    return showMessage("Ya tiene asignada esta materia.", "error");
+  }
+  tempMateriasEstudiante.push(matId);
+  $("editEstAddMateria").value = "";
+  actualizarUIEditMateriasEst();
+}
+
+async function guardarEdicionEstudiante() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
+  clearFields(["editEstNombres", "editEstApellidos"]);
+  const cedula = $("editEstCedula").value;
+  const nombres = normalizarTexto($("editEstNombres").value);
+  const apellidos = normalizarTexto($("editEstApellidos").value);
+
+  if (!validarNombre(nombres)) return showFieldError("editEstNombres", "Nombres inválidos.");
+  if (!validarNombre(apellidos)) return showFieldError("editEstApellidos", "Apellidos inválidos.");
+
+  try {
+    const batch = db.batch();
+    batch.update(db.collection("estudiantes").doc(cedula), { nombres, apellidos });
+
+    // Solo se tocan las asignaciones que cambian (quitar las que sobran, crear las nuevas)
+    const quedan = new Set(tempMateriasEstudiante);
+    const yaExisten = new Set(relacionesOriginales.map(r => r.materiaId));
+
+    relacionesOriginales.forEach(r => {
+      if (!quedan.has(r.materiaId)) {
+        batch.delete(db.collection("materia_estudiante").doc(r.id));
+      }
+    });
+
+    tempMateriasEstudiante.forEach(matId => {
+      if (!yaExisten.has(matId)) {
+        batch.set(db.collection("materia_estudiante").doc(`${cedula}_${matId}`), {
+          cedula,
+          materiaId: matId,
+          creadoEn: serverTs(),
+          creadoPor: auth.currentUser.email
+        });
+      }
+    });
+
+    await batch.commit();
+    showMessage("Estudiante actualizado exitosamente.", "success");
+    cerrarEditStudentModal();
+    invalidarCacheEstudiantes();
+    buscarEstudiantes();
+  } catch (e) {
+    showMessage("Error al guardar: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+async function eliminarEstudiante(cedula) {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede eliminar.", "error");
+
+  const password = await pedirPassword();
+  if (!password) return;
+
+  try {
+    await reautenticar(password);
+  } catch (e) {
+    return showMessage("Contraseña incorrecta.", "error");
+  }
+
+  try {
+    const matSnap = await db.collection("materia_estudiante").where("cedula", "==", cedula).get();
+    const refs = matSnap.docs.map(d => d.ref);
+    refs.push(db.collection("estudiantes").doc(cedula));
+    await borrarEnLotes(refs);
+
+    invalidarCacheEstudiantes();
+    showMessage("Estudiante eliminado. Su historial de asistencias se conserva.", "success");
+    buscarEstudiantes();
+  } catch (e) {
+    showMessage("Error al eliminar: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+// ===============================
+// EXPORTACIÓN DE CARNET QR
+// ===============================
+
+async function exportarQRPNG() {
+  const exportArea = $("qrExportArea");
+  const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  try {
+    const canvas = await html2canvas(exportArea, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      onclone: (doc) => {
+        const c = doc.querySelector('#qrCanvas');
+        c.getContext('2d', { willReadFrequently: true });
+      }
+    });
+
+    const link = document.createElement("a");
+    link.download = `Carnet_${cedulaStr}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    showMessage("Imagen PNG descargada.", "success");
+  } catch (error) {
+    showMessage("Error al exportar PNG.", "error");
+  }
+}
+
+async function exportarQRPDF() {
+  const exportArea = $("qrExportArea");
+  const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  try {
+    const canvas = await html2canvas(exportArea, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      onclone: (doc) => {
+        const c = doc.querySelector('#qrCanvas');
+        c.getContext('2d', { willReadFrequently: true });
+      }
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("portrait", "mm", "a6");
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+    pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+    pdf.save(`Carnet_${cedulaStr}.pdf`);
+    showMessage("Documento PDF descargado.", "success");
+  } catch (error) {
+    showMessage("Error al exportar PDF.", "error");
+  }
+}
+
+function mostrarQR(cedulaValue, nombreCompleto) {
+  $("qrModal").style.display = "block";
+
+  $("qrNombreDisplay").textContent = nombreCompleto || "Estudiante";
+  $("qrCedulaDisplay").textContent = `Cédula: ${cedulaValue}`;
+
+  QRCode.toCanvas($("qrCanvas"), cedulaValue, { width: 250, margin: 2 }, error => {
+    if (error) showMessage("No se pudo generar QR.", "error");
+  });
+}
+
+function cerrarQR() { $("qrModal").style.display = "none"; }
+
+// ===============================
+// ASIGNACIÓN RÁPIDA
+// ===============================
+
+async function asignar() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede asignar.", "error");
+  if (!validarAsignacionCampos()) return;
+  const ced = $("cedulaAsignar").value.trim();
+  const matId = $("materiaSelect").value;
+
+  try {
+    const est = await db.collection("estudiantes").doc(ced).get();
+    if (!est.exists) return showFieldError("cedulaAsignar", "Estudiante no existe.");
+
+    const dup = await db.collection("materia_estudiante")
+      .where("cedula", "==", ced)
+      .where("materiaId", "==", matId)
+      .get();
+    if (!dup.empty) return showMessage("Ya está asignado a esa materia.", "error");
+
+    // ID determinista: evita duplicados aunque se pulse dos veces
+    await db.collection("materia_estudiante").doc(`${ced}_${matId}`).set({
+      cedula: ced,
+      materiaId: matId,
+      creadoEn: serverTs(),
+      creadoPor: auth.currentUser.email
+    });
+
+    showMessage("Asignado correctamente.", "success");
+    limpiarInput("cedulaAsignar");
+    clearFields(["cedulaAsignar", "materiaSelect"]);
+    invalidarCacheEstudiantes();
+  } catch (e) {
+    showMessage("Error: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+// ===============================
+// DOCENTES DE UNA MATERIA (solo admin)
+// ===============================
+
+async function cargarUsuariosCache() {
+  const snap = await db.collection("users").get();
+  usuariosMap = {};
+  snap.forEach(d => { usuariosMap[d.id] = { uid: d.id, ...d.data() }; });
+}
+
+function nombreUsuario(u) {
+  return u.nombre ? `${u.nombre} (${u.email})` : (u.email || u.uid);
+}
+
+function abrirDocentesMateria(materiaId) {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede asignar docentes.", "error");
+  const materia = materiasLista.find(m => m.id === materiaId);
+  if (!materia) return;
+
+  docentesCtx = { materiaId };
+  docentesChecks = [];
+  $("docentesMateriaNombre").textContent = materia.nombre;
+
+  const ul = $("docentesLista");
+  ul.innerHTML = "";
+
+  const docentes = Object.values(usuariosMap)
+    .filter(u => u.role === "profesor")
+    .sort((a, b) => nombreUsuario(a).localeCompare(nombreUsuario(b)));
+
+  if (docentes.length === 0) {
+    ul.innerHTML = "<li><small>No hay docentes. Créalos en Administración.</small></li>";
+  }
+
+  docentes.forEach(u => {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    label.style.cssText = "display:flex; gap:10px; align-items:center; margin:0; font-weight:normal;";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = u.uid;
+    cb.style.width = "auto";
+    cb.style.margin = "0";
+    cb.checked = (materia.profesores || []).includes(u.uid);
+    docentesChecks.push(cb);
+
+    const span = document.createElement("span");
+    span.textContent = nombreUsuario(u);
+
+    label.appendChild(cb);
+    label.appendChild(span);
+    li.appendChild(label);
+    ul.appendChild(li);
+  });
+
+  $("docentesModal").style.display = "block";
+}
+
+function cerrarDocentesModal() {
+  $("docentesModal").style.display = "none";
+  docentesCtx = null;
+  docentesChecks = [];
+}
+
+async function guardarDocentesMateria() {
+  if (currentUserRole !== "admin" || !docentesCtx) return;
+  const uids = docentesChecks.filter(c => c.checked).map(c => c.value);
+
+  try {
+    await db.collection("materias").doc(docentesCtx.materiaId).update({ profesores: uids });
+    showMessage("Docentes actualizados.", "success");
+    cerrarDocentesModal();
+    await cargarMaterias();
+  } catch (e) {
+    showMessage("No se pudieron guardar los docentes: " + traducirErrorFirebase(e), "error");
+  }
+}
