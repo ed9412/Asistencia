@@ -312,6 +312,11 @@ async function mostrar(id) {
     screen.classList.add("active");
   }
 
+  // Marca la opción activa del menú
+  document.querySelectorAll(".navbar button").forEach(b => {
+    b.classList.toggle("activo", b.getAttribute("onclick") === `mostrar('${id}')`);
+  });
+
   // 7. Cargar datos de la sección
   if (id === "estudiantes") {
     buscarEstudiantes();
