@@ -79,7 +79,7 @@ function normalizarEntradaBorrador(e) {
   if (e.length === 3) return { cedula: String(e[0]), estado: "presente", hora: e[1] || "", ts: e[2] || null, motivo: "" };
   return {
     cedula: String(e[0]),
-    estado: ESTADOS[e[1]] && e[1] !== "falta" ? e[1] : "presente",
+    estado: ESTADOS[e[1]] ? e[1] : "presente",
     hora: e[2] || "",
     ts: e[3] || null,
     motivo: e[4] || ""
@@ -139,7 +139,23 @@ function hayCambiosSinGuardar() {
 
 function modoRegistroActual() {
   const v = $("modoRegistro").value;
-  return ESTADOS_ASISTE.includes(v) ? v : "presente";
+  return ["presente", "tardanza", "justificado"].includes(v) ? v : "presente";
+}
+
+// Estado que tiene un estudiante en la lista en curso (sin marca = falta)
+function estadoEnLista(ced) {
+  const m = marcas.get(ced);
+  return m ? m.estado : "falta";
+}
+
+// Un registro ya guardado (no falta) en una fecha anterior solo lo modifica el admin
+function puedeCambiarMarca(ced) {
+  const ex = existentesMap.get(ced);
+  if (ex && estadoDe(ex.data) !== "falta" && !puedeModificarGuardado(listaCtx.fecha)) {
+    showMessage("Esa asistencia ya está guardada en una fecha anterior: solo un administrador puede modificarla.", "error");
+    return false;
+  }
+  return true;
 }
 
 async function iniciarLista(borrador) {
@@ -201,12 +217,15 @@ async function iniciarLista(borrador) {
       marcas.set(ced, { estado, hora: ex.data.hora || "", ts, motivo: ex.data.motivo || "", guardado: true });
     });
 
-    // Restaurar lo escaneado antes de que se cerrara la página
+    // Restaurar lo escaneado (y los cambios) antes de que se cerrara la página
     if (borrador) {
       borrador.entradas.forEach(e => {
-        if (porCedula.has(e.cedula) && !marcas.has(e.cedula)) {
-          marcas.set(e.cedula, { estado: e.estado, hora: e.hora, ts: e.ts, motivo: e.motivo, guardado: false });
-        }
+        if (!porCedula.has(e.cedula)) return;
+        const ex = existentesMap.get(e.cedula);
+        const guardadaNoFalta = ex && estadoDe(ex.data) !== "falta";
+        if (guardadaNoFalta && !puedeModificarGuardado(fecha)) return;
+        if (e.estado === "falta" && !guardadaNoFalta) return;
+        marcas.set(e.cedula, { estado: e.estado, hora: e.hora, ts: e.ts, motivo: e.motivo, guardado: false });
       });
     }
 
@@ -292,8 +311,11 @@ function registrarManual() {
 
 // Todo se valida en memoria: no hace lecturas a Firestore por cada escaneo.
 // El estado (presente o tardanza) lo marca el selector "Registrar como".
+// Todo se valida en memoria: no hace lecturas a Firestore por cada escaneo.
+// El estado lo marca el selector "Registrar como" (presente, tardanza o justificado).
 function registrarAsistencia(ced) {
   clearFieldError("manualCedula");
+  if (correccionCtx) return;   // hay un cuadro de cambio de estado abierto
 
   if (!listaActiva || !listaCtx) {
     beepError();
@@ -314,22 +336,32 @@ function registrarAsistencia(ced) {
   }
 
   const nombre = `${est.nombres} ${est.apellidos}`;
+  const actual = estadoEnLista(ced);
+  const estado = modoRegistroActual();
 
-  if (marcas.has(ced)) {
+  if (actual === estado) {
     beepError();
-    return showMessage(`${nombre} ya figura como ${ESTADOS[marcas.get(ced).estado].texto.toLowerCase()}.`, "error");
+    return showMessage(`${nombre} ya figura como ${ESTADOS[actual].texto.toLowerCase()}.`, "error");
   }
 
-  const estado = modoRegistroActual();
-  const ahora = new Date();
-  marcas.set(ced, { estado, hora: horaTexto(ahora), ts: ahora.getTime(), motivo: "", guardado: false });
+  if (!puedeCambiarMarca(ced)) {
+    beepError();
+    return;
+  }
 
-  beep();
-  refrescarListas();
-  limpiarInput("manualCedula");
-  clearFieldError("manualCedula");
-  guardarBorrador();
-  showMessage(`${ESTADOS[estado].icono} ${nombre}`, "success");
+  // Ya estaba registrado con otro estado: pedir confirmación antes de cambiarlo
+  if (actual !== "falta" &&
+      !confirm(`${nombre} ya figura como ${ESTADOS[actual].texto}.\n\n¿Cambiarlo a ${ESTADOS[estado].texto}?`)) {
+    return;
+  }
+
+  // Justificar necesita un motivo: se pide en el cuadro de cambio de estado
+  if (estado === "justificado") {
+    limpiarInput("manualCedula");
+    return abrirCorreccion({ tipo: "temporal", cedula: ced, nombre, estadoSugerido: "justificado" });
+  }
+
+  aplicarCorreccionTemporal(ced, estado, "", true);
 }
 
 function refrescarListas() {
@@ -358,10 +390,20 @@ function actualizarPresentes() {
 
   // Los últimos en llegar, arriba
   asistentes.reverse().forEach(([ced, m]) => {
+    const nombre = nombreEstudianteLista(ced);
     const li = document.createElement("li");
-    li.innerHTML = `${ESTADOS[m.estado].icono} <strong>${esc(ced)}</strong> · ${esc(ESTADOS[m.estado].texto)}<br>${esc(nombreEstudianteLista(ced))}<br><small>Hora: ${esc(m.hora || "")}</small>`;
+    li.innerHTML = `${ESTADOS[m.estado].icono} <strong>${esc(ced)}</strong> · ${esc(ESTADOS[m.estado].texto)}<br>${esc(nombre)}<br><small>Hora: ${esc(m.hora || "")}</small><br>`;
+    li.appendChild(botonCambiarEstado(ced, nombre));
     ul.appendChild(li);
   });
+}
+
+function botonCambiarEstado(ced, nombre, texto = "Cambiar estado") {
+  const btn = document.createElement("button");
+  btn.className = "small secondary";
+  btn.textContent = texto;
+  btn.onclick = () => abrirCorreccion({ tipo: "temporal", cedula: ced, nombre });
+  return btn;
 }
 
 function actualizarJustificados() {
@@ -378,8 +420,10 @@ function actualizarJustificados() {
   }
 
   justificados.forEach(([ced, m]) => {
+    const nombre = nombreEstudianteLista(ced);
     const li = document.createElement("li");
-    li.innerHTML = `${ESTADOS.justificado.icono} <strong>${esc(ced)}</strong><br>${esc(nombreEstudianteLista(ced))}<br><small>Motivo: ${esc(m.motivo || "")}</small>`;
+    li.innerHTML = `${ESTADOS.justificado.icono} <strong>${esc(ced)}</strong><br>${esc(nombre)}<br><small>Motivo: ${esc(m.motivo || "")}</small><br>`;
+    li.appendChild(botonCambiarEstado(ced, nombre));
     ul.appendChild(li);
   });
 }
@@ -387,7 +431,7 @@ function actualizarJustificados() {
 function actualizarFaltantes() {
   const ul = $("faltantes");
   ul.innerHTML = "";
-  const faltantes = estudiantesMateria.filter(e => !marcas.has(e.cedula));
+  const faltantes = estudiantesMateria.filter(e => estadoEnLista(e.cedula) === "falta");
   $("contFaltantes").textContent = `(${faltantes.length})`;
 
   if (faltantes.length === 0) {
@@ -398,12 +442,15 @@ function actualizarFaltantes() {
   faltantes.forEach(est => {
     const nombre = `${est.nombres} ${est.apellidos}`;
     const li = document.createElement("li");
-    li.innerHTML = `${ESTADOS.falta.icono} <strong>${esc(est.cedula)}</strong><br>${esc(nombre)}`;
-    const btn = document.createElement("button");
-    btn.className = "secondary";
-    btn.textContent = "Cambiar estado";
-    btn.onclick = () => abrirCorreccion({ tipo: "temporal", cedula: est.cedula, nombre });
-    li.appendChild(btn);
+    li.innerHTML = `${ESTADOS.falta.icono} <strong>${esc(est.cedula)}</strong><br>${esc(nombre)}<br>`;
+
+    const btnJust = document.createElement("button");
+    btnJust.className = "small";
+    btnJust.textContent = "📝 Justificar";
+    btnJust.onclick = () => abrirCorreccion({ tipo: "temporal", cedula: est.cedula, nombre, estadoSugerido: "justificado" });
+
+    li.appendChild(btnJust);
+    li.appendChild(botonCambiarEstado(est.cedula, nombre));
     ul.appendChild(li);
   });
 }
@@ -412,7 +459,7 @@ function actualizarFaltantes() {
 //  - estudiante sin registro previo                    -> crear (con su estado, o "falta")
 //  - figuraba como falta y ahora tiene otro estado     -> actualizar
 //  - cualquier otro caso                               -> no tocar (no se sobrescribe nada)
-function calcularOperacionesLista({ estudiantes, marcas, existentes, ctx, profesor, marcaServidor, aTimestamp }) {
+function calcularOperacionesLista({ estudiantes, marcas, existentes, ctx, profesor, profesorNombre, marcaServidor, aTimestamp, borrarCampo }) {
   const ops = [];
 
   estudiantes.forEach(est => {
@@ -421,9 +468,11 @@ function calcularOperacionesLista({ estudiantes, marcas, existentes, ctx, profes
     const asiste = ESTADOS_ASISTE.includes(estado);
     const hora = asiste ? ((m && m.hora) || horaTexto()) : null;
     const horaTs = asiste && m && m.ts ? aTimestamp(m.ts) : null;
+    const motivo = estado === "justificado" && m ? (m.motivo || "") : "";
     const ex = existentes.get(est.cedula);
 
     if (!ex) {
+      // Sin registro previo: se crea (con su estado, o "falta")
       const data = {
         cedula: est.cedula,
         nombres: est.nombres,
@@ -436,13 +485,32 @@ function calcularOperacionesLista({ estudiantes, marcas, existentes, ctx, profes
         hora,
         horaTs,
         profesor,
+        profesorNombre,
         actualizadoEn: marcaServidor
       };
-      if (estado === "justificado" && m.motivo) data.motivo = m.motivo;
+      if (motivo) data.motivo = motivo;
       ops.push({ tipo: "set", id: `${est.cedula}_${ctx.fecha}_${ctx.materiaId}`, data });
-    } else if (estadoDe(ex.data) === "falta" && estado !== "falta") {
-      const data = { estado, presente: asiste, hora, horaTs, actualizadoEn: marcaServidor };
-      if (estado === "justificado" && m.motivo) data.motivo = m.motivo;
+      return;
+    }
+
+    const exEstado = estadoDe(ex.data);
+
+    if (exEstado === "falta") {
+      // Figuraba como falta y ahora tiene otro estado: lo registró quien pasa la lista
+      if (estado !== "falta") {
+        const data = { estado, presente: asiste, hora, horaTs, actualizadoEn: marcaServidor, profesor, profesorNombre };
+        if (motivo) data.motivo = motivo;
+        ops.push({ tipo: "update", id: ex.id, data });
+      }
+    } else if (estado !== exEstado || (estado === "justificado" && motivo !== (ex.data.motivo || ""))) {
+      // Corrección de algo ya guardado: queda marcada como corregida
+      const data = {
+        estado, presente: asiste, hora, horaTs,
+        actualizadoEn: marcaServidor,
+        corregido: true, corregidoPor: profesor, corregidoEn: marcaServidor
+      };
+      if (estado === "justificado") data.motivo = motivo;
+      else if (ex.data.motivo !== undefined) data.motivo = borrarCampo();
       ops.push({ tipo: "update", id: ex.id, data });
     }
   });
@@ -463,8 +531,10 @@ async function cerrarLista() {
       existentes: existentesMap,
       ctx: listaCtx,
       profesor: auth.currentUser.email,
+      profesorNombre: nombreActor(),
       marcaServidor: serverTs(),
-      aTimestamp: ms => firebase.firestore.Timestamp.fromMillis(ms)
+      aTimestamp: ms => firebase.firestore.Timestamp.fromMillis(ms),
+      borrarCampo: () => firebase.firestore.FieldValue.delete()
     });
 
     // Resumen del día (conteos finales) para el dashboard
@@ -503,27 +573,30 @@ async function cerrarLista() {
 }
 
 // ===============================
-// CORRECCIÓN DE ESTADO (modal con motivo y contraseña)
+// CORRECCIÓN DE ESTADO (en la lista en curso basta confirmar; sobre lo guardado, con contraseña)
 // ===============================
 
 // ctx: { tipo: "temporal" (lista en curso) | "historial" (registro ya guardado), cedula, docId, nombre, estadoActual }
 function abrirCorreccion(ctx) {
-  const esAdmin = currentUserRole === "admin";
-  correccionCtx = ctx;
+  if (ctx.tipo === "temporal" && !puedeCambiarMarca(ctx.cedula)) return;
 
-  // Un docente solo corrige faltas hacia presente, tardanza o justificado.
-  // El admin puede dejar un registro guardado en cualquiera de los 4 estados.
-  const opciones = (ctx.tipo === "historial" && esAdmin)
-    ? ["presente", "tardanza", "justificado", "falta"]
-    : ["presente", "tardanza", "justificado"];
+  correccionCtx = ctx;
+  const actual = ctx.estadoActual || (ctx.tipo === "temporal" ? estadoEnLista(ctx.cedula) : "falta");
+  ctx.estadoActual = actual;
 
   $("correccionAlumno").textContent = ctx.nombre || "";
 
   const sel = $("correccionEstado");
   sel.innerHTML = "";
-  opciones.forEach(e => sel.add(new Option(`${ESTADOS[e].icono} ${ESTADOS[e].texto}`, e)));
-  const sugerido = opciones.find(e => e !== ctx.estadoActual) || opciones[0];
-  sel.value = sugerido;
+  ["presente", "tardanza", "justificado", "falta"].forEach(e => {
+    sel.add(new Option(`${ESTADOS[e].icono} ${ESTADOS[e].texto}${e === actual ? " (actual)" : ""}`, e));
+  });
+  sel.value = (ctx.estadoSugerido && ctx.estadoSugerido !== actual)
+    ? ctx.estadoSugerido
+    : (["presente", "tardanza", "justificado"].find(e => e !== actual) || "presente");
+
+  // En la lista en curso basta con confirmar; sobre un registro guardado se pide la contraseña
+  $("correccionPasswordBloque").style.display = ctx.tipo === "historial" ? "block" : "none";
 
   $("correccionMotivo").value = "";
   $("correccionPassword").value = "";
@@ -540,6 +613,8 @@ async function confirmarCorreccion() {
   if (!correccionCtx) return;
   clearFields(["correccionMotivo", "correccionPassword"]);
 
+  const ctx = correccionCtx;
+  const pideClave = ctx.tipo === "historial";
   const estado = $("correccionEstado").value;
   const motivo = normalizarTexto($("correccionMotivo").value);
   const password = $("correccionPassword").value;
@@ -554,49 +629,70 @@ async function confirmarCorreccion() {
     showFieldError("correccionMotivo", `Máximo ${MOTIVO_MAX} caracteres.`);
     ok = false;
   }
-  if (!password) {
+  if (pideClave && !password) {
     showFieldError("correccionPassword", "Ingresa tu contraseña.");
     ok = false;
   }
   if (!ok) return;
 
-  try {
-    await reautenticar(password);
-  } catch (e) {
-    return showFieldError("correccionPassword", "Contraseña incorrecta.");
+  if (estado === ctx.estadoActual && estado !== "justificado") {
+    cerrarCorreccion();
+    return showMessage("Sin cambios.", "info");
   }
 
-  const ctx = correccionCtx;
+  if (pideClave) {
+    try {
+      await reautenticar(password);
+    } catch (e) {
+      return showFieldError("correccionPassword", "Contraseña incorrecta.");
+    }
+  }
+
   cerrarCorreccion();
 
   if (ctx.tipo === "temporal") aplicarCorreccionTemporal(ctx.cedula, estado, motivo);
-  else await aplicarCorreccionHistorial(ctx.docId, estado, motivo, ctx.materia, ctx.fecha);
+  else await aplicarCorreccionHistorial(ctx, estado, motivo);
 }
 
-function aplicarCorreccionTemporal(cedula, estado, motivo) {
+function aplicarCorreccionTemporal(cedula, estado, motivo, conSonido = false) {
   const ahora = new Date();
   const asiste = ESTADOS_ASISTE.includes(estado);
-  marcas.set(cedula, {
-    estado,
-    hora: asiste ? horaTexto(ahora) : "",
-    ts: asiste ? ahora.getTime() : null,
-    motivo: estado === "justificado" ? motivo : "",
-    guardado: false
-  });
+  const previa = marcas.get(cedula);
+  const ex = existentesMap.get(cedula);
+  const guardadaNoFalta = !!ex && estadoDe(ex.data) !== "falta";
+
+  if (estado === "falta") {
+    // Quitar la marca; si ya estaba guardada con otro estado hay que dejarla anotada como falta
+    if (guardadaNoFalta) marcas.set(cedula, { estado: "falta", hora: "", ts: null, motivo: "", guardado: false });
+    else marcas.delete(cedula);
+  } else {
+    // Pasar de presente a tardanza (o al revés) conserva la hora original
+    const conservaHora = asiste && previa && ESTADOS_ASISTE.includes(previa.estado) && previa.hora;
+    marcas.set(cedula, {
+      estado,
+      hora: asiste ? (conservaHora ? previa.hora : horaTexto(ahora)) : "",
+      ts: asiste ? (conservaHora ? previa.ts : ahora.getTime()) : null,
+      motivo: estado === "justificado" ? motivo : "",
+      guardado: false
+    });
+  }
+
+  if (conSonido) beep();
   refrescarListas();
+  limpiarInput("manualCedula");
+  clearFieldError("manualCedula");
   guardarBorrador();
-  showMessage(`${ESTADOS[estado].icono} Estado actualizado.`, "success");
+  showMessage(`${ESTADOS[estado].icono} ${nombreEstudianteLista(cedula)}`, "success");
 }
 
-async function aplicarCorreccionHistorial(docId, estado, motivo, materiaId, fecha) {
+// ctx: { docId, materia, fecha, estadoActual, ... }
+async function aplicarCorreccionHistorial(ctx, estado, motivo) {
   const ahora = new Date();
   const asiste = ESTADOS_ASISTE.includes(estado);
 
   const datos = {
     estado,
     presente: asiste,
-    hora: asiste ? horaTexto(ahora) : null,
-    horaTs: asiste ? firebase.firestore.Timestamp.fromMillis(ahora.getTime()) : null,
     motivo: estado === "justificado" ? motivo : firebase.firestore.FieldValue.delete(),
     corregido: true,
     corregidoPor: auth.currentUser.email,
@@ -604,14 +700,23 @@ async function aplicarCorreccionHistorial(docId, estado, motivo, materiaId, fech
     actualizadoEn: serverTs()
   };
 
+  if (!asiste) {
+    datos.hora = null;
+    datos.horaTs = null;
+  } else if (!ESTADOS_ASISTE.includes(ctx.estadoActual)) {
+    // Antes no había asistido: la hora es la de la corrección. Si ya había asistido, se conserva.
+    datos.hora = horaTexto(ahora);
+    datos.horaTs = firebase.firestore.Timestamp.fromMillis(ahora.getTime());
+  }
+
   try {
-    await db.collection("asistencias").doc(docId).update(datos);
+    await db.collection("asistencias").doc(ctx.docId).update(datos);
     showMessage("Registro actualizado.", "success");
-    if (materiaId && fecha) {
-      try { await recalcularResumenDia(materiaId, fecha); }
+    if (ctx.materia && ctx.fecha) {
+      try { await recalcularResumenDia(ctx.materia, ctx.fecha); }
       catch (e) { showMessage("El registro se guardó, pero no se pudo actualizar el resumen del dashboard.", "info"); }
     }
-    cargarHistorial(true);
+    if (typeof refrescarDetalleHistorial === "function") await refrescarDetalleHistorial();
   } catch (e) {
     showMessage("No se pudo actualizar: " + traducirErrorFirebase(e), "error");
   }

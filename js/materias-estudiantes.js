@@ -58,12 +58,11 @@ function renderSelectsMaterias() {
 function cargarMateriasEnReportes() {
   const esAdmin = currentUserRole === "admin";
 
-  // Historial: el admin puede ver todas; un docente siempre ve una materia concreta
+  // Historial: todas las materias a las que se tiene acceso, o una en concreto
   const hist = $("materiaHistorial");
   if (hist) {
     hist.innerHTML = "";
-    if (esAdmin) hist.add(new Option("Todas las materias", ""));
-    else if (materiasLista.length === 0) hist.add(new Option("Sin materias", ""));
+    hist.add(new Option(esAdmin ? "Todas las materias" : "Todas mis materias", ""));
     materiasLista.forEach(m => hist.add(new Option(m.nombre, m.id)));
   }
 
@@ -362,7 +361,21 @@ function cerrarEditStudentModal() {
   $("editStudentModal").style.display = "none";
 }
 
+// Opciones del desplegable «Añadir nueva materia»: solo las que el estudiante aún no tiene
+function opcionesMateriasSinAsignar(yaAsignadas) {
+  return materiasLista.filter(m => !yaAsignadas.includes(m.id));
+}
+
+function refrescarSelectMateriasEdit() {
+  const sel = $("editEstAddMateria");
+  sel.innerHTML = "";
+  const libres = opcionesMateriasSinAsignar(tempMateriasEstudiante);
+  sel.add(new Option(libres.length ? "Selecciona materia a añadir" : "Ya tiene todas las materias", ""));
+  libres.forEach(m => sel.add(new Option(m.nombre, m.id)));
+}
+
 function actualizarUIEditMateriasEst() {
+  refrescarSelectMateriasEdit();
   const ul = $("editEstMateriasList");
   ul.innerHTML = "";
 
@@ -548,6 +561,26 @@ function cerrarQR() { $("qrModal").style.display = "none"; }
 // ASIGNACIÓN RÁPIDA
 // ===============================
 
+// En la asignación rápida, al escribir la cédula solo se ofrecen las materias que aún no tiene
+async function filtrarMateriasAsignar() {
+  const sel = $("materiaSelect");
+  const ced = ($("cedulaAsignar").value || "").trim();
+  let yaAsignadas = [];
+
+  if (validarCedula(ced)) {
+    try {
+      await cargarCacheEstudiantes();
+      yaAsignadas = cacheEst.relaciones.filter(r => r.cedula === ced).map(r => r.materiaId);
+    } catch (e) { /* sin caché: se muestran todas */ }
+  }
+
+  sel.innerHTML = "";
+  const libres = opcionesMateriasSinAsignar(yaAsignadas);
+  const vacio = materiasLista.length === 0;
+  sel.add(new Option(vacio ? "Sin materias" : (libres.length ? "Selecciona una materia" : "Ya tiene todas las materias"), ""));
+  libres.forEach(m => sel.add(new Option(m.nombre, m.id)));
+}
+
 async function asignar() {
   if (currentUserRole !== "admin") return showMessage("Solo admin puede asignar.", "error");
   if (!validarAsignacionCampos()) return;
@@ -576,6 +609,7 @@ async function asignar() {
     limpiarInput("cedulaAsignar");
     clearFields(["cedulaAsignar", "materiaSelect"]);
     invalidarCacheEstudiantes();
+    await filtrarMateriasAsignar();
   } catch (e) {
     showMessage("Error: " + traducirErrorFirebase(e), "error");
   }

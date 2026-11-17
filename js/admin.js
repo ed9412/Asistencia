@@ -84,8 +84,26 @@ async function crearDocente() {
   cargarUsuarios();
 }
 
+async function guardarMiNombre() {
+  clearFieldError("miNombre");
+  const nombre = normalizarTexto($("miNombre").value);
+  if (!validarNombre(nombre) || nombre.length > 80) {
+    return showFieldError("miNombre", "Solo letras y espacios (2 a 80 caracteres).");
+  }
+  try {
+    await db.collection("users").doc(auth.currentUser.uid).update({ nombre });
+    currentUserNombre = nombre;
+    if (usuariosMap[auth.currentUser.uid]) usuariosMap[auth.currentUser.uid].nombre = nombre;
+    showMessage("Nombre guardado.", "success");
+    cargarUsuarios();
+  } catch (e) {
+    showMessage("No se pudo guardar el nombre: " + traducirErrorFirebase(e), "error");
+  }
+}
+
 async function cargarUsuarios() {
   if (currentUserRole !== "admin") return;
+  $("miNombre").value = currentUserNombre;
   const ul = $("listaUsuarios");
   ul.innerHTML = "<li>Cargando...</li>";
 
