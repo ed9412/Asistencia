@@ -922,37 +922,57 @@ async function iniciarLista() {
   const materiaId = $("materiaLista").value;
   const fechaSeleccionada = $("fechaLista").value;
   
-  // Obtener el nombre visible de la materia seleccionada
   const comboMateria = $("materiaLista");
   const materiaNombre = comboMateria.options[comboMateria.selectedIndex].text;
 
+  // 1. Referencia al botón para manejar la animación
+  const btnIniciar = $("btnIniciarLista");
+
   try {
+    // 2. Activar estado de carga en la UI
+    btnIniciar.disabled = true;
+    btnIniciar.innerHTML = `Cargando estudiantes... <span class="loader"></span>`;
+
     presentesSet.clear(); presentTimes.clear();
     limpiarLista("presentes"); limpiarLista("faltantes");
     estudiantesMateria = [];
+    
     const rel = await db.collection("materia_estudiante").where("materiaId", "==", materiaId).get();
     if (rel.empty) return showMessage("No hay estudiantes asignados.", "error");
     
-    for (const r of rel.docs) {
+    // 3. OPTIMIZACIÓN: Crear un array de promesas para pedir todos los datos al mismo tiempo
+    const promesasEstudiantes = rel.docs.map(r => {
       const ced = r.data().cedula;
-      const doc = await db.collection("estudiantes").doc(ced).get();
+      return db.collection("estudiantes").doc(ced).get();
+    });
+
+    // 4. Ejecutar todas las peticiones a Firestore de forma concurrente
+    const documentosEstudiantes = await Promise.all(promesasEstudiantes);
+
+    // 5. Procesar los resultados una vez que todos llegaron
+    documentosEstudiantes.forEach(doc => {
       if (doc.exists) estudiantesMateria.push(doc.data());
-    }
+    });
+
     if (estudiantesMateria.length === 0) return showMessage("No hay válidos.", "error");
     
-    // 🔹 REPASO DE FORMATO DE FECHA PARA LA INTERFAZ
-    // Usamos la función formatarFechaUI que creamos en el paso anterior
     $("txtMateriaActiva").textContent = materiaNombre;
     $("txtFechaActiva").textContent = formatarFechaUI(fechaSeleccionada);
 
-    // 🔹 INTERCAMBIO DE VISTAS (Esconder selectores y mostrar texto fijo)
     $("formInicioLista").style.display = "none";
     $("infoListaActiva").style.display = "block";
     $("zonaLista").style.display = "block";
     
     actualizarPresentes(); actualizarFaltantes();
     showMessage("Lista iniciada.", "success");
-  } catch (e) { showMessage("Error: " + e.message, "error"); }
+
+  } catch (e) { 
+    showMessage("Error al iniciar lista: " + e.message, "error"); 
+  } finally {
+    // 6. Restaurar el botón siempre, incluso si falla la consulta
+    btnIniciar.disabled = false;
+    btnIniciar.innerHTML = "Iniciar lista";
+  }
 }
 
 async function cancelarLista() {
