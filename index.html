@@ -66,6 +66,11 @@
           <option value="todo">Todo el historial</option>
         </select>
 
+        <label>Materia</label>
+        <select id="dashboardMateria" onchange="cargarDashboard(false)">
+          <option value="todas">Todas mis materias</option>
+        </select>
+
         <p id="dashResumen" class="subtitle"></p>
         <canvas id="grafico"></canvas>
         <button onclick="cargarDashboard(true)">Actualizar dashboard</button>
@@ -101,6 +106,12 @@
 
           <div id="reader"></div>
 
+          <label>Registrar lo que escaneo / escribo como</label>
+          <select id="modoRegistro">
+            <option value="presente">✅ Presente</option>
+            <option value="tardanza">⏰ Tardanza</option>
+          </select>
+
           <label>Cédula manual <span class="required">*</span></label>
           <input id="manualCedula" placeholder="Solo números" inputmode="numeric" />
           <small id="error-manualCedula" class="field-error"></small>
@@ -109,6 +120,9 @@
 
           <h4>Presentes <span id="contPresentes"></span></h4>
           <ul id="presentes"></ul>
+
+          <h4>Justificados <span id="contJustificados"></span></h4>
+          <ul id="justificados"></ul>
 
           <h4>Faltantes <span id="contFaltantes"></span></h4>
           <ul id="faltantes"></ul>
@@ -189,6 +203,9 @@
       <div class="card">
         <h2>📅 Historial</h2>
 
+        <label>Materia</label>
+        <select id="materiaHistorial"></select>
+
         <div style="display: flex; gap: 12px; margin-top: 10px;">
           <div style="flex: 1;">
             <label style="margin-top: 0;">Fecha de inicio</label>
@@ -246,7 +263,7 @@
     <section id="alertasScreen" class="screen">
       <div class="card">
         <h2>🚨 Alertas de inasistencia</h2>
-        <p class="subtitle">Estudiantes (por materia) con asistencia por debajo del umbral. Se necesitan al menos 3 registros para generar una alerta.</p>
+        <p class="subtitle">Estudiantes (por materia) con asistencia por debajo del umbral. Se necesitan al menos 3 registros para generar una alerta. Las ausencias justificadas no cuentan en contra.</p>
 
         <label>Periodo a analizar</label>
         <select id="alertasPeriodo">
@@ -274,10 +291,31 @@
       <div class="card">
         <h2>🔐 Administración</h2>
 
-        <p class="subtitle">
-          Crea las cuentas en Firebase Authentication. Cuando una persona inicie sesión por primera vez
-          aparecerá aquí como <strong>pendiente</strong> y podrás asignarle su rol.
-        </p>
+        <h4>Crear docente</h4>
+        <label>Nombre completo <span class="required">*</span></label>
+        <input id="nuevoDocenteNombre" placeholder="Ejemplo: María López" />
+        <small id="error-nuevoDocenteNombre" class="field-error"></small>
+
+        <label>Correo electrónico <span class="required">*</span></label>
+        <input id="nuevoDocenteEmail" type="email" placeholder="docente@correo.com" />
+        <small id="error-nuevoDocenteEmail" class="field-error"></small>
+
+        <label>Contraseña temporal <span class="required">*</span></label>
+        <div style="display:flex; gap:8px;">
+          <input id="nuevoDocentePassword" type="text" placeholder="Mínimo 6 caracteres" autocomplete="off" />
+          <button class="small secondary" type="button" onclick="generarPasswordTemporal()">Generar</button>
+        </div>
+        <small id="error-nuevoDocentePassword" class="field-error"></small>
+
+        <label style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+          <input type="checkbox" id="nuevoDocenteCorreo" style="width:auto;" />
+          Enviarle un correo para que elija su propia contraseña
+        </label>
+
+        <button id="btnCrearDocente" onclick="crearDocente()">Crear docente</button>
+        <p class="subtitle">Después asígnalo a sus materias en Materias &gt; Docentes. Quien se registre por su cuenta aparecerá aquí como <strong>pendiente</strong>.</p>
+
+        <hr />
 
         <h4>Usuarios</h4>
         <ul id="listaUsuarios"></ul>
@@ -351,6 +389,42 @@
           <button onclick="guardarEdicionMateria()">Guardar</button>
           <button class="secondary" onclick="cerrarEditMateriaModal()">Cancelar</button>
        </div>
+    </div>
+
+    <div id="docentesModal" class="modal">
+      <div class="modal-content">
+        <h3>Docentes de la materia</h3>
+        <p id="docentesMateriaNombre" class="subtitle"></p>
+        <ul id="docentesLista" class="compact-list"></ul>
+        <button onclick="guardarDocentesMateria()">Guardar</button>
+        <button class="secondary" onclick="cerrarDocentesModal()">Cancelar</button>
+      </div>
+    </div>
+
+    <div id="correccionModal" class="modal">
+      <div class="modal-content">
+        <h3>Cambiar estado</h3>
+        <p id="correccionAlumno" class="subtitle"></p>
+
+        <label>Nuevo estado</label>
+        <select id="correccionEstado">
+          <option value="presente">✅ Presente</option>
+          <option value="tardanza">⏰ Tardanza</option>
+          <option value="justificado">📝 Justificado</option>
+          <option value="falta">❌ Falta</option>
+        </select>
+
+        <label>Motivo (obligatorio si es justificado)</label>
+        <input id="correccionMotivo" maxlength="200" placeholder="Ejemplo: cita médica" />
+        <small id="error-correccionMotivo" class="field-error"></small>
+
+        <label>Tu contraseña <span class="required">*</span></label>
+        <input type="password" id="correccionPassword" placeholder="Contraseña..." />
+        <small id="error-correccionPassword" class="field-error"></small>
+
+        <button onclick="confirmarCorreccion()">Confirmar</button>
+        <button class="secondary" onclick="cerrarCorreccion()">Cancelar</button>
+      </div>
     </div>
 
     <div id="passwordModal" class="modal">

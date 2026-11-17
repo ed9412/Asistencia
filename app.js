@@ -27,18 +27,33 @@ const HIST_PAGE = 50;                    // registros por página en el historia
 const MIN_REGISTROS_ALERTA = 3;          // mínimo de clases para considerar una alerta
 const BORRADOR_MAX_MS = 48 * 60 * 60 * 1000;
 
+// Estados de asistencia
+const ESTADOS = {
+  presente:    { texto: "Presente",    icono: "✅" },
+  tardanza:    { texto: "Tardanza",    icono: "⏰" },
+  justificado: { texto: "Justificado", icono: "📝" },
+  falta:       { texto: "Falta",       icono: "❌" }
+};
+const ESTADOS_ASISTE = ["presente", "tardanza"];   // cuentan como asistencia (presente = true)
+const MOTIVO_MIN = 3;
+const MOTIVO_MAX = 200;
+
+// Política del porcentaje de asistencia:
+//   false -> las faltas justificadas NO cuentan en contra (se excluyen del total)
+//   true  -> cuentan como una falta más
+const JUSTIFICADO_CUENTA_EN_CONTRA = false;
+
 let currentUserRole = null;
 
 // Materias en memoria: una sola consulta alimenta selects, listados y reportes
 let materiasMap = {};      // id -> nombre
-let materiasLista = [];    // [{ id, nombre }] ordenadas por nombre
+let materiasLista = [];    // [{ id, nombre, profesores }] ordenadas por nombre
 
 // Lista de asistencia en curso
 let listaActiva = false;
 let listaCtx = null;                 // { materiaId, materiaNombre, fecha }
 let estudiantesMateria = [];
-let presentesSet = new Set();
-let presentTimes = new Map();        // cedula -> { hora, ts, guardado }
+let marcas = new Map();              // cedula -> { estado, hora, ts, motivo, guardado }
 let existentesMap = new Map();       // cedula -> { id, data } (ya guardados en Firestore)
 let html5QrCode = null;
 let ultimoEscaneo = { codigo: "", ts: 0 };
@@ -60,6 +75,15 @@ let histFiltro = null;
 
 // Último reporte generado (para exportar)
 let resultadosBusquedaActual = [];
+
+// Administración (solo admin)
+let usuariosMap = {};        // uid -> { uid, email, nombre, role }
+let appSecundaria = null;    // segunda app de Firebase: crea cuentas sin cerrar la sesión del admin
+let docentesCtx = null;      // { materiaId } del modal de docentes
+let docentesChecks = [];     // casillas del modal de docentes
+
+// Corrección de estado (modal)
+let correccionCtx = null;    // { tipo: "temporal" | "historial", cedula, docId, nombre }
 
 // ===============================
 // UTILIDADES
@@ -140,6 +164,22 @@ function nombreMateria(registro) {
   return materiasMap[registro.materia] || registro.materiaNombre || registro.materia || "";
 }
 
+// Estado de un registro. Los registros antiguos solo tienen "presente": true/false.
+function estadoDe(registro) {
+  if (registro && ESTADOS[registro.estado]) return registro.estado;
+  return registro && registro.presente ? "presente" : "falta";
+}
+
+// Cuenta estados y calcula el porcentaje de asistencia según la política elegida
+function resumenEstados(registros) {
+  const r = { presente: 0, tardanza: 0, justificado: 0, falta: 0, total: registros.length };
+  registros.forEach(x => { r[estadoDe(x)]++; });
+  r.base = JUSTIFICADO_CUENTA_EN_CONTRA ? r.total : r.total - r.justificado;
+  r.asistidas = r.presente + r.tardanza;
+  r.porcentaje = r.base > 0 ? (r.asistidas / r.base) * 100 : null;
+  return r;
+}
+
 // ===============================
 // NAVEGACIÓN
 // ===============================
@@ -147,14 +187,15 @@ function nombreMateria(registro) {
 function resetUILista() {
   listaActiva = false;
   listaCtx = null;
-  presentesSet = new Set();
-  presentTimes = new Map();
+  marcas = new Map();
   existentesMap = new Map();
   estudiantesMateria = [];
 
   limpiarLista("presentes");
+  limpiarLista("justificados");
   limpiarLista("faltantes");
   $("contPresentes").textContent = "";
+  $("contJustificados").textContent = "";
   $("contFaltantes").textContent = "";
 
   $("zonaLista").style.display = "none";
@@ -402,9 +443,10 @@ function traducirErrorFirebase(error) {
     "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
     "auth/too-many-requests": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
     "auth/network-request-failed": "No hay conexión con Firebase.",
+    "auth/admin-restricted-operation": "El registro de usuarios está desactivado en Firebase Authentication. Actívalo (Authentication > Settings > User actions > Enable create) o crea la cuenta desde la consola de Firebase.",
     "unavailable": "No hay conexión con Firebase.",
     "permission-denied": "No tienes permisos para realizar esta acción.",
-    "failed-precondition": "Falta un índice en Firestore para esta consulta (revisa la consola del navegador)."
+    "failed-precondition": "Falta el índice de Firestore (asistencias: materia + fecha). Créalo desde la consola de Firebase; el enlace directo aparece en la consola del navegador (F12)."
   };
   return errores[code] || (error && error.message) || "Ocurrió un error inesperado.";
 }
@@ -521,6 +563,9 @@ async function initApp() {
     establecerFechaActualPorDefecto();
     await mostrar("lista");
     await cargarMaterias();
+    if (!esAdmin && materiasLista.length === 0) {
+      showMessage("Todavía no tienes materias asignadas. Pide a un administrador que te asigne.", "info");
+    }
     await ofrecerRestaurarBorrador();
   } catch (error) {
     showMessage("Error inicializando: " + traducirErrorFirebase(error), "error");
@@ -531,17 +576,26 @@ async function initApp() {
 // MATERIAS
 // ===============================
 
-// Única consulta de materias: llena la memoria y repinta todo lo que las usa
+// Única consulta de materias: llena la memoria y repinta todo lo que las usa.
+// El admin recibe todas; un docente solo las que tiene asignadas.
 async function cargarMaterias() {
   try {
-    const snap = await db.collection("materias").orderBy("nombre").get();
+    const esAdmin = currentUserRole === "admin";
+    const snap = esAdmin
+      ? await db.collection("materias").orderBy("nombre").get()
+      : await db.collection("materias").where("profesores", "array-contains", auth.currentUser.uid).get();
+
     materiasMap = {};
     materiasLista = [];
     snap.forEach(doc => {
-      const nombre = doc.data().nombre;
-      materiasMap[doc.id] = nombre;
-      materiasLista.push({ id: doc.id, nombre });
+      const d = doc.data();
+      materiasMap[doc.id] = d.nombre;
+      materiasLista.push({ id: doc.id, nombre: d.nombre, profesores: d.profesores || [] });
     });
+    materiasLista.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    if (esAdmin) await cargarUsuariosCache();
+
     renderSelectsMaterias();
     listarMaterias();
     cargarMateriasEnReportes();
@@ -572,12 +626,26 @@ function renderSelectsMaterias() {
   });
 }
 
+// Selects de historial, reportes y dashboard
 function cargarMateriasEnReportes() {
-  const select = $("materiaReporte");
-  if (!select) return;
-  select.innerHTML = "";
-  select.add(new Option("Todas las materias", "todas"));
-  materiasLista.forEach(m => select.add(new Option(m.nombre, m.id)));
+  const esAdmin = currentUserRole === "admin";
+
+  // Historial: el admin puede ver todas; un docente siempre ve una materia concreta
+  const hist = $("materiaHistorial");
+  if (hist) {
+    hist.innerHTML = "";
+    if (esAdmin) hist.add(new Option("Todas las materias", ""));
+    else if (materiasLista.length === 0) hist.add(new Option("Sin materias", ""));
+    materiasLista.forEach(m => hist.add(new Option(m.nombre, m.id)));
+  }
+
+  ["materiaReporte", "dashboardMateria"].forEach(id => {
+    const select = $(id);
+    if (!select) return;
+    select.innerHTML = "";
+    select.add(new Option(esAdmin ? "Todas las materias" : "Todas mis materias", "todas"));
+    materiasLista.forEach(m => select.add(new Option(m.nombre, m.id)));
+  });
 }
 
 // Pinta el listado desde la memoria (no consulta Firestore)
@@ -592,7 +660,11 @@ function listarMaterias() {
 
   materiasLista.forEach(m => {
     const li = document.createElement("li");
-    li.innerHTML = `<strong>${esc(m.nombre)}</strong><br>`;
+    const docentes = (m.profesores || []).map(uid => {
+      const u = usuariosMap[uid];
+      return u ? (u.nombre || u.email) : "cuenta desconocida";
+    });
+    li.innerHTML = `<strong>${esc(m.nombre)}</strong><br><small>Docentes: ${esc(docentes.length ? docentes.join(", ") : "ninguno")}</small><br>`;
 
     if (currentUserRole === "admin") {
       const btnEdit = document.createElement("button");
@@ -605,6 +677,12 @@ function listarMaterias() {
       btnDel.textContent = "Eliminar";
       btnDel.onclick = () => eliminarMateria(m.id);
 
+      const btnDoc = document.createElement("button");
+      btnDoc.className = "small secondary";
+      btnDoc.textContent = "Docentes";
+      btnDoc.onclick = () => abrirDocentesMateria(m.id);
+
+      li.appendChild(btnDoc);
       li.appendChild(btnEdit);
       li.appendChild(btnDel);
     }
@@ -624,7 +702,7 @@ async function crearMateria() {
   }
 
   try {
-    await db.collection("materias").add({ nombre, creadoEn: serverTs(), creadoPor: auth.currentUser.email });
+    await db.collection("materias").add({ nombre, profesores: [], creadoEn: serverTs(), creadoPor: auth.currentUser.email });
     showMessage("Materia creada.", "success");
     limpiarInput("materiaNombre");
     clearFieldError("materiaNombre");
@@ -1071,6 +1149,85 @@ async function asignar() {
 }
 
 // ===============================
+// DOCENTES DE UNA MATERIA (solo admin)
+// ===============================
+
+async function cargarUsuariosCache() {
+  const snap = await db.collection("users").get();
+  usuariosMap = {};
+  snap.forEach(d => { usuariosMap[d.id] = { uid: d.id, ...d.data() }; });
+}
+
+function nombreUsuario(u) {
+  return u.nombre ? `${u.nombre} (${u.email})` : (u.email || u.uid);
+}
+
+function abrirDocentesMateria(materiaId) {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede asignar docentes.", "error");
+  const materia = materiasLista.find(m => m.id === materiaId);
+  if (!materia) return;
+
+  docentesCtx = { materiaId };
+  docentesChecks = [];
+  $("docentesMateriaNombre").textContent = materia.nombre;
+
+  const ul = $("docentesLista");
+  ul.innerHTML = "";
+
+  const docentes = Object.values(usuariosMap)
+    .filter(u => u.role === "profesor")
+    .sort((a, b) => nombreUsuario(a).localeCompare(nombreUsuario(b)));
+
+  if (docentes.length === 0) {
+    ul.innerHTML = "<li><small>No hay docentes. Créalos en Administración.</small></li>";
+  }
+
+  docentes.forEach(u => {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    label.style.cssText = "display:flex; gap:10px; align-items:center; margin:0; font-weight:normal;";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = u.uid;
+    cb.style.width = "auto";
+    cb.style.margin = "0";
+    cb.checked = (materia.profesores || []).includes(u.uid);
+    docentesChecks.push(cb);
+
+    const span = document.createElement("span");
+    span.textContent = nombreUsuario(u);
+
+    label.appendChild(cb);
+    label.appendChild(span);
+    li.appendChild(label);
+    ul.appendChild(li);
+  });
+
+  $("docentesModal").style.display = "block";
+}
+
+function cerrarDocentesModal() {
+  $("docentesModal").style.display = "none";
+  docentesCtx = null;
+  docentesChecks = [];
+}
+
+async function guardarDocentesMateria() {
+  if (currentUserRole !== "admin" || !docentesCtx) return;
+  const uids = docentesChecks.filter(c => c.checked).map(c => c.value);
+
+  try {
+    await db.collection("materias").doc(docentesCtx.materiaId).update({ profesores: uids });
+    showMessage("Docentes actualizados.", "success");
+    cerrarDocentesModal();
+    await cargarMaterias();
+  } catch (e) {
+    showMessage("No se pudieron guardar los docentes: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+// ===============================
 // SONIDOS (WebAudio: no dependen de internet)
 // ===============================
 
@@ -1122,16 +1279,19 @@ function claveBorrador() {
   return `asistencia_borrador_${auth.currentUser ? auth.currentUser.uid : "anon"}`;
 }
 
+// Guarda solo lo pendiente de enviar; lo que ya está en Firestore se vuelve a cargar de allí
 function guardarBorrador() {
   if (!listaActiva || !listaCtx) return;
   try {
+    const pendientes = [];
+    marcas.forEach((m, ced) => {
+      if (!m.guardado) pendientes.push([ced, m.estado, m.hora || "", m.ts || null, m.motivo || ""]);
+    });
     localStorage.setItem(claveBorrador(), JSON.stringify({
+      v: 2,
       materiaId: listaCtx.materiaId,
       fecha: listaCtx.fecha,
-      presentes: Array.from(presentesSet).map(ced => {
-        const t = presentTimes.get(ced) || {};
-        return [ced, t.hora || "", t.ts || null];
-      }),
+      marcas: pendientes,
       guardadoEn: Date.now()
     }));
   } catch (e) { /* almacenamiento no disponible */ }
@@ -1139,6 +1299,19 @@ function guardarBorrador() {
 
 function borrarBorrador() {
   try { localStorage.removeItem(claveBorrador()); } catch (e) { /* ignorar */ }
+}
+
+// Acepta el formato de la Fase 1 ([cedula, hora, ts]) y el actual ([cedula, estado, hora, ts, motivo])
+function normalizarEntradaBorrador(e) {
+  if (!Array.isArray(e) || !e[0]) return null;
+  if (e.length === 3) return { cedula: String(e[0]), estado: "presente", hora: e[1] || "", ts: e[2] || null, motivo: "" };
+  return {
+    cedula: String(e[0]),
+    estado: ESTADOS[e[1]] && e[1] !== "falta" ? e[1] : "presente",
+    hora: e[2] || "",
+    ts: e[3] || null,
+    motivo: e[4] || ""
+  };
 }
 
 function leerBorrador() {
@@ -1151,7 +1324,8 @@ function leerBorrador() {
       borrarBorrador();
       return null;
     }
-    return b;
+    const entradas = (b.marcas || b.presentes || []).map(normalizarEntradaBorrador).filter(Boolean);
+    return { materiaId: b.materiaId, fecha: b.fecha, entradas };
   } catch (e) {
     return null;
   }
@@ -1161,14 +1335,14 @@ async function ofrecerRestaurarBorrador() {
   const b = leerBorrador();
   if (!b) return;
 
-  const n = (b.presentes || []).length;
+  const n = b.entradas.length;
   if (!materiasMap[b.materiaId] || n === 0) {
     borrarBorrador();
     return;
   }
 
   const continuar = confirm(
-    `Hay una lista sin guardar de "${materiasMap[b.materiaId]}" (${formatarFechaUI(b.fecha)}) con ${n} presente(s).\n\n¿Quieres continuarla?`
+    `Hay una lista sin guardar de "${materiasMap[b.materiaId]}" (${formatarFechaUI(b.fecha)}) con ${n} registro(s).\n\n¿Quieres continuarla?`
   );
   if (!continuar) {
     borrarBorrador();
@@ -1181,9 +1355,8 @@ async function ofrecerRestaurarBorrador() {
 }
 
 function hayCambiosSinGuardar() {
-  for (const ced of presentesSet) {
-    const t = presentTimes.get(ced);
-    if (!t || !t.guardado) return true;
+  for (const m of marcas.values()) {
+    if (!m.guardado) return true;
   }
   return false;
 }
@@ -1191,6 +1364,11 @@ function hayCambiosSinGuardar() {
 // ===============================
 // PASAR LISTA
 // ===============================
+
+function modoRegistroActual() {
+  const v = $("modoRegistro").value;
+  return ESTADOS_ASISTE.includes(v) ? v : "presente";
+}
 
 async function iniciarLista(borrador) {
   let materiaId, fecha;
@@ -1205,9 +1383,13 @@ async function iniciarLista(borrador) {
     fecha = $("fechaLista").value;
   }
 
+  if (!materiasMap[materiaId]) {
+    return showMessage("Esa materia no está entre tus materias asignadas.", "error");
+  }
+
   prepararAudio();
 
-  const materiaNombre = materiasMap[materiaId] || "Materia";
+  const materiaNombre = materiasMap[materiaId];
   const btnIniciar = $("btnIniciarLista");
 
   try {
@@ -1237,23 +1419,21 @@ async function iniciarLista(borrador) {
     existentesMap = new Map();
     exist.forEach(d => existentesMap.set(d.data().cedula, { id: d.id, data: d.data() }));
 
-    presentesSet = new Set();
-    presentTimes = new Map();
+    marcas = new Map();
 
     existentesMap.forEach((ex, ced) => {
-      if (ex.data.presente && porCedula.has(ced)) {
-        const ts = ex.data.horaTs && ex.data.horaTs.toMillis ? ex.data.horaTs.toMillis() : null;
-        presentesSet.add(ced);
-        presentTimes.set(ced, { hora: ex.data.hora || "", ts, guardado: true });
-      }
+      if (!porCedula.has(ced)) return;
+      const estado = estadoDe(ex.data);
+      if (estado === "falta") return;   // sigue figurando como faltante (se puede corregir)
+      const ts = ex.data.horaTs && ex.data.horaTs.toMillis ? ex.data.horaTs.toMillis() : null;
+      marcas.set(ced, { estado, hora: ex.data.hora || "", ts, motivo: ex.data.motivo || "", guardado: true });
     });
 
     // Restaurar lo escaneado antes de que se cerrara la página
     if (borrador) {
-      (borrador.presentes || []).forEach(([ced, hora, ts]) => {
-        if (porCedula.has(ced) && !presentesSet.has(ced)) {
-          presentesSet.add(ced);
-          presentTimes.set(ced, { hora: hora || "", ts: ts || null });
+      borrador.entradas.forEach(e => {
+        if (porCedula.has(e.cedula) && !marcas.has(e.cedula)) {
+          marcas.set(e.cedula, { estado: e.estado, hora: e.hora, ts: e.ts, motivo: e.motivo, guardado: false });
         }
       });
     }
@@ -1267,8 +1447,7 @@ async function iniciarLista(borrador) {
     $("infoListaActiva").style.display = "block";
     $("zonaLista").style.display = "block";
 
-    actualizarPresentes();
-    actualizarFaltantes();
+    refrescarListas();
     guardarBorrador();
 
     if (borrador) showMessage("Lista restaurada.", "success");
@@ -1339,7 +1518,8 @@ function registrarManual() {
   registrarAsistencia($("manualCedula").value.trim());
 }
 
-// Todo se valida en memoria: no hace lecturas a Firestore por cada escaneo
+// Todo se valida en memoria: no hace lecturas a Firestore por cada escaneo.
+// El estado (presente o tardanza) lo marca el selector "Registrar como".
 function registrarAsistencia(ced) {
   clearFieldError("manualCedula");
 
@@ -1361,40 +1541,73 @@ function registrarAsistencia(ced) {
     return showMessage("Ese estudiante no pertenece a esta materia.", "error");
   }
 
-  if (presentesSet.has(ced)) {
+  const nombre = `${est.nombres} ${est.apellidos}`;
+
+  if (marcas.has(ced)) {
     beepError();
-    return showMessage(`${est.nombres} ${est.apellidos} ya está presente.`, "error");
+    return showMessage(`${nombre} ya figura como ${ESTADOS[marcas.get(ced).estado].texto.toLowerCase()}.`, "error");
   }
 
+  const estado = modoRegistroActual();
   const ahora = new Date();
-  presentesSet.add(ced);
-  presentTimes.set(ced, { hora: horaTexto(ahora), ts: ahora.getTime() });
+  marcas.set(ced, { estado, hora: horaTexto(ahora), ts: ahora.getTime(), motivo: "", guardado: false });
 
   beep();
-  actualizarPresentes();
-  actualizarFaltantes();
+  refrescarListas();
   limpiarInput("manualCedula");
   clearFieldError("manualCedula");
   guardarBorrador();
-  showMessage(`✅ ${est.nombres} ${est.apellidos}`, "success");
+  showMessage(`${ESTADOS[estado].icono} ${nombre}`, "success");
+}
+
+function refrescarListas() {
+  actualizarPresentes();
+  actualizarJustificados();
+  actualizarFaltantes();
+}
+
+function nombreEstudianteLista(ced) {
+  const est = estudiantesMateria.find(e => e.cedula === ced);
+  return est ? `${est.nombres} ${est.apellidos}` : "";
 }
 
 function actualizarPresentes() {
   const ul = $("presentes");
   ul.innerHTML = "";
-  $("contPresentes").textContent = `(${presentesSet.size}/${estudiantesMateria.length})`;
 
-  if (presentesSet.size === 0) {
+  const asistentes = [];
+  marcas.forEach((m, ced) => { if (ESTADOS_ASISTE.includes(m.estado)) asistentes.push([ced, m]); });
+  $("contPresentes").textContent = `(${asistentes.length}/${estudiantesMateria.length})`;
+
+  if (asistentes.length === 0) {
     ul.innerHTML = "<li>No hay presentes.</li>";
     return;
   }
 
   // Los últimos en llegar, arriba
-  Array.from(presentesSet).reverse().forEach(ced => {
-    const est = estudiantesMateria.find(e => e.cedula === ced);
-    const t = presentTimes.get(ced) || {};
+  asistentes.reverse().forEach(([ced, m]) => {
     const li = document.createElement("li");
-    li.innerHTML = `✅ <strong>${esc(ced)}</strong><br>${est ? esc(est.nombres + " " + est.apellidos) : ""}<br><small>Hora: ${esc(t.hora || "")}</small>`;
+    li.innerHTML = `${ESTADOS[m.estado].icono} <strong>${esc(ced)}</strong> · ${esc(ESTADOS[m.estado].texto)}<br>${esc(nombreEstudianteLista(ced))}<br><small>Hora: ${esc(m.hora || "")}</small>`;
+    ul.appendChild(li);
+  });
+}
+
+function actualizarJustificados() {
+  const ul = $("justificados");
+  ul.innerHTML = "";
+
+  const justificados = [];
+  marcas.forEach((m, ced) => { if (m.estado === "justificado") justificados.push([ced, m]); });
+  $("contJustificados").textContent = `(${justificados.length})`;
+
+  if (justificados.length === 0) {
+    ul.innerHTML = "<li>No hay justificados.</li>";
+    return;
+  }
+
+  justificados.forEach(([ced, m]) => {
+    const li = document.createElement("li");
+    li.innerHTML = `${ESTADOS.justificado.icono} <strong>${esc(ced)}</strong><br>${esc(nombreEstudianteLista(ced))}<br><small>Motivo: ${esc(m.motivo || "")}</small>`;
     ul.appendChild(li);
   });
 }
@@ -1402,7 +1615,7 @@ function actualizarPresentes() {
 function actualizarFaltantes() {
   const ul = $("faltantes");
   ul.innerHTML = "";
-  const faltantes = estudiantesMateria.filter(e => !presentesSet.has(e.cedula));
+  const faltantes = estudiantesMateria.filter(e => !marcas.has(e.cedula));
   $("contFaltantes").textContent = `(${faltantes.length})`;
 
   if (faltantes.length === 0) {
@@ -1411,55 +1624,54 @@ function actualizarFaltantes() {
   }
 
   faltantes.forEach(est => {
+    const nombre = `${est.nombres} ${est.apellidos}`;
     const li = document.createElement("li");
-    li.innerHTML = `❌ <strong>${esc(est.cedula)}</strong><br>${esc(est.nombres + " " + est.apellidos)}`;
+    li.innerHTML = `${ESTADOS.falta.icono} <strong>${esc(est.cedula)}</strong><br>${esc(nombre)}`;
     const btn = document.createElement("button");
     btn.className = "secondary";
-    btn.textContent = "Corregir";
-    btn.onclick = () => corregirTemporal(est.cedula);
+    btn.textContent = "Cambiar estado";
+    btn.onclick = () => abrirCorreccion({ tipo: "temporal", cedula: est.cedula, nombre });
     li.appendChild(btn);
     ul.appendChild(li);
   });
 }
 
 // Calcula qué escribir en Firestore al cerrar la lista (función pura, fácil de probar):
-//  - estudiante sin registro previo           -> crear
-//  - estaba ausente y ahora está presente     -> actualizar
-//  - cualquier otro caso                      -> no tocar (no se sobrescribe nada)
-function calcularOperacionesLista({ estudiantes, presentes, tiempos, existentes, ctx, profesor, marcaServidor, aTimestamp }) {
+//  - estudiante sin registro previo                    -> crear (con su estado, o "falta")
+//  - figuraba como falta y ahora tiene otro estado     -> actualizar
+//  - cualquier otro caso                               -> no tocar (no se sobrescribe nada)
+function calcularOperacionesLista({ estudiantes, marcas, existentes, ctx, profesor, marcaServidor, aTimestamp }) {
   const ops = [];
 
   estudiantes.forEach(est => {
-    const presente = presentes.has(est.cedula);
-    const t = presente ? tiempos.get(est.cedula) : null;
-    const hora = presente ? ((t && t.hora) || horaTexto()) : null;
-    const horaTs = presente && t && t.ts ? aTimestamp(t.ts) : null;
+    const m = marcas.get(est.cedula);
+    const estado = m ? m.estado : "falta";
+    const asiste = ESTADOS_ASISTE.includes(estado);
+    const hora = asiste ? ((m && m.hora) || horaTexto()) : null;
+    const horaTs = asiste && m && m.ts ? aTimestamp(m.ts) : null;
     const ex = existentes.get(est.cedula);
 
     if (!ex) {
-      ops.push({
-        tipo: "set",
-        id: `${est.cedula}_${ctx.fecha}_${ctx.materiaId}`,
-        data: {
-          cedula: est.cedula,
-          nombres: est.nombres,
-          apellidos: est.apellidos,
-          materia: ctx.materiaId,
-          materiaNombre: ctx.materiaNombre,
-          fecha: ctx.fecha,
-          presente,
-          hora,
-          horaTs,
-          profesor,
-          actualizadoEn: marcaServidor
-        }
-      });
-    } else if (presente && !ex.data.presente) {
-      ops.push({
-        tipo: "update",
-        id: ex.id,
-        data: { presente: true, hora, horaTs, actualizadoEn: marcaServidor }
-      });
+      const data = {
+        cedula: est.cedula,
+        nombres: est.nombres,
+        apellidos: est.apellidos,
+        materia: ctx.materiaId,
+        materiaNombre: ctx.materiaNombre,
+        fecha: ctx.fecha,
+        estado,
+        presente: asiste,
+        hora,
+        horaTs,
+        profesor,
+        actualizadoEn: marcaServidor
+      };
+      if (estado === "justificado" && m.motivo) data.motivo = m.motivo;
+      ops.push({ tipo: "set", id: `${est.cedula}_${ctx.fecha}_${ctx.materiaId}`, data });
+    } else if (estadoDe(ex.data) === "falta" && estado !== "falta") {
+      const data = { estado, presente: asiste, hora, horaTs, actualizadoEn: marcaServidor };
+      if (estado === "justificado" && m.motivo) data.motivo = m.motivo;
+      ops.push({ tipo: "update", id: ex.id, data });
     }
   });
 
@@ -1475,8 +1687,7 @@ async function cerrarLista() {
   try {
     const ops = calcularOperacionesLista({
       estudiantes: estudiantesMateria,
-      presentes: presentesSet,
-      tiempos: presentTimes,
+      marcas,
       existentes: existentesMap,
       ctx: listaCtx,
       profesor: auth.currentUser.email,
@@ -1509,49 +1720,172 @@ async function cerrarLista() {
   }
 }
 
-async function corregirTemporal(cedula) {
-  const password = await pedirPassword();
-  if (!password) return showMessage("Corrección cancelada.", "info");
-  try {
-    await reautenticar(password);
-  } catch (e) {
-    return showMessage("Contraseña incorrecta.", "error");
-  }
+// ===============================
+// CORRECCIÓN DE ESTADO (modal con motivo y contraseña)
+// ===============================
 
-  const ahora = new Date();
-  presentesSet.add(cedula);
-  presentTimes.set(cedula, { hora: horaTexto(ahora), ts: ahora.getTime() });
-  actualizarPresentes();
-  actualizarFaltantes();
-  guardarBorrador();
-  showMessage("Corregido.", "success");
+// ctx: { tipo: "temporal" (lista en curso) | "historial" (registro ya guardado), cedula, docId, nombre, estadoActual }
+function abrirCorreccion(ctx) {
+  const esAdmin = currentUserRole === "admin";
+  correccionCtx = ctx;
+
+  // Un docente solo corrige faltas hacia presente, tardanza o justificado.
+  // El admin puede dejar un registro guardado en cualquiera de los 4 estados.
+  const opciones = (ctx.tipo === "historial" && esAdmin)
+    ? ["presente", "tardanza", "justificado", "falta"]
+    : ["presente", "tardanza", "justificado"];
+
+  $("correccionAlumno").textContent = ctx.nombre || "";
+
+  const sel = $("correccionEstado");
+  sel.innerHTML = "";
+  opciones.forEach(e => sel.add(new Option(`${ESTADOS[e].icono} ${ESTADOS[e].texto}`, e)));
+  const sugerido = opciones.find(e => e !== ctx.estadoActual) || opciones[0];
+  sel.value = sugerido;
+
+  $("correccionMotivo").value = "";
+  $("correccionPassword").value = "";
+  clearFields(["correccionMotivo", "correccionPassword"]);
+  $("correccionModal").style.display = "block";
 }
 
-async function corregirRegistroCerrado(docId) {
-  const password = await pedirPassword();
-  if (!password) return showMessage("Cancelado.", "info");
+function cerrarCorreccion() {
+  $("correccionModal").style.display = "none";
+  correccionCtx = null;
+}
+
+async function confirmarCorreccion() {
+  if (!correccionCtx) return;
+  clearFields(["correccionMotivo", "correccionPassword"]);
+
+  const estado = $("correccionEstado").value;
+  const motivo = normalizarTexto($("correccionMotivo").value);
+  const password = $("correccionPassword").value;
+
+  let ok = true;
+  if (!ESTADOS[estado]) ok = false;
+  if (estado === "justificado" && motivo.length < MOTIVO_MIN) {
+    showFieldError("correccionMotivo", `Escribe el motivo (mínimo ${MOTIVO_MIN} caracteres).`);
+    ok = false;
+  }
+  if (motivo.length > MOTIVO_MAX) {
+    showFieldError("correccionMotivo", `Máximo ${MOTIVO_MAX} caracteres.`);
+    ok = false;
+  }
+  if (!password) {
+    showFieldError("correccionPassword", "Ingresa tu contraseña.");
+    ok = false;
+  }
+  if (!ok) return;
+
   try {
     await reautenticar(password);
   } catch (e) {
-    return showMessage("Contraseña incorrecta.", "error");
+    return showFieldError("correccionPassword", "Contraseña incorrecta.");
   }
 
+  const ctx = correccionCtx;
+  cerrarCorreccion();
+
+  if (ctx.tipo === "temporal") aplicarCorreccionTemporal(ctx.cedula, estado, motivo);
+  else await aplicarCorreccionHistorial(ctx.docId, estado, motivo);
+}
+
+function aplicarCorreccionTemporal(cedula, estado, motivo) {
+  const ahora = new Date();
+  const asiste = ESTADOS_ASISTE.includes(estado);
+  marcas.set(cedula, {
+    estado,
+    hora: asiste ? horaTexto(ahora) : "",
+    ts: asiste ? ahora.getTime() : null,
+    motivo: estado === "justificado" ? motivo : "",
+    guardado: false
+  });
+  refrescarListas();
+  guardarBorrador();
+  showMessage(`${ESTADOS[estado].icono} Estado actualizado.`, "success");
+}
+
+async function aplicarCorreccionHistorial(docId, estado, motivo) {
+  const ahora = new Date();
+  const asiste = ESTADOS_ASISTE.includes(estado);
+
+  const datos = {
+    estado,
+    presente: asiste,
+    hora: asiste ? horaTexto(ahora) : null,
+    horaTs: asiste ? firebase.firestore.Timestamp.fromMillis(ahora.getTime()) : null,
+    motivo: estado === "justificado" ? motivo : firebase.firestore.FieldValue.delete(),
+    corregido: true,
+    corregidoPor: auth.currentUser.email,
+    corregidoEn: serverTs(),
+    actualizadoEn: serverTs()
+  };
+
   try {
-    const ahora = new Date();
-    await db.collection("asistencias").doc(docId).update({
-      presente: true,
-      hora: horaTexto(ahora),
-      horaTs: firebase.firestore.Timestamp.fromMillis(ahora.getTime()),
-      corregido: true,
-      corregidoPor: auth.currentUser.email,
-      corregidoEn: serverTs(),
-      actualizadoEn: serverTs()
-    });
-    showMessage("Corregido en historial.", "success");
+    await db.collection("asistencias").doc(docId).update(datos);
+    showMessage("Registro actualizado.", "success");
     cargarHistorial(true);
   } catch (e) {
-    showMessage("Error al corregir: " + traducirErrorFirebase(e), "error");
+    showMessage("No se pudo actualizar: " + traducirErrorFirebase(e), "error");
   }
+}
+
+// ===============================
+// CONSULTA DE ASISTENCIAS SEGÚN EL ROL
+// ===============================
+
+// Devuelve los registros que cumplen los filtros.
+//  - Admin: puede consultar todas las materias o una selección.
+//  - Docente: SIEMPRE se consulta materia por materia (solo las suyas); así lo exigen las reglas.
+// Con materia + rango de fechas se usa el índice compuesto (materia, fecha desc).
+async function consultarAsistencias({ materiaIds = null, cedula = "", desde = "", hasta = "" } = {}) {
+  const esAdmin = currentUserRole === "admin";
+  let ids = materiaIds;
+
+  if (!esAdmin) {
+    ids = (ids && ids.length ? ids : materiasLista.map(m => m.id)).filter(id => materiasMap[id]);
+  }
+
+  const enRango = r => (!desde || r.fecha >= desde) && (!hasta || r.fecha <= hasta);
+  const consultas = [];
+
+  if (ids === null) {
+    // Admin, todas las materias
+    let q = db.collection("asistencias");
+    if (cedula) {
+      q = q.where("cedula", "==", cedula);
+    } else {
+      if (desde) q = q.where("fecha", ">=", desde);
+      if (hasta) q = q.where("fecha", "<=", hasta);
+    }
+    consultas.push(q.get());
+  } else {
+    ids.forEach(id => {
+      let q = db.collection("asistencias").where("materia", "==", id);
+      if (cedula) {
+        q = q.where("cedula", "==", cedula);        // solo igualdades: no necesita índice
+      } else if (desde || hasta) {
+        if (desde) q = q.where("fecha", ">=", desde);
+        if (hasta) q = q.where("fecha", "<=", hasta);
+        q = q.orderBy("fecha", "desc");
+      }
+      consultas.push(q.get());
+    });
+  }
+
+  const snaps = await Promise.all(consultas);
+  const registros = [];
+  snaps.forEach(snap => snap.forEach(doc => {
+    const r = { id: doc.id, ...doc.data() };
+    if (enRango(r)) registros.push(r);
+  }));
+  return registros;
+}
+
+function etiquetaEstado(registro) {
+  const e = estadoDe(registro);
+  return `${ESTADOS[e].icono} ${ESTADOS[e].texto}`;
 }
 
 // ===============================
@@ -1561,7 +1895,11 @@ async function corregirRegistroCerrado(docId) {
 async function cargarHistorial(reiniciar = true) {
   if (reiniciar) {
     if (!validarRangoFechas()) return;
-    histFiltro = { inicio: $("filtroFechaInicio").value, fin: $("filtroFechaFin").value };
+    const materia = $("materiaHistorial").value;
+    if (currentUserRole !== "admin" && !materia) {
+      return showMessage("Selecciona una materia.", "error");
+    }
+    histFiltro = { materia, inicio: $("filtroFechaInicio").value, fin: $("filtroFechaFin").value };
     histCursor = null;
     limpiarLista("historialLista");
     $("btnHistMas").style.display = "none";
@@ -1571,6 +1909,7 @@ async function cargarHistorial(reiniciar = true) {
   try {
     let query = db.collection("asistencias");
 
+    if (histFiltro.materia) query = query.where("materia", "==", histFiltro.materia);
     if (histFiltro.inicio && histFiltro.fin) {
       query = query.where("fecha", ">=", histFiltro.inicio).where("fecha", "<=", histFiltro.fin);
     }
@@ -1582,12 +1921,15 @@ async function cargarHistorial(reiniciar = true) {
     const ul = $("historialLista");
 
     if (snap.empty && reiniciar) {
-      ul.innerHTML = "<li>No hay registros para mostrar en estas fechas.</li>";
+      ul.innerHTML = "<li>No hay registros para mostrar con estos filtros.</li>";
       return;
     }
 
+    const esAdmin = currentUserRole === "admin";
+
     snap.forEach(doc => {
       const d = doc.data();
+      const estado = estadoDe(d);
       const li = document.createElement("li");
 
       li.innerHTML = `
@@ -1595,16 +1937,23 @@ async function cargarHistorial(reiniciar = true) {
         <strong>${esc(d.nombres || "")} ${esc(d.apellidos || "")}</strong><br>
         <strong>Materia: ${esc(nombreMateria(d))}</strong><br>
         <strong>Fecha: ${esc(formatarFechaUI(d.fecha))}</strong><br>
-        Estado: ${d.presente ? "✅ Presente" : "❌ Faltante"}<br>
+        Estado: ${esc(etiquetaEstado(d))}<br>
+        ${d.motivo ? `Motivo: ${esc(d.motivo)}<br>` : ""}
         Hora: ${esc(d.hora || "Sin hora")}<br>
         Profesor: ${esc(d.profesor || "No registrado")}
       `;
 
-      if (!d.presente) {
+      // Un docente solo corrige faltas; el admin puede cambiar cualquier estado
+      if (estado === "falta" || esAdmin) {
         const b = document.createElement("button");
         b.className = "secondary";
-        b.textContent = "Corregir registro";
-        b.onclick = () => corregirRegistroCerrado(doc.id);
+        b.textContent = estado === "falta" ? "Corregir registro" : "Cambiar estado";
+        b.onclick = () => abrirCorreccion({
+          tipo: "historial",
+          docId: doc.id,
+          nombre: `${d.nombres || ""} ${d.apellidos || ""}`.trim(),
+          estadoActual: estado
+        });
         li.appendChild(b);
       }
 
@@ -1622,6 +1971,12 @@ async function cargarHistorial(reiniciar = true) {
 // ===============================
 // REPORTES
 // ===============================
+
+function textoResumen(r) {
+  const partes = [`✅ ${r.presente} presentes`, `⏰ ${r.tardanza} tardanzas`, `📝 ${r.justificado} justificadas`, `❌ ${r.falta} faltas`];
+  const pct = r.porcentaje === null ? "sin datos" : `${r.porcentaje.toFixed(1)}%`;
+  return { partes: partes.join(" · "), pct };
+}
 
 async function generarReporte() {
   const contenedor = $("reporte");
@@ -1650,26 +2005,16 @@ async function generarReporte() {
   contenedor.innerHTML = "<p>Buscando...</p>";
 
   try {
-    // El criterio más selectivo se filtra en el servidor (menos lecturas);
-    // el resto se aplica aquí, así no hacen falta índices compuestos.
-    let query = db.collection("asistencias");
-    if (ced) {
-      query = query.where("cedula", "==", ced);
-      if (matId !== "todas") query = query.where("materia", "==", matId);
-    } else if (matId !== "todas") {
-      query = query.where("materia", "==", matId);
-    } else {
-      if (fInicio) query = query.where("fecha", ">=", fInicio);
-      if (fFin) query = query.where("fecha", "<=", fFin);
-    }
+    const registros = await consultarAsistencias({
+      materiaIds: matId === "todas" ? null : [matId],
+      cedula: ced,
+      desde: fInicio,
+      hasta: fFin
+    });
 
-    const snap = await query.get();
-
-    const resultados = snap.docs
-      .map(d => d.data())
-      .filter(x => (!fInicio || x.fecha >= fInicio) && (!fFin || x.fecha <= fFin))
-      .sort((a, b) => b.fecha.localeCompare(a.fecha) || (a.apellidos || "").localeCompare(b.apellidos || ""));
-
+    const resultados = registros.sort((a, b) =>
+      b.fecha.localeCompare(a.fecha) || (a.apellidos || "").localeCompare(b.apellidos || "")
+    );
     resultadosBusquedaActual = resultados;
 
     if (resultados.length === 0) {
@@ -1677,19 +2022,20 @@ async function generarReporte() {
       return;
     }
 
-    const presentes = resultados.filter(x => x.presente).length;
-    const porcentaje = ((presentes / resultados.length) * 100).toFixed(1);
+    const resumen = resumenEstados(resultados);
+    const { partes, pct } = textoResumen(resumen);
     const MAX_FILAS = 200;
 
     let html = `<hr>
-      <p><strong>${resultados.length}</strong> registros · <strong>${presentes}</strong> presentes · <strong>${porcentaje}%</strong> de asistencia</p>
+      <p><strong>${resultados.length}</strong> registros · asistencia <strong>${pct}</strong></p>
+      <p class="subtitle">${partes}</p>
       <button class="secondary" onclick="exportarBusqueda()">Exportar a CSV</button><ul>`;
 
     resultados.slice(0, MAX_FILAS).forEach(x => {
       html += `<li>
         <strong>${esc(x.cedula)}</strong> - ${esc(x.nombres || "")} ${esc(x.apellidos || "")}<br>
         <strong>Materia:</strong> ${esc(nombreMateria(x))} | <strong>Fecha:</strong> ${esc(formatarFechaUI(x.fecha))}<br>
-        <strong>Estado:</strong> ${x.presente ? "✅ Presente" : "❌ Faltante"}
+        <strong>Estado:</strong> ${esc(etiquetaEstado(x))}${x.motivo ? `<br><strong>Motivo:</strong> ${esc(x.motivo)}` : ""}
       </li>`;
     });
     html += "</ul>";
@@ -1716,10 +2062,10 @@ function csvCelda(valor) {
 }
 
 function construirCSV(registros) {
-  const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Hora", "Profesor"];
+  const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Motivo", "Hora", "Profesor"];
   const filas = registros.map(x => [
     x.cedula, x.nombres, x.apellidos, x.fecha, nombreMateria(x),
-    x.presente ? "Presente" : "Faltante", x.hora, x.profesor
+    ESTADOS[estadoDe(x)].texto, x.motivo, x.hora, x.profesor
   ].map(csvCelda).join(";"));
   return "﻿" + cabecera.join(";") + "\n" + filas.join("\n");
 }
@@ -1742,22 +2088,25 @@ function exportarBusqueda() {
   showMessage("Reporte exportado exitosamente.", "success");
 }
 
-// Exporta lo que indiquen las fechas del historial (o todo, con confirmación)
+// Exporta según la materia y las fechas del historial (o todo, con confirmación)
 async function exportar() {
   if (!validarRangoFechas()) return;
+  const materia = $("materiaHistorial").value;
   const inicio = $("filtroFechaInicio").value;
   const fin = $("filtroFechaFin").value;
 
+  if (currentUserRole !== "admin" && !materia) return showMessage("Selecciona una materia.", "error");
   if (!inicio && !fin && !confirm("No elegiste fechas: se exportará TODO el historial. ¿Continuar?")) return;
 
   try {
-    let query = db.collection("asistencias");
-    if (inicio && fin) query = query.where("fecha", ">=", inicio).where("fecha", "<=", fin);
+    const registros = await consultarAsistencias({
+      materiaIds: materia ? [materia] : null,
+      desde: inicio,
+      hasta: fin
+    });
+    if (registros.length === 0) return showMessage("Sin datos para exportar.", "error");
 
-    const snap = await query.get();
-    if (snap.empty) return showMessage("Sin datos para exportar.", "error");
-
-    const registros = snap.docs.map(d => d.data()).sort((a, b) => b.fecha.localeCompare(a.fecha));
+    registros.sort((a, b) => b.fecha.localeCompare(a.fecha));
     descargarCSV(construirCSV(registros), inicio && fin ? `asistencias_${inicio}_${fin}.csv` : "asistencias_completo.csv");
     showMessage(`Exportados ${registros.length} registros.`, "success");
   } catch (e) {
@@ -1766,7 +2115,7 @@ async function exportar() {
 }
 
 // ===============================
-// ALERTAS (una sola consulta, por estudiante y materia)
+// ALERTAS (por estudiante y materia)
 // ===============================
 
 async function generarAlertas() {
@@ -1774,30 +2123,27 @@ async function generarAlertas() {
   ul.innerHTML = "<li>Calculando...</li>";
 
   const periodo = $("alertasPeriodo").value;
-  const umbral = Number($("alertasUmbral").value) / 100;
+  const umbral = Number($("alertasUmbral").value);
 
   try {
-    let query = db.collection("asistencias");
-    if (periodo !== "todo") query = query.where("fecha", ">=", fechaHaceDias(Number(periodo)));
-
-    const snap = await query.get();
-
-    const acumulado = new Map();
-    snap.forEach(doc => {
-      const x = doc.data();
-      const clave = `${x.cedula}|${x.materia}`;
-      let a = acumulado.get(clave);
-      if (!a) {
-        a = { cedula: x.cedula, nombres: x.nombres, apellidos: x.apellidos, registro: x, total: 0, presentes: 0 };
-        acumulado.set(clave, a);
-      }
-      a.total++;
-      if (x.presente) a.presentes++;
+    const registros = await consultarAsistencias({
+      materiaIds: null,
+      desde: periodo !== "todo" ? fechaHaceDias(Number(periodo)) : ""
     });
 
-    const alertas = Array.from(acumulado.values())
-      .filter(a => a.total >= MIN_REGISTROS_ALERTA && a.presentes / a.total < umbral)
-      .sort((a, b) => a.presentes / a.total - b.presentes / b.total);
+    const grupos = new Map();
+    registros.forEach(x => {
+      const clave = `${x.cedula}|${x.materia}`;
+      if (!grupos.has(clave)) grupos.set(clave, []);
+      grupos.get(clave).push(x);
+    });
+
+    const alertas = [];
+    grupos.forEach(lista => {
+      const r = resumenEstados(lista);
+      if (r.base >= MIN_REGISTROS_ALERTA && r.porcentaje < umbral) alertas.push({ r, ref: lista[0] });
+    });
+    alertas.sort((a, b) => a.r.porcentaje - b.r.porcentaje);
 
     ul.innerHTML = "";
 
@@ -1806,11 +2152,11 @@ async function generarAlertas() {
       return;
     }
 
-    alertas.forEach(a => {
+    alertas.forEach(({ r, ref }) => {
       const li = document.createElement("li");
-      li.innerHTML = `⚠️ <strong>${esc(a.cedula)}</strong><br>${esc((a.nombres || "") + " " + (a.apellidos || ""))}<br>
-        ${esc(nombreMateria(a.registro))}<br>
-        Asistencia: ${((a.presentes / a.total) * 100).toFixed(1)}% (${a.presentes}/${a.total})`;
+      li.innerHTML = `⚠️ <strong>${esc(ref.cedula)}</strong><br>${esc((ref.nombres || "") + " " + (ref.apellidos || ""))}<br>
+        ${esc(nombreMateria(ref))}<br>
+        Asistencia: ${r.porcentaje.toFixed(1)}% (${r.asistidas}/${r.base})${r.justificado ? ` · ${r.justificado} justificada(s) aparte` : ""}`;
       ul.appendChild(li);
     });
   } catch (e) {
@@ -1825,31 +2171,33 @@ async function generarAlertas() {
 
 async function cargarDashboard(manual = false) {
   const periodo = $("dashboardRango").value;
+  const matSel = $("dashboardMateria").value || "todas";
 
   if (typeof Chart === "undefined") {
     return showMessage("No se pudo cargar la librería de gráficos.", "error");
   }
 
   try {
-    let query = db.collection("asistencias");
-    if (periodo !== "todo") query = query.where("fecha", ">=", fechaHaceDias(Number(periodo)));
+    const registros = await consultarAsistencias({
+      materiaIds: matSel === "todas" ? null : [matSel],
+      desde: periodo !== "todo" ? fechaHaceDias(Number(periodo)) : ""
+    });
 
-    const snap = await query.get();
-
-    let presentes = 0, faltantes = 0;
-    snap.forEach(d => { if (d.data().presente) presentes++; else faltantes++; });
-
-    const total = presentes + faltantes;
-    $("dashResumen").textContent = total
-      ? `${total} registros · ${((presentes / total) * 100).toFixed(1)}% de asistencia`
+    const r = resumenEstados(registros);
+    const { pct } = textoResumen(r);
+    $("dashResumen").textContent = r.total
+      ? `${r.total} registros · asistencia ${pct}${JUSTIFICADO_CUENTA_EN_CONTRA ? "" : " (las justificadas no cuentan en contra)"}`
       : "Sin registros en este periodo.";
 
     if (chartInstance) chartInstance.destroy();
     chartInstance = new Chart($("grafico"), {
       type: "pie",
       data: {
-        labels: ["Presentes", "Faltantes"],
-        datasets: [{ data: [presentes, faltantes], backgroundColor: ["#16a34a", "#dc2626"] }]
+        labels: ["Presentes", "Tardanzas", "Justificadas", "Faltas"],
+        datasets: [{
+          data: [r.presente, r.tardanza, r.justificado, r.falta],
+          backgroundColor: ["#16a34a", "#f59e0b", "#2563eb", "#dc2626"]
+        }]
       }
     });
 
@@ -1860,8 +2208,90 @@ async function cargarDashboard(manual = false) {
 }
 
 // ===============================
-// ADMINISTRACIÓN DE USUARIOS
+// ADMINISTRACIÓN DE USUARIOS Y DOCENTES
 // ===============================
+
+// Segunda app de Firebase: permite crear cuentas sin cerrar la sesión del admin
+function authSecundaria() {
+  if (!appSecundaria) appSecundaria = firebase.initializeApp(firebaseConfig, "secundaria");
+  return appSecundaria.auth();
+}
+
+function generarPasswordTemporal() {
+  const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = new Uint32Array(12);
+  window.crypto.getRandomValues(bytes);
+  let pass = "";
+  bytes.forEach(b => { pass += alfabeto[b % alfabeto.length]; });
+  $("nuevoDocentePassword").value = pass;
+  clearFieldError("nuevoDocentePassword");
+}
+
+async function crearDocente() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede crear docentes.", "error");
+
+  clearFields(["nuevoDocenteNombre", "nuevoDocenteEmail", "nuevoDocentePassword"]);
+  const nombre = normalizarTexto($("nuevoDocenteNombre").value);
+  const email = $("nuevoDocenteEmail").value.trim();
+  const password = $("nuevoDocentePassword").value;
+  const enviarCorreo = $("nuevoDocenteCorreo").checked;
+
+  let ok = true;
+  if (!validarNombre(nombre)) { showFieldError("nuevoDocenteNombre", "Solo letras y espacios."); ok = false; } else markFieldValid("nuevoDocenteNombre");
+  if (!validarEmail(email)) { showFieldError("nuevoDocenteEmail", "Correo inválido."); ok = false; } else markFieldValid("nuevoDocenteEmail");
+  if (!validarPassword(password)) { showFieldError("nuevoDocentePassword", "Mínimo 6 caracteres (usa «Generar»)."); ok = false; } else markFieldValid("nuevoDocentePassword");
+  if (!ok) return;
+
+  const btn = $("btnCrearDocente");
+  btn.disabled = true;
+
+  let uid = null;
+  try {
+    const secundaria = authSecundaria();
+    const cred = await secundaria.createUserWithEmailAndPassword(email, password);
+    uid = cred.user.uid;
+    await secundaria.signOut();
+  } catch (e) {
+    btn.disabled = false;
+    if (e && e.code === "auth/email-already-in-use") {
+      return showFieldError("nuevoDocenteEmail", "Ya existe una cuenta con ese correo. Búscala en la lista de usuarios y cámbiale el rol a profesor.");
+    }
+    return showMessage(traducirErrorFirebase(e), "error");
+  }
+
+  try {
+    await db.collection("users").doc(uid).set({
+      email,
+      nombre,
+      role: "profesor",
+      creadoEn: serverTs(),
+      creadoPor: auth.currentUser.email
+    });
+  } catch (e) {
+    btn.disabled = false;
+    return showMessage("La cuenta se creó, pero no se pudo guardar su perfil: " + traducirErrorFirebase(e) + " Cuando inicie sesión aparecerá como pendiente.", "error");
+  }
+
+  let correoEnviado = false;
+  if (enviarCorreo) {
+    try {
+      await auth.sendPasswordResetEmail(email);
+      correoEnviado = true;
+    } catch (e) { /* no es crítico: se puede reenviar desde la lista */ }
+  }
+
+  btn.disabled = false;
+  limpiarInput("nuevoDocenteNombre");
+  limpiarInput("nuevoDocenteEmail");
+  limpiarInput("nuevoDocentePassword");
+  clearFields(["nuevoDocenteNombre", "nuevoDocenteEmail", "nuevoDocentePassword"]);
+
+  showMessage(
+    "Docente creado." + (correoEnviado ? " Le enviamos un correo para elegir su contraseña." : "") + " Asígnalo a sus materias en Materias > Docentes.",
+    "success"
+  );
+  cargarUsuarios();
+}
 
 async function cargarUsuarios() {
   if (currentUserRole !== "admin") return;
@@ -1869,14 +2299,14 @@ async function cargarUsuarios() {
   ul.innerHTML = "<li>Cargando...</li>";
 
   try {
-    const snap = await db.collection("users").get();
-    const usuarios = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    await cargarUsuariosCache();
+    const usuarios = Object.values(usuariosMap);
 
-    // Primero los pendientes de aprobar, luego por correo
+    // Primero los pendientes de aprobar, luego por nombre
     usuarios.sort((a, b) => {
       const pa = a.role === "pendiente" ? 0 : 1;
       const pb = b.role === "pendiente" ? 0 : 1;
-      return pa - pb || String(a.email).localeCompare(String(b.email));
+      return pa - pb || nombreUsuario(a).localeCompare(nombreUsuario(b));
     });
 
     ul.innerHTML = "";
@@ -1889,10 +2319,10 @@ async function cargarUsuarios() {
       const li = document.createElement("li");
       const esYo = u.uid === auth.currentUser.uid;
 
-      li.innerHTML = `<strong>${esc(u.email || u.uid)}</strong>${esYo ? " <small>(tú)</small>" : ""}<br>`;
+      li.innerHTML = `<strong>${esc(u.nombre || u.email || u.uid)}</strong>${esYo ? " <small>(tú)</small>" : ""}<br><small>${esc(u.email || "")}</small><br>`;
 
       const select = document.createElement("select");
-      ROLES_VALIDOS.forEach(r => select.add(new Option(r, r)));
+      ROLES_VALIDOS.forEach(r => select.add(new Option(r === "pendiente" ? "pendiente (sin acceso)" : r, r)));
       if (!ROLES_VALIDOS.includes(u.role)) select.add(new Option(String(u.role || "sin rol"), ""), 0);
       select.value = ROLES_VALIDOS.includes(u.role) ? u.role : "";
       select.disabled = esYo;
@@ -1904,6 +2334,14 @@ async function cargarUsuarios() {
         btn.textContent = "Guardar rol";
         btn.onclick = () => cambiarRolUsuario(u.uid, select.value);
         li.appendChild(btn);
+
+        if (u.email) {
+          const btnCorreo = document.createElement("button");
+          btnCorreo.className = "small secondary";
+          btnCorreo.textContent = "Correo de contraseña";
+          btnCorreo.onclick = () => enviarCorreoPassword(u.email);
+          li.appendChild(btnCorreo);
+        }
       }
 
       ul.appendChild(li);
@@ -1927,6 +2365,16 @@ async function cambiarRolUsuario(uid, rol) {
   }
 }
 
+async function enviarCorreoPassword(email) {
+  if (currentUserRole !== "admin") return;
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showMessage(`Correo enviado a ${email}.`, "success");
+  } catch (e) {
+    showMessage("No se pudo enviar el correo: " + traducirErrorFirebase(e), "error");
+  }
+}
+
 // ===============================
 // EVENTOS
 // ===============================
@@ -1943,5 +2391,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   if ($("manualCedula")) {
     $("manualCedula").addEventListener("keydown", e => { if (e.key === "Enter") registrarManual(); });
+  }
+  if ($("correccionPassword")) {
+    $("correccionPassword").addEventListener("keydown", e => { if (e.key === "Enter") confirmarCorreccion(); });
   }
 });
