@@ -22,6 +22,9 @@ const auth = firebase.auth();
 
 const ROLES_STAFF = ["admin", "profesor"];
 const ROLES_VALIDOS = ["pendiente", "profesor", "admin"];
+// Texto que ve el usuario (el valor guardado en la base de datos sigue siendo "profesor")
+const ROL_TEXTO = { pendiente: "Pendiente (sin acceso)", profesor: "Docente", admin: "Administrador" };
+function textoRol(rol) { return ROL_TEXTO[rol] || String(rol || "sin rol"); }
 const CACHE_TTL_MS = 5 * 60 * 1000;      // caché de estudiantes (5 min)
 const HIST_PAGE = 50;                    // registros por página en el historial
 const MIN_REGISTROS_ALERTA = 3;          // mínimo de clases para considerar una alerta
@@ -208,7 +211,7 @@ async function mostrar(id) {
   if (!esStaff && id !== "pendienteScreen") return;
 
   // Restricción por rol (la protección real está en las reglas de Firestore)
-  if (currentUserRole !== "admin" && ["estudiantes", "materiasScreen", "adminScreen"].includes(id)) {
+  if (currentUserRole !== "admin" && ["materiasScreen", "adminScreen"].includes(id)) {
     showMessage("No tienes permisos para acceder a esta sección.", "error");
     return;
   }
@@ -544,7 +547,7 @@ async function initApp() {
 
     $("loginScreen").style.display = "none";
     $("app").style.display = "block";
-    $("rolInfo").textContent = `${user.email} · Rol: ${currentUserRole}`;
+    $("rolInfo").textContent = `${user.email} · Rol: ${textoRol(currentUserRole)}`;
 
     const navbar = document.querySelector(".navbar");
 
@@ -557,7 +560,10 @@ async function initApp() {
     navbar.style.display = "";
     const esAdmin = currentUserRole === "admin";
     $("adminNavBtn").style.display = esAdmin ? "block" : "none";
-    $("estudiantesNavBtn").style.display = esAdmin ? "block" : "none";
+    $("estudiantesNavBtn").style.display = "block";
+    $("estudiantesNavTexto").textContent = esAdmin ? "Estudiantes" : "Mis estudiantes";
+    $("estudiantesTitulo").textContent = esAdmin ? "👨‍🎓 Estudiantes" : "👨‍🎓 Mis estudiantes";
+    $("formNuevoEstudiante").style.display = esAdmin ? "block" : "none";
     $("materiasNavBtn").style.display = esAdmin ? "block" : "none";
 
     establecerFechaActualPorDefecto();
@@ -848,8 +854,12 @@ async function buscarEstudiantes() {
 
     const ordenados = [...cacheEst.estudiantes].sort((a, b) => a.apellidos.localeCompare(b.apellidos));
 
+    const esAdmin = currentUserRole === "admin";
+
     ordenados.forEach(est => {
       if (materiaId !== "todas" && !cedulasDeMateria.has(est.cedula)) return;
+      // El docente solo ve estudiantes de sus propias materias
+      if (!esAdmin && !materiasPorCedula[est.cedula]) return;
 
       const nombreCompleto = `${est.nombres} ${est.apellidos}`;
       const coincide = !texto || est.cedula.includes(texto) || nombreCompleto.toLowerCase().includes(texto);
@@ -865,13 +875,13 @@ async function buscarEstudiantes() {
         <small style="color:#2563eb; font-weight:bold;">Materias: ${esc(mats)}</small><br>
       `;
 
-      const btnQr = document.createElement("button");
-      btnQr.className = "small secondary";
-      btnQr.textContent = "QR";
-      btnQr.onclick = () => mostrarQR(est.cedula, nombreCompleto);
-      li.appendChild(btnQr);
+      if (esAdmin) {
+        const btnQr = document.createElement("button");
+        btnQr.className = "small secondary";
+        btnQr.textContent = "QR";
+        btnQr.onclick = () => mostrarQR(est.cedula, nombreCompleto);
+        li.appendChild(btnQr);
 
-      if (currentUserRole === "admin") {
         const btnEd = document.createElement("button");
         btnEd.className = "small";
         btnEd.textContent = "Editar";
@@ -1940,7 +1950,7 @@ async function cargarHistorial(reiniciar = true) {
         Estado: ${esc(etiquetaEstado(d))}<br>
         ${d.motivo ? `Motivo: ${esc(d.motivo)}<br>` : ""}
         Hora: ${esc(d.hora || "Sin hora")}<br>
-        Profesor: ${esc(d.profesor || "No registrado")}
+        Docente: ${esc(d.profesor || "No registrado")}
       `;
 
       // Un docente solo corrige faltas; el admin puede cambiar cualquier estado
@@ -2062,7 +2072,7 @@ function csvCelda(valor) {
 }
 
 function construirCSV(registros) {
-  const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Motivo", "Hora", "Profesor"];
+  const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Motivo", "Hora", "Docente"];
   const filas = registros.map(x => [
     x.cedula, x.nombres, x.apellidos, x.fecha, nombreMateria(x),
     ESTADOS[estadoDe(x)].texto, x.motivo, x.hora, x.profesor
@@ -2254,7 +2264,7 @@ async function crearDocente() {
   } catch (e) {
     btn.disabled = false;
     if (e && e.code === "auth/email-already-in-use") {
-      return showFieldError("nuevoDocenteEmail", "Ya existe una cuenta con ese correo. Búscala en la lista de usuarios y cámbiale el rol a profesor.");
+      return showFieldError("nuevoDocenteEmail", "Ya existe una cuenta con ese correo. Búscala en la lista de usuarios y cámbiale el rol a Docente.");
     }
     return showMessage(traducirErrorFirebase(e), "error");
   }
@@ -2322,8 +2332,8 @@ async function cargarUsuarios() {
       li.innerHTML = `<strong>${esc(u.nombre || u.email || u.uid)}</strong>${esYo ? " <small>(tú)</small>" : ""}<br><small>${esc(u.email || "")}</small><br>`;
 
       const select = document.createElement("select");
-      ROLES_VALIDOS.forEach(r => select.add(new Option(r === "pendiente" ? "pendiente (sin acceso)" : r, r)));
-      if (!ROLES_VALIDOS.includes(u.role)) select.add(new Option(String(u.role || "sin rol"), ""), 0);
+      ROLES_VALIDOS.forEach(r => select.add(new Option(textoRol(r), r)));
+      if (!ROLES_VALIDOS.includes(u.role)) select.add(new Option(textoRol(u.role), ""), 0);
       select.value = ROLES_VALIDOS.includes(u.role) ? u.role : "";
       select.disabled = esYo;
       li.appendChild(select);

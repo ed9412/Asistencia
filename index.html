@@ -137,8 +137,9 @@
 
     <section id="estudiantes" class="screen">
       <div class="card">
-        <h2>👨‍🎓 Estudiantes</h2>
+        <h2 id="estudiantesTitulo">👨‍🎓 Estudiantes</h2>
 
+        <div id="formNuevoEstudiante">
         <label>Cédula <span class="required">*</span></label>
         <input id="cedula" placeholder="Solo números" inputmode="numeric" />
         <small id="error-cedula" class="field-error"></small>
@@ -154,6 +155,7 @@
         <button onclick="crearEstudiante()">Guardar estudiante</button>
 
         <hr />
+        </div>
 
         <h4>Buscador de Estudiantes</h4>
         <div class="search-box">
@@ -440,7 +442,7 @@
 
     <nav class="navbar">
       <button onclick="mostrar('lista')">✅<span>Lista</span></button>
-      <button id="estudiantesNavBtn" onclick="mostrar('estudiantes')" style="display:none">🎓<span>Estudiantes</span></button>
+      <button id="estudiantesNavBtn" onclick="mostrar('estudiantes')" style="display:none">🎓<span id="estudiantesNavTexto">Estudiantes</span></button>
       <button id="materiasNavBtn" onclick="mostrar('materiasScreen')" style="display:none">📚<span>Materias</span></button>
       <button onclick="mostrar('historial')">📅<span>Historial</span></button>
       <button onclick="mostrar('reportes')">📈<span>Reportes</span></button>
