@@ -47,6 +47,7 @@ const MOTIVO_MAX = 200;
 const JUSTIFICADO_CUENTA_EN_CONTRA = false;
 
 let currentUserRole = null;
+let currentUserNombre = "";           // nombre del perfil (users/{uid}.nombre)
 
 // Materias en memoria: una sola consulta alimenta selects, listados y reportes
 let materiasMap = {};      // id -> nombre
@@ -78,6 +79,7 @@ let histFiltro = null;
 
 // Último reporte generado (para exportar)
 let resultadosBusquedaActual = [];
+let resumenReporteActual = [];     // filas del reporte por estudiante (para exportar)
 
 // Administración (solo admin)
 let usuariosMap = {};        // uid -> { uid, email, nombre, role }
@@ -167,6 +169,54 @@ function nombreMateria(registro) {
   return materiasMap[registro.materia] || registro.materiaNombre || registro.materia || "";
 }
 
+// Nombre de quien hace la acción (para guardarlo en los registros)
+// Nombre (nunca el correo) de quien está usando la app; "" si el perfil no tiene nombre
+function nombreActor() {
+  return currentUserNombre || "";
+}
+
+// Si el perfil no tiene nombre, lo pide una vez y lo guarda (las reglas permiten cambiar el propio nombre)
+async function asegurarNombre() {
+  if (currentUserNombre || typeof prompt !== "function") return;
+  const texto = prompt("Tu perfil no tiene nombre. Escríbelo para que aparezca como docente en las listas y reportes:");
+  const nombre = normalizarTexto(texto || "");
+  if (!validarNombre(nombre) || nombre.length > 80) return;
+  try {
+    await db.collection("users").doc(auth.currentUser.uid).update({ nombre });
+    currentUserNombre = nombre;
+    if ($("miNombre")) $("miNombre").value = nombre;
+  } catch (e) { /* se continúa sin nombre */ }
+}
+
+// Un valor que en realidad es un correo no cuenta como nombre
+function esNombreReal(n) {
+  return !!n && !String(n).includes("@");
+}
+
+// Nombre de una persona a partir de su correo (solo el admin conoce a todos los usuarios)
+function nombreDeEmail(email) {
+  const u = Object.values(usuariosMap).find(x => x.email === email);
+  return u && u.nombre ? u.nombre : "";
+}
+
+// Docente que registró la asistencia: nombre (no correo). Los registros antiguos no lo
+// guardaban: el admin lo resuelve por el correo; si no se puede, se muestra el correo.
+function nombreDocente(registro) {
+  return (esNombreReal(registro.profesorNombre) ? registro.profesorNombre : "") ||
+    nombreDeEmail(registro.profesor) || registro.profesor || "No registrado";
+}
+
+// ¿Puede el usuario actual modificar una asistencia ya guardada (no falta) de esa fecha?
+// Admin: siempre. Docente: solo en las listas de hoy (las reglas de Firestore lo exigen igual).
+function puedeModificarGuardado(fecha) {
+  return currentUserRole === "admin" || fecha === fechaLocalISO();
+}
+
+// ¿Puede corregir este registro? Una falta se puede cambiar siempre (p. ej. para justificarla).
+function puedeCorregirRegistro(registro) {
+  return currentUserRole === "admin" || estadoDe(registro) === "falta" || registro.fecha === fechaLocalISO();
+}
+
 // Estado de un registro. Los registros antiguos solo tienen "presente": true/false.
 function estadoDe(registro) {
   if (registro && ESTADOS[registro.estado]) return registro.estado;
@@ -236,6 +286,7 @@ async function mostrar(id) {
     select.selectedIndex = 0;
     select.classList.remove("valid", "invalid");
   });
+  if (!listaActiva) preseleccionarMateriaUnica();
 
   document.querySelectorAll(`${alcance} .field-error`).forEach(error => {
     error.textContent = "";
@@ -266,6 +317,8 @@ async function mostrar(id) {
     buscarEstudiantes();
   } else if (id === "materiasScreen") {
     listarMaterias();
+  } else if (id === "historial") {
+    cargarHistorial();
   } else if (id === "dashboard") {
     cargarDashboard(false);
   } else if (id === "adminScreen") {
@@ -415,6 +468,12 @@ function validarAsignacionCampos() {
   if (!validarCedula($("cedulaAsignar").value)) { showFieldError("cedulaAsignar", "Cédula inválida."); ok = false; } else markFieldValid("cedulaAsignar");
   if (!$("materiaSelect").value) { showFieldError("materiaSelect", "Selecciona materia."); ok = false; } else markFieldValid("materiaSelect");
   return ok;
+}
+
+// Con una sola materia asignada, queda elegida para pasar lista
+function preseleccionarMateriaUnica() {
+  const sel = $("materiaLista");
+  if (sel && materiasLista.length === 1) sel.value = materiasLista[0].id;
 }
 
 function validarInicioListaCampos() {

@@ -51,93 +51,6 @@ async function consultarAsistencias({ materiaIds = null, cedula = "", desde = ""
   return registros;
 }
 
-function etiquetaEstado(registro) {
-  const e = estadoDe(registro);
-  return `${ESTADOS[e].icono} ${ESTADOS[e].texto}`;
-}
-
-// ===============================
-// HISTORIAL (paginado)
-// ===============================
-
-async function cargarHistorial(reiniciar = true) {
-  if (reiniciar) {
-    if (!validarRangoFechas()) return;
-    const materia = $("materiaHistorial").value;
-    if (currentUserRole !== "admin" && !materia) {
-      return showMessage("Selecciona una materia.", "error");
-    }
-    histFiltro = { materia, inicio: $("filtroFechaInicio").value, fin: $("filtroFechaFin").value };
-    histCursor = null;
-    limpiarLista("historialLista");
-    $("btnHistMas").style.display = "none";
-  }
-  if (!histFiltro) return;
-
-  try {
-    let query = db.collection("asistencias");
-
-    if (histFiltro.materia) query = query.where("materia", "==", histFiltro.materia);
-    if (histFiltro.inicio && histFiltro.fin) {
-      query = query.where("fecha", ">=", histFiltro.inicio).where("fecha", "<=", histFiltro.fin);
-    }
-
-    query = query.orderBy("fecha", "desc").limit(HIST_PAGE);
-    if (histCursor) query = query.startAfter(histCursor);
-
-    const snap = await query.get();
-    const ul = $("historialLista");
-
-    if (snap.empty && reiniciar) {
-      ul.innerHTML = "<li>No hay registros para mostrar con estos filtros.</li>";
-      return;
-    }
-
-    const esAdmin = currentUserRole === "admin";
-
-    snap.forEach(doc => {
-      const d = doc.data();
-      const estado = estadoDe(d);
-      const li = document.createElement("li");
-
-      li.innerHTML = `
-        ${esc(d.cedula)}<br>
-        <strong>${esc(d.nombres || "")} ${esc(d.apellidos || "")}</strong><br>
-        <strong>Materia: ${esc(nombreMateria(d))}</strong><br>
-        <strong>Fecha: ${esc(formatarFechaUI(d.fecha))}</strong><br>
-        Estado: ${esc(etiquetaEstado(d))}<br>
-        ${d.motivo ? `Motivo: ${esc(d.motivo)}<br>` : ""}
-        Hora: ${esc(d.hora || "Sin hora")}<br>
-        Docente: ${esc(d.profesor || "No registrado")}
-      `;
-
-      // Un docente solo corrige faltas; el admin puede cambiar cualquier estado
-      if (estado === "falta" || esAdmin) {
-        const b = document.createElement("button");
-        b.className = "secondary";
-        b.textContent = estado === "falta" ? "Corregir registro" : "Cambiar estado";
-        b.onclick = () => abrirCorreccion({
-          tipo: "historial",
-          docId: doc.id,
-          materia: d.materia,
-          fecha: d.fecha,
-          nombre: `${d.nombres || ""} ${d.apellidos || ""}`.trim(),
-          estadoActual: estado
-        });
-        li.appendChild(b);
-      }
-
-      ul.appendChild(li);
-    });
-
-    if (snap.docs.length > 0) histCursor = snap.docs[snap.docs.length - 1];
-    $("btnHistMas").style.display = snap.size === HIST_PAGE ? "block" : "none";
-
-  } catch (error) {
-    showMessage("No se pudo cargar el historial: " + traducirErrorFirebase(error), "error");
-  }
-}
-
 // ===============================
 // REPORTES
 // ===============================
@@ -148,6 +61,7 @@ function textoResumen(r) {
   return { partes: partes.join(" · "), pct };
 }
 
+// Reporte por estudiante: asistencias, tardanzas, justificadas, faltas y porcentaje
 async function generarReporte() {
   const contenedor = $("reporte");
   clearFieldError("cedulaReporte");
@@ -163,12 +77,12 @@ async function generarReporte() {
   }
 
   if (!ced && matId === "todas" && !fInicio && !fFin) {
-    contenedor.innerHTML = "<p style='color:red'>Indica al menos una cédula, una materia o un rango de fechas.</p>";
+    contenedor.innerHTML = "<p class='error-text'>Indica al menos una cédula, una materia o un rango de fechas.</p>";
     return;
   }
 
   if (fInicio && fFin && fInicio > fFin) {
-    contenedor.innerHTML = "<p style='color:red'>La fecha de inicio no puede ser mayor que la de fin.</p>";
+    contenedor.innerHTML = "<p class='error-text'>La fecha de inicio no puede ser mayor que la de fin.</p>";
     return;
   }
 
@@ -181,43 +95,58 @@ async function generarReporte() {
       desde: fInicio,
       hasta: fFin
     });
+    resultadosBusquedaActual = registros;
 
-    const resultados = registros.sort((a, b) =>
-      b.fecha.localeCompare(a.fecha) || (a.apellidos || "").localeCompare(b.apellidos || "")
-    );
-    resultadosBusquedaActual = resultados;
-
-    if (resultados.length === 0) {
+    if (registros.length === 0) {
+      resumenReporteActual = [];
       contenedor.innerHTML = "<p>No se encontraron registros con esos criterios.</p>";
       return;
     }
 
-    const resumen = resumenEstados(resultados);
-    const { partes, pct } = textoResumen(resumen);
-    const MAX_FILAS = 200;
+    const filas = construirResumenPorEstudiante(registros);
+    resumenReporteActual = filas;
+
+    const total = resumenEstados(registros);
+    const { partes, pct } = textoResumen(total);
+    const MAX_FILAS = 300;
 
     let html = `<hr>
-      <p><strong>${resultados.length}</strong> registros · asistencia <strong>${pct}</strong></p>
+      <p><strong>${registros.length}</strong> registros · <strong>${filas.length}</strong> estudiante(s) · asistencia general <strong>${pct}</strong></p>
       <p class="subtitle">${partes}</p>
-      <button class="secondary" onclick="exportarBusqueda()">Exportar a CSV</button><ul>`;
+      <button class="secondary" onclick="exportarResumenReporte()">Exportar resumen (CSV)</button>
+      <button class="secondary" onclick="exportarBusqueda()">Exportar detalle (CSV)</button>
+      <table class="vista-previa"><tr><th>Estudiante</th><th>Materia</th><th>✅</th><th>⏰</th><th>📝</th><th>❌</th><th>%</th></tr>`;
 
-    resultados.slice(0, MAX_FILAS).forEach(x => {
-      html += `<li>
-        <strong>${esc(x.cedula)}</strong> - ${esc(x.nombres || "")} ${esc(x.apellidos || "")}<br>
-        <strong>Materia:</strong> ${esc(nombreMateria(x))} | <strong>Fecha:</strong> ${esc(formatarFechaUI(x.fecha))}<br>
-        <strong>Estado:</strong> ${esc(etiquetaEstado(x))}${x.motivo ? `<br><strong>Motivo:</strong> ${esc(x.motivo)}` : ""}
-      </li>`;
+    filas.slice(0, MAX_FILAS).forEach(f => {
+      const pctF = f.porcentaje === null ? "-" : `${f.porcentaje.toFixed(0)}%`;
+      html += `<tr><td>${esc(f.cedula)}<br>${esc(f.nombres)} ${esc(f.apellidos)}</td><td>${esc(nombreMateria(f))}</td>` +
+        `<td>${f.presente}</td><td>${f.tardanza}</td><td>${f.justificado}</td><td>${f.falta}</td><td>${esc(pctF)}</td></tr>`;
     });
-    html += "</ul>";
+    html += "</table>";
 
-    if (resultados.length > MAX_FILAS) {
-      html += `<p class="subtitle">Se muestran ${MAX_FILAS} de ${resultados.length}. El CSV incluye todos.</p>`;
+    if (filas.length > MAX_FILAS) {
+      html += `<p class="subtitle">Se muestran ${MAX_FILAS} de ${filas.length}. El CSV incluye todos.</p>`;
     }
 
     contenedor.innerHTML = html;
   } catch (e) {
-    contenedor.innerHTML = "<p style='color:red'>Error al obtener datos: " + esc(traducirErrorFirebase(e)) + "</p>";
+    contenedor.innerHTML = "<p class='error-text'>Error al obtener datos: " + esc(traducirErrorFirebase(e)) + "</p>";
   }
+}
+
+// Una fila por estudiante y materia, ordenada por apellido
+function construirResumenPorEstudiante(registros) {
+  const grupos = new Map();
+  registros.forEach(x => {
+    const clave = `${x.cedula}|${x.materia}`;
+    if (!grupos.has(clave)) {
+      grupos.set(clave, { cedula: x.cedula, nombres: x.nombres || "", apellidos: x.apellidos || "", materia: x.materia, materiaNombre: x.materiaNombre, lista: [] });
+    }
+    grupos.get(clave).lista.push(x);
+  });
+  return Array.from(grupos.values())
+    .map(g => ({ ...g, ...resumenEstados(g.lista), lista: undefined }))
+    .sort((a, b) => a.apellidos.localeCompare(b.apellidos) || a.nombres.localeCompare(b.nombres) || nombreMateria(a).localeCompare(nombreMateria(b)));
 }
 
 // ===============================
@@ -231,13 +160,26 @@ function csvCelda(valor) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-function construirCSV(registros) {
+// Detalle: una fila por registro. "Docente" lleva el nombre de quien guardó (terminó) la lista;
+// guardadores: mapa "materia_fecha" -> nombre. Si no hay dato, se usa el docente del registro.
+function construirCSV(registros, guardadores = {}) {
   const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Motivo", "Hora", "Docente"];
   const filas = registros.map(x => [
     x.cedula, x.nombres, x.apellidos, x.fecha, nombreMateria(x),
-    ESTADOS[estadoDe(x)].texto, x.motivo, x.hora, x.profesor
+    ESTADOS[estadoDe(x)].texto, x.motivo, x.hora,
+    guardadores[`${x.materia}_${x.fecha}`] || (x.profesor || x.profesorNombre ? nombreDocente(x) : "")
   ].map(csvCelda).join(";"));
-  return "﻿" + cabecera.join(";") + "\n" + filas.join("\n");
+  return "\uFEFF" + cabecera.join(";") + "\n" + filas.join("\n");
+}
+
+// Resumen: una fila por estudiante y materia
+function construirCSVResumen(filas) {
+  const cabecera = ["Cedula", "Nombres", "Apellidos", "Materia", "Presentes", "Tardanzas", "Justificadas", "Faltas", "Total", "Porcentaje"];
+  const lineas = filas.map(f => [
+    f.cedula, f.nombres, f.apellidos, nombreMateria(f), f.presente, f.tardanza, f.justificado, f.falta, f.total,
+    f.porcentaje === null ? "" : f.porcentaje.toFixed(1) + "%"
+  ].map(csvCelda).join(";"));
+  return "\uFEFF" + cabecera.join(";") + "\n" + lineas.join("\n");
 }
 
 function descargarCSV(contenido, nombreArchivo) {
@@ -250,38 +192,25 @@ function descargarCSV(contenido, nombreArchivo) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function exportarBusqueda() {
+async function exportarBusqueda() {
   if (!resultadosBusquedaActual || resultadosBusquedaActual.length === 0) {
     return showMessage("No hay datos para exportar.", "error");
   }
-  descargarCSV(construirCSV(resultadosBusquedaActual), "reporte_busqueda.csv");
-  showMessage("Reporte exportado exitosamente.", "success");
+  try {
+    if (currentUserRole === "admin") await cargarUsuariosCache();   // para mostrar nombres, no correos
+  } catch (e) { /* si falla, se exportan los correos */ }
+  const filas = [...resultadosBusquedaActual].sort((a, b) => b.fecha.localeCompare(a.fecha) || (a.apellidos || "").localeCompare(b.apellidos || ""));
+  const guardadores = await mapaGuardadores(filas);
+  descargarCSV(construirCSV(filas, guardadores), "reporte_detalle.csv");
+  showMessage("Detalle exportado.", "success");
 }
 
-// Exporta según la materia y las fechas del historial (o todo, con confirmación)
-async function exportar() {
-  if (!validarRangoFechas()) return;
-  const materia = $("materiaHistorial").value;
-  const inicio = $("filtroFechaInicio").value;
-  const fin = $("filtroFechaFin").value;
-
-  if (currentUserRole !== "admin" && !materia) return showMessage("Selecciona una materia.", "error");
-  if (!inicio && !fin && !confirm("No elegiste fechas: se exportará TODO el historial. ¿Continuar?")) return;
-
-  try {
-    const registros = await consultarAsistencias({
-      materiaIds: materia ? [materia] : null,
-      desde: inicio,
-      hasta: fin
-    });
-    if (registros.length === 0) return showMessage("Sin datos para exportar.", "error");
-
-    registros.sort((a, b) => b.fecha.localeCompare(a.fecha));
-    descargarCSV(construirCSV(registros), inicio && fin ? `asistencias_${inicio}_${fin}.csv` : "asistencias_completo.csv");
-    showMessage(`Exportados ${registros.length} registros.`, "success");
-  } catch (e) {
-    showMessage("Error al exportar: " + traducirErrorFirebase(e), "error");
+function exportarResumenReporte() {
+  if (!resumenReporteActual || resumenReporteActual.length === 0) {
+    return showMessage("No hay datos para exportar.", "error");
   }
+  descargarCSV(construirCSVResumen(resumenReporteActual), "reporte_resumen.csv");
+  showMessage("Resumen exportado.", "success");
 }
 
 // ===============================

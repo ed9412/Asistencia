@@ -40,6 +40,7 @@ async function initApp() {
     }
 
     currentUserRole = snap.data().role || "pendiente";
+    currentUserNombre = snap.data().nombre || "";
 
     $("loginScreen").style.display = "none";
     $("app").style.display = "block";
@@ -69,6 +70,11 @@ async function initApp() {
       showMessage("Todavía no tienes materias asignadas. Pide a un administrador que te asigne.", "info");
     }
     await ofrecerRestaurarBorrador();
+    if (!currentUserNombre) {
+      showMessage(esAdmin
+        ? "Tu perfil no tiene nombre. Escríbelo en Admin > Mi nombre para que aparezca en los reportes."
+        : "Tu perfil no tiene nombre. Se te pedirá al guardar una lista para que aparezca en los reportes.", "info");
+    }
   } catch (error) {
     showMessage("Error inicializando: " + traducirErrorFirebase(error), "error");
   }
