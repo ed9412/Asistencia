@@ -20,6 +20,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
+  <script src="js/tema.js?v=3"></script>
 </head>
 <body>
 
@@ -51,7 +52,10 @@
         <strong>Asistencia App</strong>
         <small id="rolInfo"></small>
       </div>
-      <button class="small danger" onclick="logout()">Salir</button>
+      <div class="topbar-acciones">
+        <button id="btnTema" class="small secondary" onclick="alternarTema()" title="Cambiar tema">🌙</button>
+        <button class="small danger" onclick="logout()">Salir</button>
+      </div>
     </header>
 
     <section id="dashboard" class="screen">
@@ -81,9 +85,9 @@
       <div class="card">
         <h2>✅ Pasar lista</h2>
 
-        <div id="infoListaActiva" style="display: none; background: #e0f2fe; padding: 12px; border-radius: 12px; margin-bottom: 16px; border: 1px solid #bae6fd;">
-          <p style="margin: 0; font-size: 16px;">📚 <strong>Materia:</strong> <span id="txtMateriaActiva"></span></p>
-          <p style="margin: 4px 0 0 0; font-size: 15px; color: #4b5563;">📅 <strong>Fecha:</strong> <span id="txtFechaActiva"></span></p>
+        <div id="infoListaActiva" class="info-activa" style="display: none;">
+          <p>📚 <strong>Materia:</strong> <span id="txtMateriaActiva"></span></p>
+          <p>📅 <strong>Fecha:</strong> <span id="txtFechaActiva"></span></p>
         </div>
 
         <div id="formInicioLista">
@@ -155,6 +159,24 @@
         <button onclick="crearEstudiante()">Guardar estudiante</button>
 
         <hr />
+
+        <h4>Importar estudiantes desde CSV</h4>
+        <p class="subtitle">Columnas: <strong>cedula; nombres; apellidos</strong> (con o sin encabezado, separadas por «;», «,» o tabulación). Las cédulas que ya existen no se modifican.</p>
+
+        <label>Archivo CSV</label>
+        <input type="file" id="csvArchivo" accept=".csv,.txt,text/csv,text/plain" onchange="cargarArchivoCSV(this)" />
+
+        <label>…o pega el contenido aquí</label>
+        <textarea id="csvTexto" placeholder="12345678;Juan Carlos;Pérez Gómez"></textarea>
+
+        <label>Asignación</label>
+        <select id="csvMateria"></select>
+
+        <button class="secondary" onclick="importarRevisar()">Revisar</button>
+        <div id="csvVistaPrevia"></div>
+        <button id="btnCsvImportar" style="display:none" onclick="importarConfirmar()">Importar</button>
+
+        <hr />
         </div>
 
         <h4>Buscador de Estudiantes</h4>
@@ -165,6 +187,9 @@
            </select>
            <button onclick="buscarEstudiantes()">Buscar</button>
         </div>
+
+        <button id="btnCarnetsLote" class="secondary" onclick="descargarCarnetsMateria()">🪪 Descargar carnets de la materia (PDF)</button>
+        <p class="subtitle">Elige una materia en el filtro de arriba. Salen 8 carnets por hoja A4.</p>
 
         <h4>Listado</h4>
         <ul id="listaEstudiantes"></ul>
@@ -321,6 +346,11 @@
 
         <h4>Usuarios</h4>
         <ul id="listaUsuarios"></ul>
+
+        <hr />
+        <h4>Mantenimiento</h4>
+        <p class="subtitle">Reconstruye los resúmenes diarios que usa el dashboard a partir de todas las asistencias. Úsalo una vez al actualizar a esta versión (para incluir el historial anterior) o si los números del dashboard no cuadran.</p>
+        <button id="btnRecalcularResumenes" class="secondary" onclick="recalcularTodosResumenes()">Recalcular resúmenes del dashboard</button>
       </div>
     </section>
 
@@ -339,10 +369,10 @@
       <div class="modal-content">
         <button class="small danger" onclick="cerrarQR()" style="float: right; margin-bottom: 10px;">X</button>
 
-        <div id="qrExportArea" style="padding: 20px; background: white; text-align: center; border-radius: 12px; border: 2px solid #e5e7eb; clear: both;">
-          <h3 style="margin-bottom: 10px; color: #2563eb;">Carnet Estudiantil</h3>
-          <p id="qrNombreDisplay" style="font-size: 20px; font-weight: bold; margin: 5px 0;"></p>
-          <p id="qrCedulaDisplay" style="font-size: 16px; color: #6b7280; margin: 0 0 15px 0;"></p>
+        <div id="qrExportArea" class="carnet">
+          <h3>Carnet Estudiantil</h3>
+          <p id="qrNombreDisplay" class="carnet-nombre"></p>
+          <p id="qrCedulaDisplay" class="carnet-cedula"></p>
 
           <canvas id="qrCanvas"></canvas>
         </div>
@@ -453,6 +483,15 @@
 
   </div>
 
-<script src="app.js"></script>
+<script src="js/nucleo.js?v=3"></script>
+<script src="js/sesion.js?v=3"></script>
+<script src="js/materias-estudiantes.js?v=3"></script>
+<script src="js/lista.js?v=3"></script>
+<script src="js/reportes.js?v=3"></script>
+<script src="js/admin.js?v=3"></script>
+<script src="js/resumenes.js?v=3"></script>
+<script src="js/importar.js?v=3"></script>
+<script src="js/carnets.js?v=3"></script>
+<script src="js/inicio.js?v=3"></script>
 </body>
 </html>
