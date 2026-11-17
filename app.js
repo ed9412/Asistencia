@@ -875,12 +875,13 @@ async function buscarEstudiantes() {
         <small style="color:#2563eb; font-weight:bold;">Materias: ${esc(mats)}</small><br>
       `;
 
+      const btnQr = document.createElement("button");
+      btnQr.className = "small secondary";
+      btnQr.textContent = "QR";
+      btnQr.onclick = () => mostrarQR(est.cedula, nombreCompleto);
+      li.appendChild(btnQr);
+
       if (esAdmin) {
-        const btnQr = document.createElement("button");
-        btnQr.className = "small secondary";
-        btnQr.textContent = "QR";
-        btnQr.onclick = () => mostrarQR(est.cedula, nombreCompleto);
-        li.appendChild(btnQr);
 
         const btnEd = document.createElement("button");
         btnEd.className = "small";
