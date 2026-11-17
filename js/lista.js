@@ -265,6 +265,7 @@ async function cancelarLista() {
   limpiarInput("manualCedula");
   clearFieldError("manualCedula");
   $("materiaLista").selectedIndex = 0;
+  preseleccionarMateriaUnica();
   establecerFechaActualPorDefecto();
 
   showMessage("Lista cancelada.", "info");
@@ -537,11 +538,13 @@ async function cerrarLista() {
       borrarCampo: () => firebase.firestore.FieldValue.delete()
     });
 
-    // Resumen del día (conteos finales) para el dashboard
+    // Resumen del día (conteos finales) para el dashboard. Si esta vez se guardó algo,
+    // quien guarda pasa a ser quien «terminó» la lista; si no hubo cambios, se conserva el anterior.
     const resumen = datosResumenDia(
       listaCtx.materiaId, listaCtx.fecha,
       conteosDelDia(existentesMap, ops),
-      marcaServidorResumen()
+      marcaServidorResumen(),
+      ops.length > 0 ? { email: auth.currentUser.email, nombre: nombreActor() } : null
     );
 
     // Escritura en lotes (rápida y atómica por lote). El resumen va en el último lote.
@@ -553,7 +556,7 @@ async function cerrarLista() {
         else batch.update(ref, op.data);
       });
       if (i + 400 >= ops.length) {
-        batch.set(db.collection("resumenes_dia").doc(`${listaCtx.materiaId}_${listaCtx.fecha}`), resumen);
+        batch.set(db.collection("resumenes_dia").doc(`${listaCtx.materiaId}_${listaCtx.fecha}`), resumen, { merge: true });
       }
       await batch.commit();
     }
@@ -564,6 +567,7 @@ async function cerrarLista() {
     borrarBorrador();
     resetUILista();
     $("materiaLista").selectedIndex = 0;
+  preseleccionarMateriaUnica();
     establecerFechaActualPorDefecto();
   } catch (e) {
     showMessage("No se pudo guardar la lista: " + traducirErrorFirebase(e), "error");
@@ -588,12 +592,15 @@ function abrirCorreccion(ctx) {
 
   const sel = $("correccionEstado");
   sel.innerHTML = "";
-  ["presente", "tardanza", "justificado", "falta"].forEach(e => {
+  // Sobre una lista ya guardada, «justificado» solo se ofrece a quien está en falta
+  const opciones = ["presente", "tardanza", "justificado", "falta"]
+    .filter(e => !(ctx.tipo === "historial" && e === "justificado" && actual !== "falta" && actual !== "justificado"));
+  opciones.forEach(e => {
     sel.add(new Option(`${ESTADOS[e].icono} ${ESTADOS[e].texto}${e === actual ? " (actual)" : ""}`, e));
   });
   sel.value = (ctx.estadoSugerido && ctx.estadoSugerido !== actual)
     ? ctx.estadoSugerido
-    : (["presente", "tardanza", "justificado"].find(e => e !== actual) || "presente");
+    : (opciones.find(e => e !== actual && e !== "falta") || "presente");
 
   // En la lista en curso basta con confirmar; sobre un registro guardado se pide la contraseña
   $("correccionPasswordBloque").style.display = ctx.tipo === "historial" ? "block" : "none";

@@ -266,6 +266,7 @@ async function mostrar(id) {
     select.selectedIndex = 0;
     select.classList.remove("valid", "invalid");
   });
+  if (!listaActiva) preseleccionarMateriaUnica();
 
   document.querySelectorAll(`${alcance} .field-error`).forEach(error => {
     error.textContent = "";
@@ -447,6 +448,12 @@ function validarAsignacionCampos() {
   if (!validarCedula($("cedulaAsignar").value)) { showFieldError("cedulaAsignar", "Cédula inválida."); ok = false; } else markFieldValid("cedulaAsignar");
   if (!$("materiaSelect").value) { showFieldError("materiaSelect", "Selecciona materia."); ok = false; } else markFieldValid("materiaSelect");
   return ok;
+}
+
+// Con una sola materia asignada, queda elegida para pasar lista
+function preseleccionarMateriaUnica() {
+  const sel = $("materiaLista");
+  if (sel && materiasLista.length === 1) sel.value = materiasLista[0].id;
 }
 
 function validarInicioListaCampos() {

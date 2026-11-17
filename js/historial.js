@@ -152,7 +152,11 @@ function pintarDetalleHistorial() {
   const { pct } = textoResumen(resumen);
 
   $("detalleTitulo").textContent = `${materiasMap[materia] || detalleRegistros[0].materiaNombre || materia} · ${formatarFechaUI(fecha)}`;
-  $("detalleResumen").textContent = `${textoConteos(resumen)} · asistencia ${pct}`;
+  const tarjeta = histListas.find(x => x.materia === materia && x.fecha === fecha);
+  const guardador = nombreGuardador(tarjeta) ||
+    (detalleRegistros.find(r => r.profesor || r.profesorNombre) ? nombreDocente(detalleRegistros.find(r => r.profesor || r.profesorNombre)) : "");
+  $("detalleResumen").textContent = `${textoConteos(resumen)} · asistencia ${pct}` +
+    (guardador ? ` · Guardada por ${guardador}` : "");
 
   const aviso = $("detalleAviso");
   if (!esAdmin && fecha !== fechaLocalISO()) {
@@ -172,13 +176,11 @@ function pintarDetalleHistorial() {
     li.innerHTML = `${ESTADOS[estado].icono} <strong>${esc(r.cedula)}</strong> · ${esc(ESTADOS[estado].texto)}<br>${esc(nombre)}<br>` +
       (r.motivo ? `<small>Motivo: ${esc(r.motivo)}</small><br>` : "") +
       (r.hora ? `<small>Hora: ${esc(r.hora)}</small><br>` : "") +
-      `<small>Docente: ${esc(nombreDocente(r))}</small>` +
-      (r.corregido ? `<br><small>Corregido por: ${esc(nombreDeEmail(r.corregidoPor) || r.corregidoPor || "")}</small>` : "") +
-      "<br>";
+      (r.corregido ? `<small>Corregido por: ${esc(nombreDeEmail(r.corregidoPor) || r.corregidoPor || "")}</small><br>` : "");
 
     if (puedeCorregirRegistro(r)) {
       const ctx = { tipo: "historial", docId: r.id, materia: r.materia, fecha: r.fecha, nombre, estadoActual: estado };
-      if (estado !== "justificado") {
+      if (estado === "falta") {
         const bj = document.createElement("button");
         bj.className = "small";
         bj.textContent = "📝 Justificar";
@@ -282,7 +284,8 @@ async function exportar() {
     if (registros.length === 0) return showMessage("Sin datos para exportar.", "error");
 
     registros.sort((a, b) => b.fecha.localeCompare(a.fecha));
-    descargarCSV(construirCSV(registros), `asistencias_${inicio || "inicio"}_${fin || "hoy"}.csv`);
+    const guardadores = await mapaGuardadores(registros);
+    descargarCSV(construirCSV(registros, guardadores), `asistencias_${inicio || "inicio"}_${fin || "hoy"}.csv`);
     showMessage(`Exportados ${registros.length} registros.`, "success");
   } catch (e) {
     showMessage("Error al exportar: " + traducirErrorFirebase(e), "error");

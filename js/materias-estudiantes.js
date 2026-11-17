@@ -45,6 +45,9 @@ function renderSelectsMaterias() {
   $("materiaSelect").add(new Option(textoBase, ""));
   if ($("csvMateria")) $("csvMateria").add(new Option("No asignar a ninguna materia", ""));
 
+  const aviso = $("avisoSinMaterias");
+  if (aviso) aviso.style.display = (vacio && currentUserRole === "profesor") ? "block" : "none";
+
   materiasLista.forEach(m => {
     $("materiaLista").add(new Option(m.nombre, m.id));
     $("materiaSelect").add(new Option(m.nombre, m.id));
@@ -52,6 +55,9 @@ function renderSelectsMaterias() {
     $("editEstAddMateria").add(new Option(m.nombre, m.id));
     if ($("csvMateria")) $("csvMateria").add(new Option(`Asignar a: ${m.nombre}`, m.id));
   });
+
+  // Con una sola materia se deja elegida para pasar lista
+  if (materiasLista.length === 1) $("materiaLista").value = materiasLista[0].id;
 }
 
 // Selects de historial, reportes y dashboard

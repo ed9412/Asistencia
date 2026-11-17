@@ -160,12 +160,14 @@ function csvCelda(valor) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-// Detalle: una fila por registro. "Docente" lleva el nombre de quien pasó la lista.
-function construirCSV(registros) {
+// Detalle: una fila por registro. "Docente" lleva el nombre de quien guardó (terminó) la lista;
+// guardadores: mapa "materia_fecha" -> nombre. Si no hay dato, se usa el docente del registro.
+function construirCSV(registros, guardadores = {}) {
   const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Motivo", "Hora", "Docente"];
   const filas = registros.map(x => [
     x.cedula, x.nombres, x.apellidos, x.fecha, nombreMateria(x),
-    ESTADOS[estadoDe(x)].texto, x.motivo, x.hora, x.profesor || x.profesorNombre ? nombreDocente(x) : ""
+    ESTADOS[estadoDe(x)].texto, x.motivo, x.hora,
+    guardadores[`${x.materia}_${x.fecha}`] || (x.profesor || x.profesorNombre ? nombreDocente(x) : "")
   ].map(csvCelda).join(";"));
   return "\uFEFF" + cabecera.join(";") + "\n" + filas.join("\n");
 }
@@ -198,7 +200,8 @@ async function exportarBusqueda() {
     if (currentUserRole === "admin") await cargarUsuariosCache();   // para mostrar nombres, no correos
   } catch (e) { /* si falla, se exportan los correos */ }
   const filas = [...resultadosBusquedaActual].sort((a, b) => b.fecha.localeCompare(a.fecha) || (a.apellidos || "").localeCompare(b.apellidos || ""));
-  descargarCSV(construirCSV(filas), "reporte_detalle.csv");
+  const guardadores = await mapaGuardadores(filas);
+  descargarCSV(construirCSV(filas, guardadores), "reporte_detalle.csv");
   showMessage("Detalle exportado.", "success");
 }
 
