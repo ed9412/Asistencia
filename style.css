@@ -543,3 +543,36 @@ table.vista-previa tr.fila-existe td { color: var(--suave-texto); }
 
 [data-tema="dark"] button.danger { background: #c9392e; color: #fff; }
 #reporte { margin-top: 16px; }
+
+/* ---------- Indicadores de carga ---------- */
+/* Consultas: línea fina arriba, no bloquea */
+.barra-carga { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9500; overflow: hidden; display: none; pointer-events: none; }
+.barra-carga.activa { display: block; }
+.barra-carga::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 34%; background: var(--accion); border-radius: 0 3px 3px 0; animation: barra-desliza 1.1s ease-in-out infinite; }
+@keyframes barra-desliza { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+
+/* Acciones: velo sobre la app (recibe los clics, así no se pueden repetir) */
+.cargando { position: fixed; inset: 0; z-index: 9000; display: none; align-items: center; justify-content: center; background: rgba(242, 244, 245, 0.78); cursor: progress; }
+[data-tema="dark"] .cargando { background: rgba(14, 20, 24, 0.78); }
+.cargando.visible { display: flex; animation: velo-entra 0.14s ease-out; }
+@keyframes velo-entra { from { opacity: 0; } to { opacity: 1; } }
+.cargando-caja { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--borde); border-radius: var(--radio-grande); padding: 16px 22px; box-shadow: 0 10px 30px var(--sombra); }
+.cargando-caja p { margin: 0; font-weight: 600; }
+
+/* Cinco casillas que se marcan una tras otra, como pasar lista */
+.pase { display: flex; gap: 5px; }
+.pase i { position: relative; width: 14px; height: 14px; border: 2px solid var(--borde-input); border-radius: 4px; animation: casilla 1.6s ease-in-out infinite; }
+.pase i::after { content: ""; position: absolute; left: 3px; top: 0; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: 0; animation: casilla-marca 1.6s ease-in-out infinite; }
+.pase i:nth-child(2), .pase i:nth-child(2)::after { animation-delay: 0.14s; }
+.pase i:nth-child(3), .pase i:nth-child(3)::after { animation-delay: 0.28s; }
+.pase i:nth-child(4), .pase i:nth-child(4)::after { animation-delay: 0.42s; }
+.pase i:nth-child(5), .pase i:nth-child(5)::after { animation-delay: 0.56s; }
+@keyframes casilla { 0%, 10% { background: transparent; border-color: var(--borde-input); } 28%, 68% { background: var(--accion); border-color: var(--accion); } 90%, 100% { background: transparent; border-color: var(--borde-input); } }
+@keyframes casilla-marca { 0%, 10% { opacity: 0; } 28%, 68% { opacity: 1; } 90%, 100% { opacity: 0; } }
+[data-tema="dark"] .pase i::after { border-color: var(--accion-texto); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pase i { background: var(--accion) !important; border-color: var(--accion) !important; }
+  .pase i::after { opacity: 1 !important; }
+  .barra-carga::before { width: 100%; border-radius: 0; opacity: 0.6; }
+}
