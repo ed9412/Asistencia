@@ -19,6 +19,13 @@ async function logout() {
   try {
     await detenerEscaner();
     await auth.signOut();
+    // En equipos compartidos no debe quedar información de estudiantes guardada en el navegador
+    try {
+      if (typeof db.terminate === "function" && typeof db.clearPersistence === "function") {
+        await db.terminate();
+        await db.clearPersistence();
+      }
+    } catch (e) { /* si no se puede borrar ahora, se intentará en el siguiente cierre de sesión */ }
     location.reload();
   } catch (error) {
     showMessage("Error al salir: " + traducirErrorFirebase(error), "error");

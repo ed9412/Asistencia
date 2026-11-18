@@ -14,6 +14,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 const db = firebase.firestore();
+
+// Caché local de Firestore (IndexedDB): lo ya leído sigue disponible sin conexión y las escrituras
+// pendientes se envían al volver. No reduce las lecturas de consultas normales (get). Se borra al salir.
+try {
+  if (typeof db.enablePersistence === "function") {
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => { /* otra pestaña/navegador sin soporte: sigue sin caché */ });
+  }
+} catch (e) { /* sin caché local */ }
 const auth = firebase.auth();
 
 // ===============================
@@ -79,6 +87,10 @@ let histFiltro = null;
 
 // Último reporte generado (para exportar)
 let resultadosBusquedaActual = [];
+let resumenMateriasActual = [];    // filas del reporte por materia (para exportar)
+let reporteFiltro = { materia: "todas", desde: "", hasta: "" };
+let reporteTitulo = "";
+let reporteVisibles = 50;
 let resumenReporteActual = [];     // filas del reporte por estudiante (para exportar)
 
 // Administración (solo admin)

@@ -117,6 +117,6 @@ function envolverConCarga(nombre, opciones) {
 
   // No bloquean: consultas que rellenan una pantalla
   ["cargarHistorial", "abrirListaHistorial", "generarReporte", "generarAlertas", "cargarDashboard",
-   "buscarEstudiantes", "cargarMaterias", "cargarUsuarios", "exportar", "exportarBusqueda"
+   "verEstudiantesDeMateria", "buscarEstudiantes", "cargarMaterias", "cargarUsuarios", "exportar", "exportarBusqueda"
   ].forEach(n => envolverConCarga(n, { bloquear: false }));
 })();
