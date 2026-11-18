@@ -14,8 +14,8 @@
 
   <!-- Escáner QR, generador de QR, gráficos, captura y PDF se cargan bajo demanda (js/librerias.js) -->
 
-  <link rel="stylesheet" href="style.css">
-  <script src="js/tema.js?v=8"></script>
+  <link rel="stylesheet" href="style.css?v=9">
+  <script src="js/tema.js?v=9"></script>
 </head>
 <body>
 
@@ -61,17 +61,138 @@
         <button class="small danger" onclick="logout()">Salir</button>
       </div>
     </header>
-    <nav class="navbar">
-      <button onclick="mostrar('lista')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l4.5 4.5L20 6.5"/></svg><span>Lista</span></button>
-      <button id="estudiantesNavBtn" onclick="mostrar('estudiantes')" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/></svg><span id="estudiantesNavTexto">Estudiantes</span></button>
-      <button id="materiasNavBtn" onclick="mostrar('materiasScreen')" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5a3.5 3.5 0 013.5 3.5v11.5H8.5A3.5 3.5 0 015 16z"/><path d="M5 16a3.5 3.5 0 013.5-3.5H19"/></svg><span>Materias</span></button>
-      <button onclick="mostrar('historial')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg><span>Asistencias</span></button>
-      <button onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span></button>
-      <button onclick="mostrar('alertasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>Alertas</span></button>
-      <button onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Dashboard</span></button>
-      <button id="adminNavBtn" onclick="mostrar('adminScreen')" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z"/></svg><span>Admin</span></button>
+    <nav class="navbar navlateral" aria-label="Secciones">
+      <button data-ir="hoy" class="" onclick="mostrar('hoy')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg><span>Hoy</span></button>
+      <button data-ir="lista" class="" onclick="mostrar('lista')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l4.5 4.5L20 6.5"/></svg><span>Pasar lista</span></button>
+      <button data-ir="estudiantes" class="" onclick="mostrar('estudiantes')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/></svg><span class="texto-estudiantes">Estudiantes</span></button>
+      <button data-ir="materiasScreen" class="solo-admin" onclick="mostrar('materiasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5a3.5 3.5 0 013.5 3.5v11.5H8.5A3.5 3.5 0 015 16z"/><path d="M5 16a3.5 3.5 0 013.5-3.5H19"/></svg><span>Materias</span></button>
+      <button data-ir="historial" class="" onclick="mostrar('historial')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg><span>Asistencias</span></button>
+      <button data-ir="reportes" class="" onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span></button>
+      <button data-ir="alertasScreen" class="" onclick="mostrar('alertasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>Alertas</span></button>
+      <button data-ir="dashboard" class="" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Panel</span></button>
+      <button data-ir="adminScreen" class="solo-admin" onclick="mostrar('adminScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z"/></svg><span>Administración</span></button>
     </nav>
     </aside>
+    <nav class="navbar navmovil" aria-label="Navegación principal">
+      <button data-ir="hoy" onclick="mostrar('hoy')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg><span>Hoy</span></button>
+      <button data-ir="estudiantes" onclick="mostrar('estudiantes')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/></svg><span class="texto-estudiantes">Estudiantes</span></button>
+      <button data-ir="historial" onclick="mostrar('historial')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg><span>Asistencias</span></button>
+      <button data-ir="mas" onclick="mostrar('mas')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg><span>Más</span></button>
+    </nav>
+    <header id="appbar" class="appbar" style="display:none">
+      <button class="appbar-atras" onclick="volver()" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="appbar-titulo" id="appbarTitulo"></div>
+    </header>
+
+    <section id="hoy" class="screen">
+      <header class="hoy-cab">
+        <div>
+          <div id="hoyFecha" class="suave"></div>
+          <h1>Hoy</h1>
+        </div>
+        <span id="hoyAvatar" class="avatar avatar-grande" aria-hidden="true"></span>
+      </header>
+      <p class="etiqueta">Mis materias</p>
+      <div id="hoyMaterias" class="hoy-lista"></div>
+    </section>
+
+    <section id="mas" class="screen">
+      <header class="hoy-cab">
+        <div>
+          <div id="masRol" class="suave"></div>
+          <h1>Más</h1>
+        </div>
+        <span id="masAvatar" class="avatar avatar-grande" aria-hidden="true"></span>
+      </header>
+      <div class="menu-lista">
+        <button class="fila-menu solo-admin" onclick="mostrar('materiasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5a3.5 3.5 0 013.5 3.5v11.5H8.5A3.5 3.5 0 015 16z"/><path d="M5 16a3.5 3.5 0 013.5-3.5H19"/></svg><span>Materias</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu" onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu" onclick="mostrar('alertasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>Alertas de asistencia</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Panel</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu solo-admin" onclick="mostrar('adminScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z"/></svg><span>Administración</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="menu-lista">
+        <button class="fila-menu" onclick="alternarTema()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg><span>Cambiar tema claro u oscuro</span></button>
+        <button class="fila-menu peligro" onclick="logout()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></svg><span>Cerrar sesión</span></button>
+      </div>
+    </section>
+
+    <section id="ficha" class="screen">
+      <div id="fichaContenido"></div>
+    </section>
+
+    <section id="estudianteNuevo" class="screen">
+      <div class="card">
+        <h2>Nuevo estudiante</h2>
+        <div id="formNuevoEstudiante">
+        <div class="campos campos-3">
+        <div class="campo">
+        <label>Cédula <span class="required">*</span></label>
+        <input id="cedula" placeholder="Solo números" inputmode="numeric" />
+        <small id="error-cedula" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Nombres <span class="required">*</span></label>
+        <input id="nombres" placeholder="Ejemplo: Juan Carlos" />
+        <small id="error-nombres" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Apellidos <span class="required">*</span></label>
+        <input id="apellidos" placeholder="Ejemplo: Pérez Gómez" />
+        <small id="error-apellidos" class="field-error"></small>
+        </div>
+        </div>
+        <div class="campos campos-4">
+        <div class="campo">
+        <label>Grado <span class="required">*</span></label>
+        <input id="gradoEst" placeholder="Ejemplo: 3º A" maxlength="30" />
+        <small id="error-gradoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Teléfono</label>
+        <input id="telefonoEst" type="tel" placeholder="Opcional" maxlength="20" />
+        <small id="error-telefonoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Correo</label>
+        <input id="correoEst" type="email" placeholder="Opcional" maxlength="100" />
+        <small id="error-correoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Representante</label>
+        <input id="representanteEst" placeholder="Opcional" maxlength="80" />
+        <small id="error-representanteEst" class="field-error"></small>
+        </div>
+        </div>
+
+        <button onclick="crearEstudiante()">Guardar estudiante</button>
+
+        <hr />
+
+        <h4>Importar estudiantes desde CSV</h4>
+        <p class="subtitle">Columnas: <strong>cedula; nombres; apellidos; grado</strong> y, si quieres, <strong>telefono; correo; representante</strong> (con o sin encabezado, separadas por «;», «,» o tabulación). El grado es obligatorio: va en el archivo o se indica abajo. Las cédulas que ya existen no se modifican.</p>
+
+        <label>Archivo CSV</label>
+        <input type="file" id="csvArchivo" accept=".csv,.txt,text/csv,text/plain" onchange="cargarArchivoCSV(this)" />
+
+        <label>…o pega el contenido aquí</label>
+        <textarea id="csvTexto" placeholder="12345678;Juan Carlos;Pérez Gómez"></textarea>
+
+        <label>Grado por defecto (para filas sin grado)</label>
+        <input id="csvGrado" placeholder="Opcional: ejemplo 3º A" maxlength="30" />
+
+        <label>Asignación</label>
+        <select id="csvMateria"></select>
+
+        <button class="secondary" onclick="importarRevisar()">Revisar</button>
+        <div id="csvVistaPrevia"></div>
+        <button id="btnCsvImportar" style="display:none" onclick="importarConfirmar()">Importar</button>
+
+        <hr />
+        </div>
+
+      </div>
+    </section>
 
     <section id="dashboard" class="screen">
       <div class="card">
@@ -172,89 +293,23 @@
       <div class="card">
         <h2 id="estudiantesTitulo">Estudiantes</h2>
 
-        <div id="formNuevoEstudiante">
-        <div class="campos campos-3">
-        <div class="campo">
-        <label>Cédula <span class="required">*</span></label>
-        <input id="cedula" placeholder="Solo números" inputmode="numeric" />
-        <small id="error-cedula" class="field-error"></small>
-        </div>
-        <div class="campo">
-        <label>Nombres <span class="required">*</span></label>
-        <input id="nombres" placeholder="Ejemplo: Juan Carlos" />
-        <small id="error-nombres" class="field-error"></small>
-        </div>
-        <div class="campo">
-        <label>Apellidos <span class="required">*</span></label>
-        <input id="apellidos" placeholder="Ejemplo: Pérez Gómez" />
-        <small id="error-apellidos" class="field-error"></small>
-        </div>
-        </div>
-        <div class="campos campos-4">
-        <div class="campo">
-        <label>Grado <span class="required">*</span></label>
-        <input id="gradoEst" placeholder="Ejemplo: 3º A" maxlength="30" />
-        <small id="error-gradoEst" class="field-error"></small>
-        </div>
-        <div class="campo">
-        <label>Teléfono</label>
-        <input id="telefonoEst" type="tel" placeholder="Opcional" maxlength="20" />
-        <small id="error-telefonoEst" class="field-error"></small>
-        </div>
-        <div class="campo">
-        <label>Correo</label>
-        <input id="correoEst" type="email" placeholder="Opcional" maxlength="100" />
-        <small id="error-correoEst" class="field-error"></small>
-        </div>
-        <div class="campo">
-        <label>Representante</label>
-        <input id="representanteEst" placeholder="Opcional" maxlength="80" />
-        <small id="error-representanteEst" class="field-error"></small>
-        </div>
-        </div>
-
-        <button onclick="crearEstudiante()">Guardar estudiante</button>
-
-        <hr />
-
-        <h4>Importar estudiantes desde CSV</h4>
-        <p class="subtitle">Columnas: <strong>cedula; nombres; apellidos; grado</strong> y, si quieres, <strong>telefono; correo; representante</strong> (con o sin encabezado, separadas por «;», «,» o tabulación). El grado es obligatorio: va en el archivo o se indica abajo. Las cédulas que ya existen no se modifican.</p>
-
-        <label>Archivo CSV</label>
-        <input type="file" id="csvArchivo" accept=".csv,.txt,text/csv,text/plain" onchange="cargarArchivoCSV(this)" />
-
-        <label>…o pega el contenido aquí</label>
-        <textarea id="csvTexto" placeholder="12345678;Juan Carlos;Pérez Gómez"></textarea>
-
-        <label>Grado por defecto (para filas sin grado)</label>
-        <input id="csvGrado" placeholder="Opcional: ejemplo 3º A" maxlength="30" />
-
-        <label>Asignación</label>
-        <select id="csvMateria"></select>
-
-        <button class="secondary" onclick="importarRevisar()">Revisar</button>
-        <div id="csvVistaPrevia"></div>
-        <button id="btnCsvImportar" style="display:none" onclick="importarConfirmar()">Importar</button>
-
-        <hr />
-        </div>
-
-        <h4>Buscador de Estudiantes</h4>
         <div class="search-box">
-           <input id="searchEstudianteText" placeholder="Buscar por cédula, nombre, grado, teléfono, correo, representante o materia..." />
-           <select id="searchEstudianteMateria">
+           <input id="searchEstudianteText" type="search" placeholder="Nombre, grado, cédula, teléfono…" />
+           <select id="searchEstudianteMateria" aria-label="Filtrar por materia">
               <option value="todas">Todas las materias</option>
            </select>
            <button onclick="buscarEstudiantes()">Buscar</button>
         </div>
 
+        <p id="contEstudiantes" class="subtitle contador"></p>
+        <ul id="listaEstudiantes" class="lista-filas"></ul>
+
         <button id="btnCarnetsLote" class="secondary" onclick="descargarCarnetsMateria()">🪪 Descargar carnets de la materia (PDF)</button>
         <p class="subtitle">Elige una materia en el filtro de arriba. Salen 8 carnets por hoja A4.</p>
-
-        <h4>Listado</h4>
-        <ul id="listaEstudiantes"></ul>
       </div>
     </section>
+
+    <button id="fabNuevoEst" class="fab" onclick="mostrar('estudianteNuevo')" aria-label="Nuevo estudiante" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nuevo</span></button>
 
     <section id="materiasScreen" class="screen">
       <div class="card">
@@ -579,18 +634,19 @@
 
   </div>
 
-<script src="js/nucleo.js?v=8" defer></script>
-<script src="js/librerias.js?v=8" defer></script>
-<script src="js/sesion.js?v=8" defer></script>
-<script src="js/materias-estudiantes.js?v=8" defer></script>
-<script src="js/lista.js?v=8" defer></script>
-<script src="js/reportes.js?v=8" defer></script>
-<script src="js/historial.js?v=8" defer></script>
-<script src="js/admin.js?v=8" defer></script>
-<script src="js/resumenes.js?v=8" defer></script>
-<script src="js/importar.js?v=8" defer></script>
-<script src="js/carnets.js?v=8" defer></script>
-<script src="js/carga.js?v=8" defer></script>
-<script src="js/inicio.js?v=8" defer></script>
+<script src="js/nucleo.js?v=9" defer></script>
+<script src="js/librerias.js?v=9" defer></script>
+<script src="js/sesion.js?v=9" defer></script>
+<script src="js/materias-estudiantes.js?v=9" defer></script>
+<script src="js/lista.js?v=9" defer></script>
+<script src="js/reportes.js?v=9" defer></script>
+<script src="js/historial.js?v=9" defer></script>
+<script src="js/admin.js?v=9" defer></script>
+<script src="js/resumenes.js?v=9" defer></script>
+<script src="js/importar.js?v=9" defer></script>
+<script src="js/carnets.js?v=9" defer></script>
+<script src="js/navegacion.js?v=9" defer></script>
+<script src="js/carga.js?v=9" defer></script>
+<script src="js/inicio.js?v=9" defer></script>
 </body>
 </html>

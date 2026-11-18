@@ -304,44 +304,29 @@ async function buscarEstudiantes() {
       mostrados++;
 
       const li = document.createElement("li");
+      li.className = "fila-est";
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      const abrir = () => abrirFicha(est.cedula);
+      li.onclick = abrir;
+      li.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } };
       li.innerHTML = `
-        <strong>${esc(est.cedula)}</strong><br>
-        ${esc(nombreCompleto)}<br>
-        <small>Grado: ${esc(est.grado || "sin indicar")}</small><br>
-        ${est.telefono ? `<small>Teléfono: ${esc(est.telefono)}</small><br>` : ""}
-        ${est.correo ? `<small>Correo: ${esc(est.correo)}</small><br>` : ""}
-        ${est.representante ? `<small>Representante: ${esc(est.representante)}</small><br>` : ""}
-        <small class="acento">Materias: ${esc(mats)}</small><br>
+        <span class="avatar">${esc(iniciales(est.nombres, est.apellidos))}</span>
+        <span class="fila-texto">
+          <strong>${esc(nombreCompleto)}</strong>
+          <small>${esc(est.grado || "Sin grado")} · ${esc(est.cedula)}</small>
+        </span>
+        <svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
       `;
-
-      const btnQr = document.createElement("button");
-      btnQr.className = "small secondary";
-      btnQr.textContent = "QR";
-      btnQr.onclick = () => mostrarQR(est.cedula, nombreCompleto);
-      li.appendChild(btnQr);
-
-      if (esAdmin) {
-
-        const btnEd = document.createElement("button");
-        btnEd.className = "small";
-        btnEd.textContent = "Editar";
-        btnEd.onclick = () => abrirEditarEstudiante(est.cedula);
-
-        const btnDe = document.createElement("button");
-        btnDe.className = "small danger";
-        btnDe.textContent = "Eliminar";
-        btnDe.onclick = () => eliminarEstudiante(est.cedula);
-
-        li.appendChild(btnEd);
-        li.appendChild(btnDe);
-      }
-
       ul.appendChild(li);
     });
 
     if (mostrados === 0) {
       ul.innerHTML = "<li>No se encontraron estudiantes.</li>";
     }
+    const cont = $("contEstudiantes");
+    if (cont) cont.textContent = mostrados === 1 ? "1 estudiante" : `${mostrados} estudiantes`;
+    if (typeof refrescarFichaSiAbierta === "function") refrescarFichaSiAbierta();
   } catch (error) {
     showMessage("Error al buscar estudiantes: " + traducirErrorFirebase(error), "error");
   }

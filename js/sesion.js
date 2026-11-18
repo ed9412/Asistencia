@@ -53,26 +53,27 @@ async function initApp() {
     $("app").style.display = "block";
     $("rolInfo").textContent = `${user.email} · Rol: ${textoRol(currentUserRole)}`;
 
-    const navbar = document.querySelector(".navbar");
+    const navs = document.querySelectorAll(".navbar");
 
     if (!ROLES_STAFF.includes(currentUserRole)) {
-      navbar.style.display = "none";
+      navs.forEach(n => { n.style.display = "none"; });
       await mostrar("pendienteScreen");
       return;
     }
 
-    navbar.style.display = "";
+    navs.forEach(n => { n.style.display = ""; });
     const esAdmin = currentUserRole === "admin";
-    $("adminNavBtn").style.display = esAdmin ? "block" : "none";
-    $("estudiantesNavBtn").style.display = "block";
-    $("estudiantesNavTexto").textContent = esAdmin ? "Estudiantes" : "Mis estudiantes";
+    document.querySelectorAll(".solo-admin").forEach(b => { b.style.display = esAdmin ? "" : "none"; });
+    document.querySelectorAll(".texto-estudiantes").forEach(t => { t.textContent = esAdmin ? "Estudiantes" : "Mis estudiantes"; });
+    if ($("fabNuevoEst")) $("fabNuevoEst").dataset.admin = esAdmin ? "1" : "";
     $("estudiantesTitulo").textContent = esAdmin ? "👨‍🎓 Estudiantes" : "👨‍🎓 Mis estudiantes";
     $("formNuevoEstudiante").style.display = esAdmin ? "block" : "none";
-    $("materiasNavBtn").style.display = esAdmin ? "block" : "none";
 
     establecerFechaActualPorDefecto();
-    await mostrar("lista");
+    const inicio = rutaInicial();
+    await mostrar(inicio.id, { param: inicio.param, reemplazar: true });
     await cargarMaterias();
+    if (typeof alCargarMaterias === "function") alCargarMaterias();
     if (!esAdmin && materiasLista.length === 0) {
       showMessage("Todavía no tienes materias asignadas. Pide a un administrador que te asigne.", "info");
     }
@@ -86,4 +87,3 @@ async function initApp() {
     showMessage("Error inicializando: " + traducirErrorFirebase(error), "error");
   }
 }
-

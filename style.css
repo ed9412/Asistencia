@@ -576,3 +576,150 @@ table.vista-previa tr.fila-existe td { color: var(--suave-texto); }
   .pase i::after { opacity: 1 !important; }
   .barra-carga::before { width: 100%; border-radius: 0; opacity: 0.6; }
 }
+
+/* =====================================================================
+   Navegación por pantallas (v9): barra superior con «Atrás», Hoy, Más, ficha
+   ===================================================================== */
+
+/* En móvil la cuenta (tema, salir) vive en «Más»; la barra lateral solo existe en PC */
+@media (max-width: 959px) {
+  .topbar { display: none; }
+  .navlateral { display: none; }
+}
+@media (min-width: 960px) {
+  .navmovil { display: none; }
+}
+
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 6px 4px;
+  background: var(--card);
+  border-bottom: 1px solid var(--borde);
+}
+.appbar-atras {
+  width: 44px; min-width: 44px; height: 44px; margin: 0; padding: 0;
+  background: transparent; color: var(--texto); border: none; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.appbar-atras:hover { background: var(--suave-bg); }
+.appbar-atras svg, .fab svg, .fila-menu svg, .dato-icono svg {
+  width: 22px; height: 22px; stroke: currentColor; fill: none;
+  stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none;
+}
+.appbar-titulo { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+body.con-appbar .screen.active > .card > h2:first-child { display: none; }
+
+/* Cabecera de las pantallas principales */
+.hoy-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px 14px; }
+.hoy-cab h1 { margin: 2px 0 0; font-size: 30px; letter-spacing: -0.02em; }
+.suave { color: var(--suave-texto); font-size: 13.5px; }
+.etiqueta { color: var(--suave-texto); font-size: 13px; font-weight: 600; margin: 4px 2px 10px; }
+
+.avatar {
+  width: 40px; height: 40px; flex: none; border-radius: 50%;
+  background: var(--accion-suave); color: var(--accion);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.avatar-grande { width: 44px; height: 44px; font-size: 15px; }
+.avatar-enorme { width: 76px; height: 76px; font-size: 26px; }
+
+.chip {
+  display: inline-flex; align-items: center; height: 26px; padding: 0 11px;
+  border-radius: 13px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+}
+.chip-ok { color: var(--presente); background: color-mix(in srgb, var(--presente) 14%, transparent); }
+.chip-acento { color: var(--accion); background: var(--accion-suave); }
+.chip-gris { color: var(--suave-texto); background: var(--suave-bg); border: 1px solid var(--borde); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Hoy: una tarjeta por materia */
+.hoy-lista { display: flex; flex-direction: column; gap: 12px; }
+.tarjeta-materia {
+  background: var(--card); border: 1px solid var(--borde); border-radius: var(--radio-grande);
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.tarjeta-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tarjeta-cab h3 { margin: 0; font-size: 17px; }
+.tarjeta-materia button { margin: 0; }
+.vacio { text-align: center; color: var(--suave-texto); }
+
+/* Menú «Más» */
+.menu-lista {
+  background: var(--card); border: 1px solid var(--borde); border-radius: var(--radio-grande);
+  overflow: hidden; margin-bottom: 14px;
+}
+.fila-menu {
+  width: 100%; margin: 0; min-height: 56px; padding: 0 16px; border: none; border-radius: 0;
+  background: transparent; color: var(--texto); font-size: 15.5px; font-weight: 600;
+  display: flex; align-items: center; gap: 14px; text-align: left;
+}
+.fila-menu + .fila-menu { border-top: 1px solid var(--borde); }
+.fila-menu:hover { background: var(--suave-bg); }
+.fila-menu span { flex: 1; }
+.fila-menu.peligro { color: var(--peligro); }
+.fila-flecha { width: 18px; height: 18px; flex: none; stroke: var(--suave-texto); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Estudiantes: filas tocables */
+.contador { margin: 12px 2px 4px; }
+.lista-filas { margin-top: 4px; }
+li.fila-est {
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  background: var(--card); padding: 10px 12px;
+}
+li.fila-est:hover { background: var(--suave-bg); }
+li.fila-est:focus-visible { outline: 2px solid var(--accion); outline-offset: 2px; }
+.fila-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.fila-texto strong { font-size: 15px; }
+
+.fab {
+  position: fixed; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 18;
+  width: 56px; min-width: 56px; height: 56px; margin: 0; padding: 0; border-radius: 28px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 6px 16px rgba(14, 90, 117, 0.35);
+}
+.fab span { display: none; font-weight: 650; }
+
+/* Ficha del estudiante */
+.ficha-cab { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 6px 0 16px; }
+.ficha-id h2 { margin: 10px 0 2px; }
+.ficha-id .subtitle { margin-bottom: 12px; }
+.ficha-acciones { display: flex; gap: 10px; width: 100%; max-width: 420px; }
+.ficha-acciones button { flex: 1; margin: 0; }
+#ficha .card { margin-bottom: 12px; }
+#ficha .card h4 { margin: 0 0 6px; color: var(--suave-texto); font-size: 13px; }
+.dato { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--borde); }
+.dato:last-child { border-bottom: none; }
+.dato-icono {
+  width: 36px; height: 36px; flex: none; border-radius: 10px;
+  background: var(--accion-suave); color: var(--accion);
+  display: flex; align-items: center; justify-content: center;
+}
+.dato-icono svg { width: 18px; height: 18px; }
+.dato-etiqueta { font-size: 12.5px; color: var(--suave-texto); }
+.dato-valor { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.dato-valor a { color: inherit; text-decoration: none; }
+.ficha-eliminar { margin-top: 4px; }
+
+@media (min-width: 960px) {
+  .appbar { padding: 12px 40px; }
+  .appbar-atras { min-width: 44px; width: 44px; margin: 0; }
+  .fila-menu { min-width: 0; margin: 0; width: 100%; }
+  .tarjeta-materia button { align-self: flex-start; }
+  .hoy-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .fab { right: 40px; bottom: 32px; width: auto; min-width: 0; padding: 0 22px; }
+  .fab span { display: inline; }
+  .ficha-cab { flex-direction: row; text-align: left; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .ficha-id { text-align: left; }
+  .ficha-id h2 { margin: 0 0 2px; }
+  .ficha-id .subtitle { margin: 0; }
+  .ficha-acciones { width: auto; margin-left: auto; }
+  .ficha-acciones button { min-width: 120px; flex: none; }
+  .hoy-cab h1 { font-size: 32px; }
+  #ficha .card { max-width: 760px; }
+}

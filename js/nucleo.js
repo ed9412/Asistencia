@@ -265,14 +265,16 @@ function resetUILista() {
   $("formInicioLista").style.display = "block";
 }
 
-async function mostrar(id) {
+async function mostrar(id, opts = {}) {
+  // opts.conservar: no vaciar los campos (al volver atrás se mantiene la búsqueda)
+  const conservar = !!opts.conservar;
   const esStaff = ROLES_STAFF.includes(currentUserRole);
-  if (!esStaff && id !== "pendienteScreen") return;
+  if (!esStaff && id !== "pendienteScreen") return false;
 
   // Restricción por rol (la protección real está en las reglas de Firestore)
-  if (currentUserRole !== "admin" && ["materiasScreen", "adminScreen"].includes(id)) {
+  if (currentUserRole !== "admin" && ["materiasScreen", "adminScreen", "estudianteNuevo"].includes(id)) {
     showMessage("No tienes permisos para acceder a esta sección.", "error");
-    return;
+    return false;
   }
 
   // 1. Apagar la cámara al cambiar de sección
@@ -289,18 +291,18 @@ async function mostrar(id) {
   //    cambiar de pestaña ya no hace perder lo escaneado.
   const alcance = listaActiva ? ".screen:not(#lista)" : ".screen";
 
-  document.querySelectorAll(`${alcance} input`).forEach(input => {
+  if (!conservar) document.querySelectorAll(`${alcance} input`).forEach(input => {
     input.value = "";
     input.classList.remove("valid", "invalid");
   });
 
-  document.querySelectorAll(`${alcance} select`).forEach(select => {
+  if (!conservar) document.querySelectorAll(`${alcance} select`).forEach(select => {
     select.selectedIndex = 0;
     select.classList.remove("valid", "invalid");
   });
   if (!listaActiva) preseleccionarMateriaUnica();
 
-  document.querySelectorAll(`${alcance} .field-error`).forEach(error => {
+  if (!conservar) document.querySelectorAll(`${alcance} .field-error`).forEach(error => {
     error.textContent = "";
     error.classList.remove("show");
   });
@@ -311,12 +313,14 @@ async function mostrar(id) {
   }
 
   // 5. Vaciar resultados de otras pantallas
-  limpiarLista("historialLista");
-  limpiarLista("alertas");
-  limpiarLista("reporte");
-  histCursor = null;
-  histFiltro = null;
-  $("btnHistMas").style.display = "none";
+  if (!conservar) {
+    limpiarLista("historialLista");
+    limpiarLista("alertas");
+    limpiarLista("reporte");
+    histCursor = null;
+    histFiltro = null;
+    $("btnHistMas").style.display = "none";
+  }
 
   // 6. Mostrar la pantalla pedida
   const screen = $(id);
@@ -324,10 +328,8 @@ async function mostrar(id) {
     screen.classList.add("active");
   }
 
-  // Marca la opción activa del menú
-  document.querySelectorAll(".navbar button").forEach(b => {
-    b.classList.toggle("activo", b.getAttribute("onclick") === `mostrar('${id}')`);
-  });
+  // Marca la opción activa del menú (lo define navegacion.js)
+  if (typeof marcarNavActivo === "function") marcarNavActivo(id);
 
   // 7. Cargar datos de la sección
   if (id === "estudiantes") {
@@ -343,6 +345,7 @@ async function mostrar(id) {
   }
 
   establecerFechaActualPorDefecto();
+  return true;
 }
 
 // ===============================
