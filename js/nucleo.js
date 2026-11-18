@@ -449,6 +449,34 @@ function validarNombre(value) {
   const v = normalizarTexto(value);
   return /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(v) && v.length >= 2;
 }
+// Campos del estudiante: grado obligatorio; teléfono, correo y representante opcionales
+function validarGrado(value) {
+  const v = normalizarTexto(value);
+  return v.length >= 1 && v.length <= 30 && /^[A-Za-z0-9ÁÉÍÓÚáéíóúÑñÜü][A-Za-z0-9ÁÉÍÓÚáéíóúÑñÜü\s.ºª°\-\/]*$/.test(v);
+}
+function validarTelefono(value) {
+  const v = normalizarTexto(value);
+  if (!v) return true;
+  return /^[0-9+() \-]{6,20}$/.test(v) && (v.match(/\d/g) || []).length >= 6;
+}
+function validarCorreoOpcional(value) {
+  const v = (value || "").trim();
+  return !v || (v.length <= 100 && validarEmail(v));
+}
+function validarRepresentante(value) {
+  const v = normalizarTexto(value);
+  return !v || (v.length <= 80 && validarNombre(v));
+}
+// Valores normalizados listos para guardar ("" cuando están vacíos)
+function camposExtraEstudiante(v) {
+  return {
+    grado: normalizarTexto(v.grado),
+    telefono: normalizarTexto(v.telefono),
+    correo: (v.correo || "").trim().toLowerCase(),
+    representante: normalizarTexto(v.representante)
+  };
+}
+
 function validarMateria(value) {
   const v = normalizarTexto(value);
   return /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\-]+$/.test(v) && v.length >= 2;
@@ -465,7 +493,11 @@ function validarLoginCampos() {
 
 function validarEstudianteCampos() {
   let ok = true;
-  clearFields(["cedula", "nombres", "apellidos"]);
+  clearFields(["cedula", "nombres", "apellidos", "gradoEst", "telefonoEst", "correoEst", "representanteEst"]);
+  if (!validarGrado($("gradoEst").value)) { showFieldError("gradoEst", "Obligatorio (ejemplo: 3º A)."); ok = false; } else markFieldValid("gradoEst");
+  if (!validarTelefono($("telefonoEst").value)) { showFieldError("telefonoEst", "Solo números, +, ( ) y guiones (6 a 20)."); ok = false; } else if ($("telefonoEst").value.trim()) markFieldValid("telefonoEst");
+  if (!validarCorreoOpcional($("correoEst").value)) { showFieldError("correoEst", "Correo no válido."); ok = false; } else if ($("correoEst").value.trim()) markFieldValid("correoEst");
+  if (!validarRepresentante($("representanteEst").value)) { showFieldError("representanteEst", "Solo letras y espacios."); ok = false; } else if ($("representanteEst").value.trim()) markFieldValid("representanteEst");
   if (!validarCedula($("cedula").value)) { showFieldError("cedula", "Solo números y mínimo 4 dígitos."); ok = false; } else markFieldValid("cedula");
   if (!validarNombre($("nombres").value)) { showFieldError("nombres", "Solo letras y espacios."); ok = false; } else markFieldValid("nombres");
   if (!validarNombre($("apellidos").value)) { showFieldError("apellidos", "Solo letras y espacios."); ok = false; } else markFieldValid("apellidos");

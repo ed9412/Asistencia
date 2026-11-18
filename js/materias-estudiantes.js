@@ -246,10 +246,14 @@ async function crearEstudiante() {
       showFieldError("cedula", "Ya existe.");
       return showMessage("Ya existe esta cédula.", "error");
     }
-    await ref.set({ cedula, nombres, apellidos, creadoEn: serverTs() });
+    const extra = camposExtraEstudiante({
+      grado: $("gradoEst").value, telefono: $("telefonoEst").value,
+      correo: $("correoEst").value, representante: $("representanteEst").value
+    });
+    await ref.set({ cedula, nombres, apellidos, ...extra, creadoEn: serverTs() });
     showMessage("Estudiante creado.", "success");
-    limpiarInput("cedula"); limpiarInput("nombres"); limpiarInput("apellidos");
-    clearFields(["cedula", "nombres", "apellidos"]);
+    ["cedula", "nombres", "apellidos", "gradoEst", "telefonoEst", "correoEst", "representanteEst"].forEach(limpiarInput);
+    clearFields(["cedula", "nombres", "apellidos", "gradoEst", "telefonoEst", "correoEst", "representanteEst"]);
     invalidarCacheEstudiantes();
     buscarEstudiantes();
   } catch (e) {
@@ -258,7 +262,8 @@ async function crearEstudiante() {
 }
 
 async function buscarEstudiantes() {
-  const texto = normalizarTexto($("searchEstudianteText").value).toLowerCase();
+  const texto = quitarAcentos(normalizarTexto($("searchEstudianteText").value));
+  const palabras = texto ? texto.split(" ") : [];
   const materiaId = $("searchEstudianteMateria").value || "todas";
 
   try {
@@ -289,16 +294,23 @@ async function buscarEstudiantes() {
       if (!esAdmin && !materiasPorCedula[est.cedula]) return;
 
       const nombreCompleto = `${est.nombres} ${est.apellidos}`;
-      const coincide = !texto || est.cedula.includes(texto) || nombreCompleto.toLowerCase().includes(texto);
-      if (!coincide) return;
+      const mats = materiasPorCedula[est.cedula] ? Array.from(materiasPorCedula[est.cedula]).join(", ") : "Ninguna";
+
+      // Se busca en todos los campos (sin distinguir acentos ni mayúsculas); cada palabra debe aparecer
+      const pajar = quitarAcentos([est.cedula, est.nombres, est.apellidos, est.grado, est.telefono, est.correo, est.representante,
+        mats === "Ninguna" ? "" : mats].join(" "));
+      if (!palabras.every(p => pajar.includes(p))) return;
 
       mostrados++;
-      const mats = materiasPorCedula[est.cedula] ? Array.from(materiasPorCedula[est.cedula]).join(", ") : "Ninguna";
 
       const li = document.createElement("li");
       li.innerHTML = `
         <strong>${esc(est.cedula)}</strong><br>
         ${esc(nombreCompleto)}<br>
+        <small>Grado: ${esc(est.grado || "sin indicar")}</small><br>
+        ${est.telefono ? `<small>Teléfono: ${esc(est.telefono)}</small><br>` : ""}
+        ${est.correo ? `<small>Correo: ${esc(est.correo)}</small><br>` : ""}
+        ${est.representante ? `<small>Representante: ${esc(est.representante)}</small><br>` : ""}
         <small class="acento">Materias: ${esc(mats)}</small><br>
       `;
 
@@ -341,7 +353,7 @@ async function buscarEstudiantes() {
 
 async function abrirEditarEstudiante(cedula) {
   if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
-  clearFields(["editEstNombres", "editEstApellidos"]);
+  clearFields(["editEstNombres", "editEstApellidos", "editEstGrado", "editEstTelefono", "editEstCorreo", "editEstRepresentante"]);
 
   try {
     // Estudiante y sus materias se piden a la vez
@@ -355,6 +367,10 @@ async function abrirEditarEstudiante(cedula) {
     $("editEstCedula").value = data.cedula;
     $("editEstNombres").value = data.nombres;
     $("editEstApellidos").value = data.apellidos;
+    $("editEstGrado").value = data.grado || "";
+    $("editEstTelefono").value = data.telefono || "";
+    $("editEstCorreo").value = data.correo || "";
+    $("editEstRepresentante").value = data.representante || "";
 
     relacionesOriginales = snap.docs.map(d => ({ id: d.id, materiaId: d.data().materiaId }));
     tempMateriasEstudiante = Array.from(new Set(relacionesOriginales.map(r => r.materiaId)));
@@ -428,17 +444,25 @@ function addMateriaToEditEst() {
 
 async function guardarEdicionEstudiante() {
   if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
-  clearFields(["editEstNombres", "editEstApellidos"]);
+  clearFields(["editEstNombres", "editEstApellidos", "editEstGrado", "editEstTelefono", "editEstCorreo", "editEstRepresentante"]);
   const cedula = $("editEstCedula").value;
   const nombres = normalizarTexto($("editEstNombres").value);
   const apellidos = normalizarTexto($("editEstApellidos").value);
 
   if (!validarNombre(nombres)) return showFieldError("editEstNombres", "Nombres inválidos.");
   if (!validarNombre(apellidos)) return showFieldError("editEstApellidos", "Apellidos inválidos.");
+  if (!validarGrado($("editEstGrado").value)) return showFieldError("editEstGrado", "El grado es obligatorio (ejemplo: 3º A).");
+  if (!validarTelefono($("editEstTelefono").value)) return showFieldError("editEstTelefono", "Solo números, +, ( ) y guiones (6 a 20).");
+  if (!validarCorreoOpcional($("editEstCorreo").value)) return showFieldError("editEstCorreo", "Correo no válido.");
+  if (!validarRepresentante($("editEstRepresentante").value)) return showFieldError("editEstRepresentante", "Solo letras y espacios.");
+  const extra = camposExtraEstudiante({
+    grado: $("editEstGrado").value, telefono: $("editEstTelefono").value,
+    correo: $("editEstCorreo").value, representante: $("editEstRepresentante").value
+  });
 
   try {
     const batch = db.batch();
-    batch.update(db.collection("estudiantes").doc(cedula), { nombres, apellidos });
+    batch.update(db.collection("estudiantes").doc(cedula), { nombres, apellidos, ...extra });
 
     // Solo se tocan las asignaciones que cambian (quitar las que sobran, crear las nuevas)
     const quedan = new Set(tempMateriasEstudiante);

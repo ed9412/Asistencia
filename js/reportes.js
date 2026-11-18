@@ -256,14 +256,16 @@ function csvCelda(valor) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-// Detalle: una fila por registro. "Docente" lleva el nombre de quien guardó (terminó) la lista;
-// guardadores: mapa "materia_fecha" -> nombre. Si no hay dato, se usa el docente del registro.
+// Asistencias, una fila por registro, solo con lo necesario: nombre, apellido, materia, docente,
+// fecha y tipo de asistencia (nunca los datos personales del estudiante: grado, teléfono, etc.).
+// "Docente" = quien guardó (terminó) la lista; guardadores: mapa "materia_fecha" -> nombre.
+// Si no hay dato, se usa el docente del registro.
 function construirCSV(registros, guardadores = {}) {
-  const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Motivo", "Hora", "Docente"];
+  const cabecera = ["Nombres", "Apellidos", "Materia", "Docente", "Fecha", "Tipo de asistencia"];
   const filas = registros.map(x => [
-    x.cedula, x.nombres, x.apellidos, x.fecha, nombreMateria(x),
-    ESTADOS[estadoDe(x)].texto, x.motivo, x.hora,
-    guardadores[`${x.materia}_${x.fecha}`] || (x.profesor || x.profesorNombre ? nombreDocente(x) : "")
+    x.nombres, x.apellidos, nombreMateria(x),
+    guardadores[`${x.materia}_${x.fecha}`] || (x.profesor || x.profesorNombre ? nombreDocente(x) : ""),
+    x.fecha, ESTADOS[estadoDe(x)].texto
   ].map(csvCelda).join(";"));
   return "\uFEFF" + cabecera.join(";") + "\n" + filas.join("\n");
 }
