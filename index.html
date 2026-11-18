@@ -15,7 +15,7 @@
   <!-- Escáner QR, generador de QR, gráficos, captura y PDF se cargan bajo demanda (js/librerias.js) -->
 
   <link rel="stylesheet" href="style.css">
-  <script src="js/tema.js?v=7"></script>
+  <script src="js/tema.js?v=8"></script>
 </head>
 <body>
 
@@ -190,19 +190,44 @@
         <small id="error-apellidos" class="field-error"></small>
         </div>
         </div>
+        <div class="campos campos-4">
+        <div class="campo">
+        <label>Grado <span class="required">*</span></label>
+        <input id="gradoEst" placeholder="Ejemplo: 3º A" maxlength="30" />
+        <small id="error-gradoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Teléfono</label>
+        <input id="telefonoEst" type="tel" placeholder="Opcional" maxlength="20" />
+        <small id="error-telefonoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Correo</label>
+        <input id="correoEst" type="email" placeholder="Opcional" maxlength="100" />
+        <small id="error-correoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Representante</label>
+        <input id="representanteEst" placeholder="Opcional" maxlength="80" />
+        <small id="error-representanteEst" class="field-error"></small>
+        </div>
+        </div>
 
         <button onclick="crearEstudiante()">Guardar estudiante</button>
 
         <hr />
 
         <h4>Importar estudiantes desde CSV</h4>
-        <p class="subtitle">Columnas: <strong>cedula; nombres; apellidos</strong> (con o sin encabezado, separadas por «;», «,» o tabulación). Las cédulas que ya existen no se modifican.</p>
+        <p class="subtitle">Columnas: <strong>cedula; nombres; apellidos; grado</strong> y, si quieres, <strong>telefono; correo; representante</strong> (con o sin encabezado, separadas por «;», «,» o tabulación). El grado es obligatorio: va en el archivo o se indica abajo. Las cédulas que ya existen no se modifican.</p>
 
         <label>Archivo CSV</label>
         <input type="file" id="csvArchivo" accept=".csv,.txt,text/csv,text/plain" onchange="cargarArchivoCSV(this)" />
 
         <label>…o pega el contenido aquí</label>
         <textarea id="csvTexto" placeholder="12345678;Juan Carlos;Pérez Gómez"></textarea>
+
+        <label>Grado por defecto (para filas sin grado)</label>
+        <input id="csvGrado" placeholder="Opcional: ejemplo 3º A" maxlength="30" />
 
         <label>Asignación</label>
         <select id="csvMateria"></select>
@@ -216,7 +241,7 @@
 
         <h4>Buscador de Estudiantes</h4>
         <div class="search-box">
-           <input id="searchEstudianteText" placeholder="Buscar por cédula o nombre..." />
+           <input id="searchEstudianteText" placeholder="Buscar por cédula, nombre, grado, teléfono, correo, representante o materia..." />
            <select id="searchEstudianteMateria">
               <option value="todas">Todas las materias</option>
            </select>
@@ -462,6 +487,18 @@
         <label>Apellidos</label>
         <input id="editEstApellidos" />
         <small id="error-editEstApellidos" class="field-error"></small>
+        <label>Grado <span class="required">*</span></label>
+        <input id="editEstGrado" maxlength="30" />
+        <small id="error-editEstGrado" class="field-error"></small>
+        <label>Teléfono</label>
+        <input id="editEstTelefono" type="tel" maxlength="20" />
+        <small id="error-editEstTelefono" class="field-error"></small>
+        <label>Correo</label>
+        <input id="editEstCorreo" type="email" maxlength="100" />
+        <small id="error-editEstCorreo" class="field-error"></small>
+        <label>Representante</label>
+        <input id="editEstRepresentante" maxlength="80" />
+        <small id="error-editEstRepresentante" class="field-error"></small>
 
         <h4>Materias Asignadas</h4>
         <ul id="editEstMateriasList" class="compact-list"></ul>
@@ -542,18 +579,18 @@
 
   </div>
 
-<script src="js/nucleo.js?v=7" defer></script>
-<script src="js/librerias.js?v=7" defer></script>
-<script src="js/sesion.js?v=7" defer></script>
-<script src="js/materias-estudiantes.js?v=7" defer></script>
-<script src="js/lista.js?v=7" defer></script>
-<script src="js/reportes.js?v=7" defer></script>
-<script src="js/historial.js?v=7" defer></script>
-<script src="js/admin.js?v=7" defer></script>
-<script src="js/resumenes.js?v=7" defer></script>
-<script src="js/importar.js?v=7" defer></script>
-<script src="js/carnets.js?v=7" defer></script>
-<script src="js/carga.js?v=7" defer></script>
-<script src="js/inicio.js?v=7" defer></script>
+<script src="js/nucleo.js?v=8" defer></script>
+<script src="js/librerias.js?v=8" defer></script>
+<script src="js/sesion.js?v=8" defer></script>
+<script src="js/materias-estudiantes.js?v=8" defer></script>
+<script src="js/lista.js?v=8" defer></script>
+<script src="js/reportes.js?v=8" defer></script>
+<script src="js/historial.js?v=8" defer></script>
+<script src="js/admin.js?v=8" defer></script>
+<script src="js/resumenes.js?v=8" defer></script>
+<script src="js/importar.js?v=8" defer></script>
+<script src="js/carnets.js?v=8" defer></script>
+<script src="js/carga.js?v=8" defer></script>
+<script src="js/inicio.js?v=8" defer></script>
 </body>
 </html>
