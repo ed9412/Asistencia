@@ -105,6 +105,7 @@ function envolverConCarga(nombre, opciones) {
     guardarMiNombre: "Guardando",
     crearMateria: "Guardando",
     guardarEdicionMateria: "Guardando",
+    abrirEditarEstudiante: "Abriendo el estudiante",
     crearEstudiante: "Guardando",
     guardarEdicionEstudiante: "Guardando",
     asignar: "Asignando",

@@ -344,7 +344,11 @@ async function abrirEditarEstudiante(cedula) {
   clearFields(["editEstNombres", "editEstApellidos"]);
 
   try {
-    const doc = await db.collection("estudiantes").doc(cedula).get();
+    // Estudiante y sus materias se piden a la vez
+    const [doc, snap] = await Promise.all([
+      db.collection("estudiantes").doc(cedula).get(),
+      db.collection("materia_estudiante").where("cedula", "==", cedula).get()
+    ]);
     if (!doc.exists) return showMessage("El estudiante no existe.", "error");
 
     const data = doc.data();
@@ -352,7 +356,6 @@ async function abrirEditarEstudiante(cedula) {
     $("editEstNombres").value = data.nombres;
     $("editEstApellidos").value = data.apellidos;
 
-    const snap = await db.collection("materia_estudiante").where("cedula", "==", cedula).get();
     relacionesOriginales = snap.docs.map(d => ({ id: d.id, materiaId: d.data().materiaId }));
     tempMateriasEstudiante = Array.from(new Set(relacionesOriginales.map(r => r.materiaId)));
 
