@@ -386,9 +386,9 @@ async function cargarDashboard(manual = false) {
   const periodo = $("dashboardRango").value;
   const matSel = $("dashboardMateria").value || "todas";
 
-  if (typeof Chart === "undefined") {
-    return showMessage("No se pudo cargar la librería de gráficos.", "error");
-  }
+  // El gráfico se descarga la primera vez; mientras tanto se leen los datos (en paralelo)
+  const libreriaGrafico = cargarLibreria("grafico");
+  libreriaGrafico.catch(() => {});
 
   try {
     // Lee los resúmenes diarios (pocos documentos) en lugar de todas las asistencias
@@ -405,7 +405,11 @@ async function cargarDashboard(manual = false) {
           ? "Sin resúmenes en este periodo. Si ya había asistencias guardadas, pulsa «Recalcular resúmenes» en Admin."
           : "Sin registros en este periodo.");
 
-    await cargarLibreria("grafico");
+    try {
+      await libreriaGrafico;
+    } catch (e) {
+      return showMessage(TEXTO_ERROR_LIBRERIA, "error");
+    }
     if (chartInstance) chartInstance.destroy();
     chartInstance = new Chart($("grafico"), {
       type: "pie",
