@@ -7,9 +7,11 @@
 async function cargarMaterias() {
   try {
     const esAdmin = currentUserRole === "admin";
-    const snap = esAdmin
-      ? await db.collection("materias").orderBy("nombre").get()
-      : await db.collection("materias").where("profesores", "array-contains", auth.currentUser.uid).get();
+    // Materias y (para el admin) lista de usuarios se piden a la vez
+    const consultaMaterias = esAdmin
+      ? db.collection("materias").orderBy("nombre").get()
+      : db.collection("materias").where("profesores", "array-contains", auth.currentUser.uid).get();
+    const [snap] = await Promise.all([consultaMaterias, esAdmin ? cargarUsuariosCache() : null]);
 
     materiasMap = {};
     materiasLista = [];
@@ -19,8 +21,6 @@ async function cargarMaterias() {
       materiasLista.push({ id: doc.id, nombre: d.nombre, profesores: d.profesores || [] });
     });
     materiasLista.sort((a, b) => a.nombre.localeCompare(b.nombre));
-
-    if (esAdmin) await cargarUsuariosCache();
 
     renderSelectsMaterias();
     listarMaterias();
@@ -45,6 +45,9 @@ function renderSelectsMaterias() {
   $("materiaSelect").add(new Option(textoBase, ""));
   if ($("csvMateria")) $("csvMateria").add(new Option("No asignar a ninguna materia", ""));
 
+  const aviso = $("avisoSinMaterias");
+  if (aviso) aviso.style.display = (vacio && currentUserRole === "profesor") ? "block" : "none";
+
   materiasLista.forEach(m => {
     $("materiaLista").add(new Option(m.nombre, m.id));
     $("materiaSelect").add(new Option(m.nombre, m.id));
@@ -52,18 +55,20 @@ function renderSelectsMaterias() {
     $("editEstAddMateria").add(new Option(m.nombre, m.id));
     if ($("csvMateria")) $("csvMateria").add(new Option(`Asignar a: ${m.nombre}`, m.id));
   });
+
+  // Con una sola materia se deja elegida para pasar lista
+  if (materiasLista.length === 1) $("materiaLista").value = materiasLista[0].id;
 }
 
 // Selects de historial, reportes y dashboard
 function cargarMateriasEnReportes() {
   const esAdmin = currentUserRole === "admin";
 
-  // Historial: el admin puede ver todas; un docente siempre ve una materia concreta
+  // Historial: todas las materias a las que se tiene acceso, o una en concreto
   const hist = $("materiaHistorial");
   if (hist) {
     hist.innerHTML = "";
-    if (esAdmin) hist.add(new Option("Todas las materias", ""));
-    else if (materiasLista.length === 0) hist.add(new Option("Sin materias", ""));
+    hist.add(new Option(esAdmin ? "Todas las materias" : "Todas mis materias", ""));
     materiasLista.forEach(m => hist.add(new Option(m.nombre, m.id)));
   }
 
@@ -241,10 +246,14 @@ async function crearEstudiante() {
       showFieldError("cedula", "Ya existe.");
       return showMessage("Ya existe esta cédula.", "error");
     }
-    await ref.set({ cedula, nombres, apellidos, creadoEn: serverTs() });
+    const extra = camposExtraEstudiante({
+      grado: $("gradoEst").value, telefono: $("telefonoEst").value,
+      correo: $("correoEst").value, representante: $("representanteEst").value
+    });
+    await ref.set({ cedula, nombres, apellidos, ...extra, creadoEn: serverTs() });
     showMessage("Estudiante creado.", "success");
-    limpiarInput("cedula"); limpiarInput("nombres"); limpiarInput("apellidos");
-    clearFields(["cedula", "nombres", "apellidos"]);
+    ["cedula", "nombres", "apellidos", "gradoEst", "telefonoEst", "correoEst", "representanteEst"].forEach(limpiarInput);
+    clearFields(["cedula", "nombres", "apellidos", "gradoEst", "telefonoEst", "correoEst", "representanteEst"]);
     invalidarCacheEstudiantes();
     buscarEstudiantes();
   } catch (e) {
@@ -253,7 +262,8 @@ async function crearEstudiante() {
 }
 
 async function buscarEstudiantes() {
-  const texto = normalizarTexto($("searchEstudianteText").value).toLowerCase();
+  const texto = quitarAcentos(normalizarTexto($("searchEstudianteText").value));
+  const palabras = texto ? texto.split(" ") : [];
   const materiaId = $("searchEstudianteMateria").value || "todas";
 
   try {
@@ -284,16 +294,23 @@ async function buscarEstudiantes() {
       if (!esAdmin && !materiasPorCedula[est.cedula]) return;
 
       const nombreCompleto = `${est.nombres} ${est.apellidos}`;
-      const coincide = !texto || est.cedula.includes(texto) || nombreCompleto.toLowerCase().includes(texto);
-      if (!coincide) return;
+      const mats = materiasPorCedula[est.cedula] ? Array.from(materiasPorCedula[est.cedula]).join(", ") : "Ninguna";
+
+      // Se busca en todos los campos (sin distinguir acentos ni mayúsculas); cada palabra debe aparecer
+      const pajar = quitarAcentos([est.cedula, est.nombres, est.apellidos, est.grado, est.telefono, est.correo, est.representante,
+        mats === "Ninguna" ? "" : mats].join(" "));
+      if (!palabras.every(p => pajar.includes(p))) return;
 
       mostrados++;
-      const mats = materiasPorCedula[est.cedula] ? Array.from(materiasPorCedula[est.cedula]).join(", ") : "Ninguna";
 
       const li = document.createElement("li");
       li.innerHTML = `
         <strong>${esc(est.cedula)}</strong><br>
         ${esc(nombreCompleto)}<br>
+        <small>Grado: ${esc(est.grado || "sin indicar")}</small><br>
+        ${est.telefono ? `<small>Teléfono: ${esc(est.telefono)}</small><br>` : ""}
+        ${est.correo ? `<small>Correo: ${esc(est.correo)}</small><br>` : ""}
+        ${est.representante ? `<small>Representante: ${esc(est.representante)}</small><br>` : ""}
         <small class="acento">Materias: ${esc(mats)}</small><br>
       `;
 
@@ -336,18 +353,25 @@ async function buscarEstudiantes() {
 
 async function abrirEditarEstudiante(cedula) {
   if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
-  clearFields(["editEstNombres", "editEstApellidos"]);
+  clearFields(["editEstNombres", "editEstApellidos", "editEstGrado", "editEstTelefono", "editEstCorreo", "editEstRepresentante"]);
 
   try {
-    const doc = await db.collection("estudiantes").doc(cedula).get();
+    // Estudiante y sus materias se piden a la vez
+    const [doc, snap] = await Promise.all([
+      db.collection("estudiantes").doc(cedula).get(),
+      db.collection("materia_estudiante").where("cedula", "==", cedula).get()
+    ]);
     if (!doc.exists) return showMessage("El estudiante no existe.", "error");
 
     const data = doc.data();
     $("editEstCedula").value = data.cedula;
     $("editEstNombres").value = data.nombres;
     $("editEstApellidos").value = data.apellidos;
+    $("editEstGrado").value = data.grado || "";
+    $("editEstTelefono").value = data.telefono || "";
+    $("editEstCorreo").value = data.correo || "";
+    $("editEstRepresentante").value = data.representante || "";
 
-    const snap = await db.collection("materia_estudiante").where("cedula", "==", cedula).get();
     relacionesOriginales = snap.docs.map(d => ({ id: d.id, materiaId: d.data().materiaId }));
     tempMateriasEstudiante = Array.from(new Set(relacionesOriginales.map(r => r.materiaId)));
 
@@ -362,7 +386,21 @@ function cerrarEditStudentModal() {
   $("editStudentModal").style.display = "none";
 }
 
+// Opciones del desplegable «Añadir nueva materia»: solo las que el estudiante aún no tiene
+function opcionesMateriasSinAsignar(yaAsignadas) {
+  return materiasLista.filter(m => !yaAsignadas.includes(m.id));
+}
+
+function refrescarSelectMateriasEdit() {
+  const sel = $("editEstAddMateria");
+  sel.innerHTML = "";
+  const libres = opcionesMateriasSinAsignar(tempMateriasEstudiante);
+  sel.add(new Option(libres.length ? "Selecciona materia a añadir" : "Ya tiene todas las materias", ""));
+  libres.forEach(m => sel.add(new Option(m.nombre, m.id)));
+}
+
 function actualizarUIEditMateriasEst() {
+  refrescarSelectMateriasEdit();
   const ul = $("editEstMateriasList");
   ul.innerHTML = "";
 
@@ -406,17 +444,25 @@ function addMateriaToEditEst() {
 
 async function guardarEdicionEstudiante() {
   if (currentUserRole !== "admin") return showMessage("Solo admin puede editar.", "error");
-  clearFields(["editEstNombres", "editEstApellidos"]);
+  clearFields(["editEstNombres", "editEstApellidos", "editEstGrado", "editEstTelefono", "editEstCorreo", "editEstRepresentante"]);
   const cedula = $("editEstCedula").value;
   const nombres = normalizarTexto($("editEstNombres").value);
   const apellidos = normalizarTexto($("editEstApellidos").value);
 
   if (!validarNombre(nombres)) return showFieldError("editEstNombres", "Nombres inválidos.");
   if (!validarNombre(apellidos)) return showFieldError("editEstApellidos", "Apellidos inválidos.");
+  if (!validarGrado($("editEstGrado").value)) return showFieldError("editEstGrado", "El grado es obligatorio (ejemplo: 3º A).");
+  if (!validarTelefono($("editEstTelefono").value)) return showFieldError("editEstTelefono", "Solo números, +, ( ) y guiones (6 a 20).");
+  if (!validarCorreoOpcional($("editEstCorreo").value)) return showFieldError("editEstCorreo", "Correo no válido.");
+  if (!validarRepresentante($("editEstRepresentante").value)) return showFieldError("editEstRepresentante", "Solo letras y espacios.");
+  const extra = camposExtraEstudiante({
+    grado: $("editEstGrado").value, telefono: $("editEstTelefono").value,
+    correo: $("editEstCorreo").value, representante: $("editEstRepresentante").value
+  });
 
   try {
     const batch = db.batch();
-    batch.update(db.collection("estudiantes").doc(cedula), { nombres, apellidos });
+    batch.update(db.collection("estudiantes").doc(cedula), { nombres, apellidos, ...extra });
 
     // Solo se tocan las asignaciones que cambian (quitar las que sobran, crear las nuevas)
     const quedan = new Set(tempMateriasEstudiante);
@@ -483,6 +529,7 @@ async function exportarQRPNG() {
   const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
   try {
+    await cargarLibreria("captura");
     const canvas = await html2canvas(exportArea, {
       scale: 2,
       backgroundColor: "#ffffff",
@@ -506,6 +553,7 @@ async function exportarQRPDF() {
   const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
   try {
+    await cargarLibreria("captura");
     const canvas = await html2canvas(exportArea, {
       scale: 2,
       backgroundColor: "#ffffff",
@@ -516,6 +564,7 @@ async function exportarQRPDF() {
     });
 
     const imgData = canvas.toDataURL("image/png");
+    await cargarLibreria("pdf");
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("portrait", "mm", "a6");
 
@@ -531,12 +580,17 @@ async function exportarQRPDF() {
   }
 }
 
-function mostrarQR(cedulaValue, nombreCompleto) {
+async function mostrarQR(cedulaValue, nombreCompleto) {
   $("qrModal").style.display = "block";
 
   $("qrNombreDisplay").textContent = nombreCompleto || "Estudiante";
   $("qrCedulaDisplay").textContent = `Cédula: ${cedulaValue}`;
 
+  try {
+    await cargarLibreria("qr");
+  } catch (e) {
+    return showMessage(TEXTO_ERROR_LIBRERIA, "error");
+  }
   QRCode.toCanvas($("qrCanvas"), cedulaValue, { width: 250, margin: 2 }, error => {
     if (error) showMessage("No se pudo generar QR.", "error");
   });
@@ -547,6 +601,26 @@ function cerrarQR() { $("qrModal").style.display = "none"; }
 // ===============================
 // ASIGNACIÓN RÁPIDA
 // ===============================
+
+// En la asignación rápida, al escribir la cédula solo se ofrecen las materias que aún no tiene
+async function filtrarMateriasAsignar() {
+  const sel = $("materiaSelect");
+  const ced = ($("cedulaAsignar").value || "").trim();
+  let yaAsignadas = [];
+
+  if (validarCedula(ced)) {
+    try {
+      await cargarCacheEstudiantes();
+      yaAsignadas = cacheEst.relaciones.filter(r => r.cedula === ced).map(r => r.materiaId);
+    } catch (e) { /* sin caché: se muestran todas */ }
+  }
+
+  sel.innerHTML = "";
+  const libres = opcionesMateriasSinAsignar(yaAsignadas);
+  const vacio = materiasLista.length === 0;
+  sel.add(new Option(vacio ? "Sin materias" : (libres.length ? "Selecciona una materia" : "Ya tiene todas las materias"), ""));
+  libres.forEach(m => sel.add(new Option(m.nombre, m.id)));
+}
 
 async function asignar() {
   if (currentUserRole !== "admin") return showMessage("Solo admin puede asignar.", "error");
@@ -576,6 +650,7 @@ async function asignar() {
     limpiarInput("cedulaAsignar");
     clearFields(["cedulaAsignar", "materiaSelect"]);
     invalidarCacheEstudiantes();
+    await filtrarMateriasAsignar();
   } catch (e) {
     showMessage("Error: " + traducirErrorFirebase(e), "error");
   }
