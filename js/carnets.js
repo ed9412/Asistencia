@@ -27,8 +27,10 @@ async function descargarCarnetsMateria() {
     return showMessage("Elige una materia en el filtro para generar sus carnets.", "error");
   }
   if (!materiasMap[materiaId]) return showMessage("No tienes acceso a esa materia.", "error");
-  if (typeof QRCode === "undefined" || !window.jspdf) {
-    return showMessage("No se cargaron las librerías de QR o PDF. Revisa tu conexión y recarga.", "error");
+  try {
+    await Promise.all([cargarLibreria("qr"), cargarLibreria("pdf")]);
+  } catch (e) {
+    return showMessage(TEXTO_ERROR_LIBRERIA, "error");
   }
 
   const btn = $("btnCarnetsLote");

@@ -7,9 +7,11 @@
 async function cargarMaterias() {
   try {
     const esAdmin = currentUserRole === "admin";
-    const snap = esAdmin
-      ? await db.collection("materias").orderBy("nombre").get()
-      : await db.collection("materias").where("profesores", "array-contains", auth.currentUser.uid).get();
+    // Materias y (para el admin) lista de usuarios se piden a la vez
+    const consultaMaterias = esAdmin
+      ? db.collection("materias").orderBy("nombre").get()
+      : db.collection("materias").where("profesores", "array-contains", auth.currentUser.uid).get();
+    const [snap] = await Promise.all([consultaMaterias, esAdmin ? cargarUsuariosCache() : null]);
 
     materiasMap = {};
     materiasLista = [];
@@ -19,8 +21,6 @@ async function cargarMaterias() {
       materiasLista.push({ id: doc.id, nombre: d.nombre, profesores: d.profesores || [] });
     });
     materiasLista.sort((a, b) => a.nombre.localeCompare(b.nombre));
-
-    if (esAdmin) await cargarUsuariosCache();
 
     renderSelectsMaterias();
     listarMaterias();
@@ -502,6 +502,7 @@ async function exportarQRPNG() {
   const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
   try {
+    await cargarLibreria("captura");
     const canvas = await html2canvas(exportArea, {
       scale: 2,
       backgroundColor: "#ffffff",
@@ -525,6 +526,7 @@ async function exportarQRPDF() {
   const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
   try {
+    await cargarLibreria("captura");
     const canvas = await html2canvas(exportArea, {
       scale: 2,
       backgroundColor: "#ffffff",
@@ -535,6 +537,7 @@ async function exportarQRPDF() {
     });
 
     const imgData = canvas.toDataURL("image/png");
+    await cargarLibreria("pdf");
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("portrait", "mm", "a6");
 
@@ -550,12 +553,17 @@ async function exportarQRPDF() {
   }
 }
 
-function mostrarQR(cedulaValue, nombreCompleto) {
+async function mostrarQR(cedulaValue, nombreCompleto) {
   $("qrModal").style.display = "block";
 
   $("qrNombreDisplay").textContent = nombreCompleto || "Estudiante";
   $("qrCedulaDisplay").textContent = `Cédula: ${cedulaValue}`;
 
+  try {
+    await cargarLibreria("qr");
+  } catch (e) {
+    return showMessage(TEXTO_ERROR_LIBRERIA, "error");
+  }
   QRCode.toCanvas($("qrCanvas"), cedulaValue, { width: 250, margin: 2 }, error => {
     if (error) showMessage("No se pudo generar QR.", "error");
   });

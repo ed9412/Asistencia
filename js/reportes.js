@@ -291,6 +291,7 @@ async function cargarDashboard(manual = false) {
           ? "Sin resúmenes en este periodo. Si ya había asistencias guardadas, pulsa «Recalcular resúmenes» en Admin."
           : "Sin registros en este periodo.");
 
+    await cargarLibreria("grafico");
     if (chartInstance) chartInstance.destroy();
     chartInstance = new Chart($("grafico"), {
       type: "pie",

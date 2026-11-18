@@ -159,6 +159,7 @@ function puedeCambiarMarca(ced) {
 }
 
 async function iniciarLista(borrador) {
+  precargarLibreria("lector");   // se descarga mientras se prepara la lista
   let materiaId, fecha;
 
   if (borrador && borrador.materiaId) {
@@ -278,6 +279,7 @@ async function iniciarEscaner() {
   prepararAudio();
 
   try {
+    await cargarLibreria("lector");
     html5QrCode = new Html5Qrcode("reader");
     await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 },
       code => {
