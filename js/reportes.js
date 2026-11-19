@@ -168,7 +168,7 @@ async function generarReporte() {
       <ul class="lista-filas">`;
 
     filas.forEach(f => {
-      html += `<li class="fila-est fila-lista ${claseNivel(f.porcentaje)}" tabindex="0" role="button" onclick="verEstudiantesDeMateria('${esc(f.materia)}')">
+      html += `<li class="fila-est fila-lista ${claseNivel(f.porcentaje)}" tabindex="0" role="button" onclick="verEstudiantesDeMateria(${escJs(f.materia)})">
         <span class="fila-texto">
           <strong>${esc(f.nombre)}</strong>
           <small>${f.listas} ${f.listas === 1 ? "lista" : "listas"}</small>

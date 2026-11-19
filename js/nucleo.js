@@ -117,6 +117,12 @@ function esc(valor) {
   }[c]));
 }
 
+// Valor seguro para pasarlo como argumento dentro de un onclick="..." del HTML.
+// esc() no basta ahí: el navegador decodifica &#39; antes de ejecutar el JavaScript.
+function escJs(valor) {
+  return esc(JSON.stringify(String(valor === null || valor === undefined ? "" : valor)));
+}
+
 function serverTs() {
   return firebase.firestore.FieldValue.serverTimestamp();
 }

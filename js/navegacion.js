@@ -296,10 +296,10 @@ async function cargarHoy() {
       const en = listaActiva && listaCtx && listaCtx.materiaId === m.id;
       const r = estados[m.id];
       let chip = `<span class="chip chip-gris">Comprobando…</span>`;
-      let boton = `<button onclick="pasarListaDe('${esc(m.id)}')">Pasar lista</button>`;
+      let boton = `<button onclick="pasarListaDe(${escJs(m.id)})">Pasar lista</button>`;
       if (en) {
         chip = `<span class="chip chip-acento">En curso · ${esc(listaCtx.fecha)}</span>`;
-        boton = `<button onclick="pasarListaDe('${esc(m.id)}')">Continuar lista</button>`;
+        boton = `<button onclick="pasarListaDe(${escJs(m.id)})">Continuar lista</button>`;
       } else if (r === null) {
         chip = `<span class="chip chip-gris">Sin pasar</span>`;
       } else if (r === "error") {
@@ -308,7 +308,7 @@ async function cargarHoy() {
         const p = (r.presente || 0) + (r.tardanza || 0) + (r.justificado || 0);
         const t = p + (r.falta || 0);
         chip = `<span class="chip chip-ok">Guardada · ${p} de ${t}</span>`;
-        boton = `<button class="secondary" onclick="pasarListaDe('${esc(m.id)}')">Abrir lista</button>`;
+        boton = `<button class="secondary" onclick="pasarListaDe(${escJs(m.id)})">Abrir lista</button>`;
       }
       return `<section class="tarjeta-materia"><div class="tarjeta-cab"><h3>${esc(m.nombre)}</h3>${chip}</div>${boton}</section>`;
     }).join("");
@@ -465,7 +465,7 @@ async function pintarFicha(cedula, destino = "fichaContenido") {
     <section class="card"><h4>Materias</h4><div class="chips">${chips}</div></section>
     <section class="card">
       <h4>Asistencia · últimos 30 días</h4>
-      <div id="asist-${destino}"><button class="secondary" onclick="cargarAsistenciaFicha('${destino}')">Ver asistencia</button></div>
+      <div id="asist-${destino}"><button class="secondary" onclick="cargarAsistenciaFicha(${escJs(destino)})">Ver asistencia</button></div>
     </section>
     ${esAdmin ? `<button class="danger ficha-eliminar" onclick="eliminarFicha()">Eliminar estudiante</button>` : ""}
   `;
@@ -514,7 +514,7 @@ async function cargarAsistenciaFicha(destino) {
       });
     cont.innerHTML = filas.join("") || `<p class="subtitle">Sin registros en los últimos 30 días.</p>`;
   } catch (e) {
-    cont.innerHTML = `<button class="secondary" onclick="cargarAsistenciaFicha('${destino}')">Reintentar</button>`;
+    cont.innerHTML = `<button class="secondary" onclick="cargarAsistenciaFicha(${escJs(destino)})">Reintentar</button>`;
     showMessage("No se pudo calcular la asistencia: " + traducirErrorFirebase(e), "error");
   }
 }

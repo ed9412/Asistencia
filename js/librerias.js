@@ -5,9 +5,9 @@
 // ===============================
 
 const LIBRERIAS = {
-  lector:  { url: "https://unpkg.com/html5-qrcode", listo: () => typeof Html5Qrcode !== "undefined" },
-  qr:      { url: "https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js", listo: () => typeof QRCode !== "undefined" },
-  grafico: { url: "https://cdn.jsdelivr.net/npm/chart.js", listo: () => typeof Chart !== "undefined" },
+  lector:  { url: "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js", listo: () => typeof Html5Qrcode !== "undefined" },
+  qr:      { url: "https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js", listo: () => typeof QRCode !== "undefined" },
+  grafico: { url: "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js", listo: () => typeof Chart !== "undefined" },
   captura: { url: "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", listo: () => typeof html2canvas !== "undefined" },
   pdf:     { url: "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", listo: () => !!window.jspdf }
 };
