@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="iconos/icono-192.png">
+  <meta name="theme-color" content="#0f766e">
   <title>Asistencia App</title>
 
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -14,14 +17,15 @@
 
   <!-- Escáner QR, generador de QR, gráficos, captura y PDF se cargan bajo demanda (js/librerias.js) -->
 
-  <link rel="stylesheet" href="style.css?v=9">
-  <script src="js/tema.js?v=9"></script>
+  <link rel="stylesheet" href="style.css?v=10">
+  <script src="js/tema.js?v=10"></script>
 </head>
 <body>
 
   <div id="toast" class="toast"></div>
 
   <div id="barraCarga" class="barra-carga" aria-hidden="true"></div>
+  <div id="avisoCarga" class="aviso-carga" role="status" aria-live="polite" aria-hidden="true"><span class="loader" aria-hidden="true"></span><span id="avisoCargaTexto"></span></div>
   <div id="cargando" class="cargando" role="status" aria-live="polite" aria-hidden="true">
     <div class="cargando-caja">
       <div class="pase" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
@@ -48,6 +52,8 @@
     </div>
   </div>
 
+  <div id="avisoSinConexion" class="aviso-sin-conexion" role="status" style="display:none">Sin conexión: puedes consultar lo ya cargado. Los cambios se guardarán al volver la red.</div>
+
   <div id="app" style="display:none">
 
     <aside class="lateral">
@@ -68,7 +74,7 @@
       <button data-ir="historial" class="" onclick="mostrar('historial')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg><span>Asistencias</span></button>
       <button data-ir="reportes" class="" onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span></button>
       <button data-ir="alertasScreen" class="" onclick="mostrar('alertasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>Alertas</span></button>
-      <button data-ir="dashboard" class="" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Panel</span></button>
+      <button data-ir="dashboard" class="" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Gráfico</span></button>
       <button data-ir="adminScreen" class="solo-admin" onclick="mostrar('adminScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z"/></svg><span>Administración</span></button>
     </nav>
     </aside>
@@ -117,7 +123,7 @@
         <button class="fila-menu solo-admin" onclick="mostrar('materiasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5a3.5 3.5 0 013.5 3.5v11.5H8.5A3.5 3.5 0 015 16z"/><path d="M5 16a3.5 3.5 0 013.5-3.5H19"/></svg><span>Materias</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         <button class="fila-menu" onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         <button class="fila-menu" onclick="mostrar('alertasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>Alertas de asistencia</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-        <button class="fila-menu" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Panel</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Gráfico</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         <button class="fila-menu solo-admin" onclick="mostrar('adminScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z"/></svg><span>Administración</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       </div>
       <div class="menu-lista">
@@ -205,7 +211,7 @@
 
     <section id="dashboard" class="screen">
       <div class="card">
-        <h2>Dashboard</h2>
+        <h2>Gráfico</h2>
 
         <div class="campos">
         <div class="campo">
@@ -226,9 +232,10 @@
         </div>
         </div>
 
+        <div id="dashCab" class="reporte-cab"></div>
         <p id="dashResumen" class="subtitle"></p>
         <canvas id="grafico"></canvas>
-        <button onclick="cargarDashboard(true)">Actualizar dashboard</button>
+        <button onclick="cargarDashboard(true)">Actualizar gráfico</button>
       </div>
     </section>
 
@@ -345,21 +352,30 @@
     <section id="materiasScreen" class="screen">
       <div class="card">
         <h2>Materias</h2>
+        <div class="menu-lista">
+          <button class="fila-menu " onclick="mostrar('materiaNueva')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nueva materia</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="fila-menu " onclick="mostrar('materiaAsignar')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3-6 7-6s7 2.4 7 6"/></svg><span>Asignar estudiante a materia</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+        <p class="etiqueta">Todas las materias</p>
+        <ul id="listaMateriasUl" class="lista-filas"></ul>
+      </div>
+    </section>
 
+    <section id="materiaNueva" class="screen">
+      <div class="card">
+        <h2>Nueva materia</h2>
         <label>Nombre de la materia <span class="required">*</span></label>
         <input id="materiaNombre" placeholder="Ejemplo: Matemáticas" />
         <small id="error-materiaNombre" class="field-error"></small>
 
         <button onclick="crearMateria()">Guardar materia</button>
+      </div>
+    </section>
 
-        <hr />
-
-        <h4>Listado de Materias</h4>
-        <ul id="listaMateriasUl"></ul>
-
-        <hr />
-
-        <h4>Asignar estudiante a materia (Rápido)</h4>
+    <section id="materiaAsignar" class="screen">
+      <div class="card">
+        <h2>Asignar estudiante</h2>
+        <p class="subtitle">Escribe la cédula y elige la materia a la que se une.</p>
         <label>Cédula del estudiante <span class="required">*</span></label>
         <input id="cedulaAsignar" placeholder="Solo números" inputmode="numeric" onchange="filtrarMateriasAsignar()" />
         <small id="error-cedulaAsignar" class="field-error"></small>
@@ -369,6 +385,20 @@
         <small id="error-materiaSelect" class="field-error"></small>
 
         <button onclick="asignar()">Asignar</button>
+      </div>
+    </section>
+
+    <section id="materiaDetalle" class="screen">
+      <div class="card">
+        <h2 id="matDetTitulo">Materia</h2>
+        <div class="reporte-cab nivel-vacio">
+          <div class="reporte-datos"><strong id="matDetNombre"></strong><span id="matDetInfo"></span></div>
+        </div>
+        <div class="menu-lista">
+          <button class="fila-menu " onclick="abrirDocentesMateria(materiaDetalleId)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"/></svg><span>Docentes de la materia</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="fila-menu " onclick="abrirEditarMateria(materiaDetalleId, nombreMateriaDetalle())"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span>Cambiar nombre</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="fila-menu peligro" onclick="eliminarMateria(materiaDetalleId)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg><span>Eliminar materia</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
       </div>
     </section>
 
@@ -421,8 +451,8 @@
     <!-- REPORTES -->
     <section id="reportes" class="screen">
       <div class="card">
-        <h2>Reporte por estudiante</h2>
-        <p class="subtitle">Primero ves el resumen por materia del periodo (últimos 30 días si no indicas fechas) y, desde ahí, el detalle por estudiante. Con una cédula ves directamente a ese estudiante. Para revisar o corregir una lista concreta usa «Asistencias».</p>
+        <h2>Reportes</h2>
+        <p class="subtitle">Resumen por materia de los últimos 30 días (o las fechas que indiques). Con una cédula ves directo a ese estudiante.</p>
 
         <div class="campos campos-4">
           <div class="campo">
@@ -446,7 +476,7 @@
           </div>
         </div>
 
-        <button onclick="generarReporte()">Buscar</button>
+        <button onclick="generarReporte()">Ver reporte</button>
 
         <div id="reporte"></div>
       </div>
@@ -454,13 +484,13 @@
 
     <section id="alertasScreen" class="screen">
       <div class="card">
-        <h2>Alertas de inasistencia</h2>
-        <p class="subtitle">Estudiantes (por materia) con asistencia por debajo del umbral. Se necesitan al menos 3 registros para generar una alerta. Las ausencias justificadas no cuentan en contra.</p>
+        <h2>Alertas de asistencia</h2>
+        <p class="subtitle">Estudiantes con asistencia por debajo del umbral en una materia. Hacen falta al menos 3 registros; las justificadas no cuentan en contra.</p>
 
         <div class="campos">
         <div class="campo">
         <label>Periodo a analizar</label>
-        <select id="alertasPeriodo">
+        <select id="alertasPeriodo" onchange="generarAlertas()">
           <option value="30">Últimos 30 días</option>
           <option value="60">Últimos 60 días</option>
           <option value="90">Últimos 90 días</option>
@@ -470,7 +500,7 @@
         </div>
         <div class="campo">
         <label>Alertar si la asistencia es menor a</label>
-        <select id="alertasUmbral">
+        <select id="alertasUmbral" onchange="generarAlertas()">
           <option value="70">70%</option>
           <option value="60">60%</option>
           <option value="80">80%</option>
@@ -488,16 +518,31 @@
     <section id="adminScreen" class="screen">
       <div class="card">
         <h2>Administración</h2>
-
         <h4>Mi nombre</h4>
         <p class="subtitle">Es el nombre que aparece como docente en las listas que tú pases y en los reportes.</p>
         <input id="miNombre" placeholder="Tu nombre y apellido" />
         <small id="error-miNombre" class="field-error"></small>
         <button class="secondary" onclick="guardarMiNombre()">Guardar mi nombre</button>
+        <p class="etiqueta">Gestión</p>
+        <div class="menu-lista">
+          <button class="fila-menu " onclick="mostrar('adminUsuarios')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"/></svg><span>Usuarios y roles</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="fila-menu " onclick="mostrar('adminDocente')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Crear docente</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="fila-menu " onclick="mostrar('adminMantenimiento')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6a4 4 0 005 5l-9 9-3-3 9-9a4 4 0 01-2-2z"/></svg><span>Mantenimiento</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+    </section>
 
-        <hr />
+    <section id="adminUsuarios" class="screen">
+      <div class="card">
+        <h2>Usuarios y roles</h2>
+        <p class="subtitle">Los pendientes aparecen primero. Quien se registra por su cuenta necesita que le asignes un rol.</p>
+        <ul id="listaUsuarios" class="lista-filas"></ul>
+      </div>
+    </section>
 
-        <h4>Crear docente</h4>
+    <section id="adminDocente" class="screen">
+      <div class="card">
+        <h2>Crear docente</h2>
         <label>Nombre completo <span class="required">*</span></label>
         <input id="nuevoDocenteNombre" placeholder="Ejemplo: María López" />
         <small id="error-nuevoDocenteNombre" class="field-error"></small>
@@ -520,16 +565,14 @@
 
         <button id="btnCrearDocente" onclick="crearDocente()">Crear docente</button>
         <p class="subtitle">Después asígnalo a sus materias en Materias &gt; Docentes. Quien se registre por su cuenta aparecerá aquí como <strong>pendiente</strong>.</p>
+      </div>
+    </section>
 
-        <hr />
-
-        <h4>Usuarios</h4>
-        <ul id="listaUsuarios"></ul>
-
-        <hr />
-        <h4>Mantenimiento</h4>
-        <p class="subtitle">Reconstruye los resúmenes diarios que usa el dashboard a partir de todas las asistencias. Úsalo una vez al actualizar a esta versión (para incluir el historial anterior) o si los números del dashboard no cuadran.</p>
-        <button id="btnRecalcularResumenes" class="secondary" onclick="recalcularTodosResumenes()">Recalcular resúmenes del dashboard</button>
+    <section id="adminMantenimiento" class="screen">
+      <div class="card">
+        <h2>Mantenimiento</h2>
+        <p class="subtitle">Reconstruye los resúmenes diarios que usa el gráfico a partir de todas las asistencias. Úsalo una vez al actualizar a esta versión (para incluir el historial anterior) o si los números del gráfico no cuadran.</p>
+        <button id="btnRecalcularResumenes" class="secondary" onclick="recalcularTodosResumenes()">Recalcular resúmenes del gráfico</button>
       </div>
     </section>
 
@@ -666,19 +709,19 @@
 
   </div>
 
-<script src="js/nucleo.js?v=9" defer></script>
-<script src="js/librerias.js?v=9" defer></script>
-<script src="js/sesion.js?v=9" defer></script>
-<script src="js/materias-estudiantes.js?v=9" defer></script>
-<script src="js/lista.js?v=9" defer></script>
-<script src="js/reportes.js?v=9" defer></script>
-<script src="js/historial.js?v=9" defer></script>
-<script src="js/admin.js?v=9" defer></script>
-<script src="js/resumenes.js?v=9" defer></script>
-<script src="js/importar.js?v=9" defer></script>
-<script src="js/carnets.js?v=9" defer></script>
-<script src="js/navegacion.js?v=9" defer></script>
-<script src="js/carga.js?v=9" defer></script>
-<script src="js/inicio.js?v=9" defer></script>
+<script src="js/nucleo.js?v=10" defer></script>
+<script src="js/librerias.js?v=10" defer></script>
+<script src="js/sesion.js?v=10" defer></script>
+<script src="js/materias-estudiantes.js?v=10" defer></script>
+<script src="js/lista.js?v=10" defer></script>
+<script src="js/reportes.js?v=10" defer></script>
+<script src="js/historial.js?v=10" defer></script>
+<script src="js/admin.js?v=10" defer></script>
+<script src="js/resumenes.js?v=10" defer></script>
+<script src="js/importar.js?v=10" defer></script>
+<script src="js/carnets.js?v=10" defer></script>
+<script src="js/navegacion.js?v=10" defer></script>
+<script src="js/carga.js?v=10" defer></script>
+<script src="js/inicio.js?v=10" defer></script>
 </body>
 </html>
