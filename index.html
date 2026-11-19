@@ -237,8 +237,12 @@
         <h2>Pasar lista</h2>
 
         <div id="infoListaActiva" class="info-activa" style="display: none;">
-          <p>📚 <strong>Materia:</strong> <span id="txtMateriaActiva"></span></p>
-          <p>📅 <strong>Fecha:</strong> <span id="txtFechaActiva"></span></p>
+          <p><strong>Materia:</strong> <span id="txtMateriaActiva"></span></p>
+          <p><strong>Fecha:</strong> <span id="txtFechaActiva"></span></p>
+          <div class="progreso">
+            <div id="progresoTexto" class="progreso-texto"></div>
+            <div class="progreso-pista"><div id="progresoRelleno" class="progreso-relleno"></div></div>
+          </div>
         </div>
 
         <div id="formInicioLista">
@@ -264,11 +268,16 @@
 
           <div id="reader"></div>
 
-          <label>Registrar lo que escaneo / escribo como</label>
-          <select id="modoRegistro">
-            <option value="presente">✅ Presente</option>
-            <option value="tardanza">⏰ Tardanza</option>
-            <option value="justificado">📝 Justificado (pide el motivo)</option>
+          <label>Registrar lo que escaneo o escribo como</label>
+          <div class="segmento" id="modoSegmento" role="group" aria-label="Estado a registrar">
+            <button type="button" class="activo" data-modo="presente" onclick="elegirModoRegistro('presente')">Presente</button>
+            <button type="button" data-modo="tardanza" onclick="elegirModoRegistro('tardanza')">Tardanza</button>
+            <button type="button" data-modo="justificado" onclick="elegirModoRegistro('justificado')">Justificado</button>
+          </div>
+          <select id="modoRegistro" class="solo-lectura-oculto" tabindex="-1" aria-hidden="true">
+            <option value="presente">Presente</option>
+            <option value="tardanza">Tardanza</option>
+            <option value="justificado">Justificado (pide el motivo)</option>
           </select>
 
           <label>Cédula manual <span class="required">*</span></label>
@@ -279,18 +288,30 @@
           </div>
 
           <div class="col-listas">
+          <div class="tabs-lista" id="listaTabs" role="tablist">
+            <button type="button" role="tab" class="activo" data-panel="presentes" onclick="verPanelLista('presentes')">Presentes <span id="tabPresentes">0</span></button>
+            <button type="button" role="tab" data-panel="faltantes" onclick="verPanelLista('faltantes')">Faltan <span id="tabFaltantes">0</span></button>
+            <button type="button" role="tab" data-panel="justificados" onclick="verPanelLista('justificados')">Justificados <span id="tabJustificados">0</span></button>
+          </div>
+
+          <div id="panel-presentes" class="panel-lista activo">
           <h4>Presentes <span id="contPresentes"></span></h4>
           <ul id="presentes"></ul>
+          </div>
 
-          <h4>Justificados <span id="contJustificados"></span></h4>
-          <ul id="justificados"></ul>
-
+          <div id="panel-faltantes" class="panel-lista">
           <h4>Faltantes <span id="contFaltantes"></span></h4>
           <ul id="faltantes"></ul>
+          </div>
 
-          <div style="display: flex; gap: 12px; margin-top: 15px;">
-            <button id="btnGuardarLista" onclick="cerrarLista()" style="flex: 2;">Guardar lista</button>
-            <button class="danger" onclick="cancelarLista()" style="flex: 1;">❌ Cancelar</button>
+          <div id="panel-justificados" class="panel-lista">
+          <h4>Justificados <span id="contJustificados"></span></h4>
+          <ul id="justificados"></ul>
+          </div>
+
+          <div class="acciones-lista">
+            <button class="danger" onclick="cancelarLista()">Cancelar</button>
+            <button id="btnGuardarLista" onclick="cerrarLista()">Guardar lista</button>
           </div>
           </div>
           </div>
@@ -361,16 +382,16 @@
         <div class="campos campos-3">
           <div class="campo">
             <label>Materia</label>
-            <select id="materiaHistorial"></select>
+            <select id="materiaHistorial" onchange="cargarHistorial()"></select>
           </div>
           <div class="campo">
             <label>Desde</label>
-            <input type="date" id="filtroFechaInicio" />
+            <input type="date" id="filtroFechaInicio" onchange="cargarHistorial()" />
             <small id="error-filtroFechaInicio" class="field-error"></small>
           </div>
           <div class="campo">
             <label>Hasta</label>
-            <input type="date" id="filtroFechaFin" />
+            <input type="date" id="filtroFechaFin" onchange="cargarHistorial()" />
             <small id="error-filtroFechaFin" class="field-error"></small>
           </div>
         </div>
@@ -382,15 +403,16 @@
 
         <button class="secondary" onclick="exportar()">Exportar CSV (detalle del periodo)</button>
       </div>
+    </section>
 
-      <div id="historialDetalle" class="card" style="display:none">
+    <section id="historialDetalle" class="screen">
+      <div class="card">
         <h3 id="detalleTitulo"></h3>
         <p id="detalleResumen" class="subtitle"></p>
         <p id="detalleAviso" class="subtitle" style="display:none"></p>
 
-        <button class="secondary" onclick="continuarListaDesdeHistorial()">▶ Continuar / completar esta lista</button>
-        <button id="btnAnularLista" class="danger" style="display:none" onclick="anularLista()">🗑 Anular lista completa</button>
-        <button class="secondary" onclick="cerrarDetalleHistorial()">Cerrar</button>
+        <button onclick="continuarListaDesdeHistorial()">Continuar o completar esta lista</button>
+        <button id="btnAnularLista" class="danger" style="display:none" onclick="anularLista()">Anular lista completa</button>
 
         <ul id="detalleLista"></ul>
       </div>

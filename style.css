@@ -819,3 +819,68 @@ li.fila-est.seleccionada { background: var(--accion-suave); border-color: var(--
 @media (min-width: 1100px) {
   body.con-cabraiz:has(#estudiantes.active) .cab-raiz { max-width: 1320px; }
 }
+
+/* ---------- Pasar lista en curso ---------- */
+.solo-lectura-oculto { display: none; }
+
+.progreso { margin-top: 10px; }
+.progreso-texto { font-size: 14px; font-weight: 650; color: var(--accion); margin-bottom: 6px; }
+.progreso-pista { height: 6px; border-radius: 3px; background: var(--borde); overflow: hidden; }
+.progreso-relleno { height: 100%; width: 0; border-radius: 3px; background: var(--accion); transition: width 0.25s ease; }
+
+.segmento { display: flex; gap: 2px; padding: 3px; background: var(--borde); border-radius: 11px; margin: 4px 0 10px; }
+.segmento button {
+  flex: 1; min-width: 0; min-height: 42px; margin: 0; padding: 0 6px; border-radius: 8px; border: none;
+  background: transparent; color: var(--suave-texto); font-size: 14px; font-weight: 600;
+}
+.segmento button:hover { background: transparent; color: var(--texto); }
+.segmento button.activo { background: var(--card); color: var(--texto); box-shadow: 0 1px 2px var(--sombra); }
+
+.tabs-lista { display: flex; gap: 22px; border-bottom: 1px solid var(--borde); margin: 16px 0 8px; overflow-x: auto; }
+.tabs-lista button {
+  width: auto; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: none; border-radius: 0;
+  border-bottom: 3px solid transparent; background: transparent; color: var(--suave-texto);
+  font-size: 14.5px; font-weight: 600; white-space: nowrap;
+}
+.tabs-lista button:hover { background: transparent; color: var(--texto); }
+.tabs-lista button.activo { color: var(--accion); border-bottom-color: var(--accion); font-weight: 700; }
+.tabs-lista button span { font-weight: 700; }
+
+.panel-lista { display: none; }
+.panel-lista.activo { display: block; }
+#zonaLista .panel-lista > h4 { display: none; }
+.panel-lista ul { margin-top: 4px; }
+
+.acciones-lista {
+  position: sticky; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 5;
+  display: flex; gap: 10px; padding: 10px 0 4px; margin-top: 14px;
+  background: var(--card); border-top: 1px solid var(--borde);
+}
+.acciones-lista button { margin: 0; flex: 1; min-width: 0; }
+.acciones-lista button.danger { flex: 0 0 34%; }
+
+.col-escaneo > button { margin-top: 8px; }
+
+@media (min-width: 960px) {
+  .acciones-lista { bottom: 0; }
+  .acciones-lista button, .lista-grid .col-listas .acciones-lista button { width: auto; flex: none; min-width: 150px; margin-right: 0; }
+  .acciones-lista { justify-content: flex-end; }
+  .segmento button, .lista-grid .col-escaneo .segmento button { width: auto; min-width: 0; margin: 0; }
+}
+
+/* ---------- Asistencias: filas y filtros ---------- */
+.chips-mini { gap: 6px; margin-top: 6px; }
+.chips-mini .chip { height: 22px; padding: 0 9px; font-size: 12px; }
+.chip-tarde { color: var(--tardanza); background: color-mix(in srgb, var(--tardanza) 14%, transparent); }
+.chip-justif { color: var(--justificado); background: color-mix(in srgb, var(--justificado) 14%, transparent); }
+.chip-falta { color: var(--falta); background: color-mix(in srgb, var(--falta) 12%, transparent); }
+li.fila-lista { align-items: flex-start; }
+li.fila-lista .fila-flecha { align-self: center; }
+
+@media (max-width: 959px) {
+  #historial .campos-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  #historial .campos-3 .campo:first-child { grid-column: 1 / -1; }
+}
+
+#historialDetalle .card > button { margin-top: 8px; }
+#historialDetalle h3 { margin-bottom: 4px; }
