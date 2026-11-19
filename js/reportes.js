@@ -71,6 +71,35 @@ function textoResumen(r) {
 const REPORTE_PAGINA = 50;
 const REPORTE_DIAS_POR_DEFECTO = 30;
 
+// ---------- Piezas visuales comunes de los reportes ----------
+
+function claseNivel(pct) {
+  if (pct === null || pct === undefined) return "nivel-vacio";
+  return pct >= 85 ? "nivel-ok" : pct >= 70 ? "nivel-medio" : "nivel-bajo";
+}
+
+function textoPct(pct) {
+  return pct === null || pct === undefined ? "–" : `${Math.round(pct)} %`;
+}
+
+// Etiquetas con los conteos (solo las que tienen datos; «presentes» siempre)
+function chipsConteo(f) {
+  return [
+    [f.presente, "chip-ok", n => `${n} ${n === 1 ? "presente" : "presentes"}`, true],
+    [f.tardanza, "chip-tarde", n => `${n} ${n === 1 ? "tardanza" : "tardanzas"}`],
+    [f.justificado, "chip-justif", n => `${n} ${n === 1 ? "justificada" : "justificadas"}`],
+    [f.falta, "chip-falta", n => `${n} ${n === 1 ? "falta" : "faltas"}`]
+  ].filter(([n, , , siempre]) => n > 0 || siempre)
+   .map(([n, clase, texto]) => `<span class="chip ${clase}">${texto(n || 0)}</span>`).join("");
+}
+
+function barraPct(pct) {
+  const ancho = pct === null || pct === undefined ? 0 : Math.max(0, Math.min(100, pct));
+  return `<div class="asist-pista"><div class="asist-relleno" style="width:${ancho}%"></div></div>`;
+}
+
+const FLECHA_FILA = `<svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
+
 async function generarReporte() {
   const contenedor = $("reporte");
   clearFieldError("cedulaReporte");
@@ -117,7 +146,7 @@ async function generarReporte() {
     if (fFin) docs = docs.filter(d => d.fecha <= fFin);
 
     if (docs.length === 0) {
-      contenedor.innerHTML = "<p>No hay listas en ese periodo." +
+      contenedor.innerHTML = "<p class=\"vacio-lista\">No hay listas en ese periodo." +
         (currentUserRole === "admin" ? " Si ya pasaste listas antes de actualizar, pulsa «Recalcular resúmenes» en Admin." : "") + "</p>";
       return;
     }
@@ -128,20 +157,30 @@ async function generarReporte() {
     const total = resumenDeConteos(sumarResumenes(docs));
     const { partes, pct } = textoResumen(total);
 
-    let html = `<hr>
-      <p><strong>${docs.length}</strong> lista(s) · asistencia general <strong>${pct}</strong></p>
-      <p class="subtitle">${partes}</p>
+    const nivelGeneral = claseNivel(total.porcentaje);
+    let html = `<div class="reporte-cab ${nivelGeneral}">
+        <div class="reporte-pct">${textoPct(total.porcentaje)}</div>
+        <div class="reporte-datos"><strong>Asistencia general</strong><span>${docs.length} ${docs.length === 1 ? "lista" : "listas"} en el periodo</span>
+        <span class="chips chips-mini">${chipsConteo(total)}</span></div>
+      </div>
       <button class="secondary" onclick="exportarResumenMaterias()">Exportar resumen por materia (CSV)</button>
-      <table class="vista-previa"><tr><th>Materia</th><th>Listas</th><th>✅</th><th>⏰</th><th>📝</th><th>❌</th><th>%</th><th></th></tr>`;
+      <p class="etiqueta">Por materia</p>
+      <ul class="lista-filas">`;
 
     filas.forEach(f => {
-      const pctF = f.porcentaje === null ? "-" : `${f.porcentaje.toFixed(0)}%`;
-      html += `<tr><td>${esc(f.nombre)}</td><td>${f.listas}</td>` +
-        `<td>${f.presente}</td><td>${f.tardanza}</td><td>${f.justificado}</td><td>${f.falta}</td><td>${esc(pctF)}</td>` +
-        `<td><button class="small secondary" onclick="verEstudiantesDeMateria('${esc(f.materia)}')">Estudiantes</button></td></tr>`;
+      html += `<li class="fila-est fila-lista ${claseNivel(f.porcentaje)}" tabindex="0" role="button" onclick="verEstudiantesDeMateria('${esc(f.materia)}')">
+        <span class="fila-texto">
+          <strong>${esc(f.nombre)}</strong>
+          <small>${f.listas} ${f.listas === 1 ? "lista" : "listas"}</small>
+          ${barraPct(f.porcentaje)}
+          <span class="chips chips-mini">${chipsConteo(f)}</span>
+        </span>
+        <span class="fila-pct">${textoPct(f.porcentaje)}</span>
+        ${FLECHA_FILA}
+      </li>`;
     });
-    html += `</table>
-      <p class="subtitle">«Estudiantes» muestra el detalle por estudiante de esa materia en el mismo periodo.</p>
+    html += `</ul>
+      <p class="subtitle">Toca una materia para ver el detalle por estudiante en el mismo periodo.</p>
       <div id="reporteEstudiantes"></div>`;
 
     contenedor.innerHTML = html;
@@ -205,18 +244,27 @@ function pintarTablaEstudiantes() {
   const { partes, pct } = textoResumen(total);
 
   let html = (reporteTitulo ? `<h4>${esc(reporteTitulo)}</h4>` : "") +
-    `<p><strong>${resultadosBusquedaActual.length}</strong> registros · <strong>${filas.length}</strong> estudiante(s) · asistencia general <strong>${pct}</strong></p>
-    <p class="subtitle">${partes}</p>
-    <button class="secondary" onclick="exportarResumenReporte()">Exportar resumen (CSV)</button>
-    <button class="secondary" onclick="exportarBusqueda()">Exportar detalle (CSV)</button>
-    <table class="vista-previa"><tr><th>Estudiante</th><th>Materia</th><th>✅</th><th>⏰</th><th>📝</th><th>❌</th><th>%</th></tr>`;
+    `<p class="subtitle"><strong>${resultadosBusquedaActual.length}</strong> registros · <strong>${filas.length}</strong> ${filas.length === 1 ? "estudiante" : "estudiantes"} · asistencia general <strong>${pct}</strong></p>
+    <div class="chips chips-mini">${chipsConteo(total)}</div>
+    <div class="acciones-reporte">
+      <button class="secondary" onclick="exportarResumenReporte()">Exportar resumen (CSV)</button>
+      <button class="secondary" onclick="exportarBusqueda()">Exportar detalle (CSV)</button>
+    </div>
+    <ul class="lista-filas">`;
 
   filas.slice(0, reporteVisibles).forEach(f => {
-    const pctF = f.porcentaje === null ? "-" : `${f.porcentaje.toFixed(0)}%`;
-    html += `<tr><td>${esc(f.cedula)}<br>${esc(f.nombres)} ${esc(f.apellidos)}</td><td>${esc(nombreMateria(f))}</td>` +
-      `<td>${f.presente}</td><td>${f.tardanza}</td><td>${f.justificado}</td><td>${f.falta}</td><td>${esc(pctF)}</td></tr>`;
+    html += `<li class="fila-est fila-lista ${claseNivel(f.porcentaje)}">
+      <span class="avatar">${esc(iniciales(f.nombres, f.apellidos))}</span>
+      <span class="fila-texto">
+        <strong>${esc(f.nombres)} ${esc(f.apellidos)}</strong>
+        <small>${esc(f.cedula)} · ${esc(nombreMateria(f))}</small>
+        ${barraPct(f.porcentaje)}
+        <span class="chips chips-mini">${chipsConteo(f)}</span>
+      </span>
+      <span class="fila-pct">${textoPct(f.porcentaje)}</span>
+    </li>`;
   });
-  html += "</table>";
+  html += "</ul>";
 
   if (filas.length > reporteVisibles) {
     html += `<p class="subtitle">Se muestran ${reporteVisibles} de ${filas.length}. Los CSV incluyen todos.</p>
@@ -363,15 +411,21 @@ async function generarAlertas() {
     ul.innerHTML = "";
 
     if (alertas.length === 0) {
-      ul.innerHTML = "<li>Sin alertas en este periodo.</li>";
+      ul.innerHTML = "<li class=\"vacio-lista\">Sin alertas en este periodo. Todo en orden.</li>";
       return;
     }
 
     alertas.forEach(({ r, ref }) => {
       const li = document.createElement("li");
-      li.innerHTML = `⚠️ <strong>${esc(ref.cedula)}</strong><br>${esc((ref.nombres || "") + " " + (ref.apellidos || ""))}<br>
-        ${esc(nombreMateria(ref))}<br>
-        Asistencia: ${r.porcentaje.toFixed(1)}% (${r.asistidas}/${r.base})${r.justificado ? ` · ${r.justificado} justificada(s) aparte` : ""}`;
+      li.className = "fila-est fila-lista nivel-bajo";
+      li.innerHTML = `<span class="avatar">${esc(iniciales(ref.nombres, ref.apellidos))}</span>
+        <span class="fila-texto">
+          <strong>${esc((ref.nombres || "") + " " + (ref.apellidos || ""))}</strong>
+          <small>${esc(ref.cedula)} · ${esc(nombreMateria(ref))}</small>
+          ${barraPct(r.porcentaje)}
+          <small>${r.asistidas} de ${r.base} clases${r.justificado ? ` · ${r.justificado} justificada(s) aparte` : ""}</small>
+        </span>
+        <span class="fila-pct">${textoPct(r.porcentaje)}</span>`;
       ul.appendChild(li);
     });
   } catch (e) {
@@ -406,6 +460,16 @@ async function cargarDashboard(manual = false) {
       : (currentUserRole === "admin"
           ? "Sin resúmenes en este periodo. Si ya había asistencias guardadas, pulsa «Recalcular resúmenes» en Admin."
           : "Sin registros en este periodo.");
+
+    const cab = $("dashCab");
+    if (cab) {
+      cab.className = "reporte-cab " + claseNivel(r.total ? r.porcentaje : null);
+      cab.innerHTML = r.total
+        ? `<div class="reporte-pct">${textoPct(r.porcentaje)}</div>
+           <div class="reporte-datos"><strong>Asistencia del periodo</strong><span>${r.total} registros</span>
+           <span class="chips chips-mini">${chipsConteo(r)}</span></div>`
+        : `<div class="reporte-datos"><strong>Sin datos</strong></div>`;
+    }
 
     try {
       await libreriaGrafico;

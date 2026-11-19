@@ -87,41 +87,26 @@ function listarMaterias() {
   ul.innerHTML = "";
 
   if (materiasLista.length === 0) {
-    ul.innerHTML = "<li>No hay materias registradas.</li>";
-    return;
+    ul.innerHTML = `<li class="vacio-lista">Aún no hay materias. Crea la primera con «Nueva materia».</li>`;
   }
 
-  materiasLista.forEach(m => {
+  materiasLista.forEach(mat => {
     const li = document.createElement("li");
-    const docentes = (m.profesores || []).map(uid => {
+    li.className = "fila-est fila-lista";
+    li.tabIndex = 0;
+    li.setAttribute("role", "button");
+    const docentes = (mat.profesores || []).map(uid => {
       const u = usuariosMap[uid];
       return u ? (u.nombre || u.email) : "cuenta desconocida";
     });
-    li.innerHTML = `<strong>${esc(m.nombre)}</strong><br><small>Docentes: ${esc(docentes.length ? docentes.join(", ") : "ninguno")}</small><br>`;
-
-    if (currentUserRole === "admin") {
-      const btnEdit = document.createElement("button");
-      btnEdit.className = "small";
-      btnEdit.textContent = "Editar";
-      btnEdit.onclick = () => abrirEditarMateria(m.id, m.nombre);
-
-      const btnDel = document.createElement("button");
-      btnDel.className = "small danger";
-      btnDel.textContent = "Eliminar";
-      btnDel.onclick = () => eliminarMateria(m.id);
-
-      const btnDoc = document.createElement("button");
-      btnDoc.className = "small secondary";
-      btnDoc.textContent = "Docentes";
-      btnDoc.onclick = () => abrirDocentesMateria(m.id);
-
-      li.appendChild(btnDoc);
-      li.appendChild(btnEdit);
-      li.appendChild(btnDel);
-    }
-
+    li.innerHTML = `<span class="avatar">${esc(iniciales(mat.nombre, ""))}</span>
+      <span class="fila-texto"><strong>${esc(mat.nombre)}</strong>
+      <small>${esc(docentes.length ? docentes.join(", ") : "Sin docentes asignados")}</small></span>${FLECHA_FILA}`;
+    li.onclick = () => mostrar("materiaDetalle", { param: mat.id });
     ul.appendChild(li);
   });
+
+  if (typeof pintarMateriaDetalle === "function" && pantallaActual === "materiaDetalle") pintarMateriaDetalle(materiaDetalleId);
 }
 
 async function crearMateria() {
@@ -140,6 +125,7 @@ async function crearMateria() {
     limpiarInput("materiaNombre");
     clearFieldError("materiaNombre");
     await cargarMaterias();
+    if (pantallaActual === "materiaNueva") volver();
   } catch (error) {
     showMessage("Error: " + traducirErrorFirebase(error), "error");
   }

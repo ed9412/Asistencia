@@ -63,3 +63,22 @@ document.addEventListener("DOMContentLoaded", () => {
     $("correccionPassword").addEventListener("keydown", e => { if (e.key === "Enter") confirmarCorreccion(); });
   }
 });
+
+
+// ===============================
+// MODO SIN CONEXIÓN (PWA)
+// ===============================
+
+function actualizarAvisoConexion() {
+  const el = document.getElementById("avisoSinConexion");
+  if (el) el.style.display = (typeof navigator !== "undefined" && navigator.onLine === false) ? "block" : "none";
+}
+if (typeof window.addEventListener === "function") window.addEventListener("online", actualizarAvisoConexion);
+window.addEventListener("offline", actualizarAvisoConexion);
+actualizarAvisoConexion();
+
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* sin soporte: la app funciona igual, solo con red */ });
+  });
+}

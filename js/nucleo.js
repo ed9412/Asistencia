@@ -282,7 +282,7 @@ async function mostrar(id, opts = {}) {
   if (!esStaff && id !== "pendienteScreen") return false;
 
   // Restricción por rol (la protección real está en las reglas de Firestore)
-  if (currentUserRole !== "admin" && ["materiasScreen", "adminScreen", "estudianteNuevo"].includes(id)) {
+  if (currentUserRole !== "admin" && ["materiasScreen", "materiaNueva", "materiaAsignar", "materiaDetalle", "adminScreen", "adminUsuarios", "adminDocente", "adminMantenimiento", "estudianteNuevo"].includes(id)) {
     showMessage("No tienes permisos para acceder a esta sección.", "error");
     return false;
   }
@@ -344,7 +344,7 @@ async function mostrar(id, opts = {}) {
   // 7. Cargar datos de la sección
   if (id === "estudiantes") {
     buscarEstudiantes();
-  } else if (id === "materiasScreen") {
+  } else if (id === "materiasScreen" || id === "materiaAsignar") {
     listarMaterias();
   } else if (id === "historial") {
     cargarHistorial();

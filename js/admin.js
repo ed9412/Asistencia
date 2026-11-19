@@ -120,7 +120,7 @@ async function cargarUsuarios() {
 
     ul.innerHTML = "";
     if (usuarios.length === 0) {
-      ul.innerHTML = "<li>No hay usuarios registrados.</li>";
+      ul.innerHTML = "<li class=\"vacio-lista\">No hay usuarios registrados.</li>";
       return;
     }
 
