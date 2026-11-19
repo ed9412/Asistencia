@@ -66,7 +66,7 @@ function rutaInicial() {
 
 function marcarNavActivo(id) {
   const raiz = raizDe(id);
-  const exacta = id === "ficha" || id === "estudianteNuevo" ? "estudiantes" : id;
+  const exacta = id === "ficha" || id === "estudianteNuevo" ? "estudiantes" : id === "lista" ? "hoy" : id;
   document.querySelectorAll(".navmovil button").forEach(b => {
     b.classList.toggle("activo", b.dataset.ir === raiz);
   });
@@ -124,6 +124,8 @@ mostrar = async function (id, opts = {}) {
 
   if (id !== "estudiantes" && id !== "ficha") detalleCedula = "";
   if (id === "estudiantes" && !desdeHistorial) { detalleCedula = ""; vaciarDetalle(); }
+  if (id === "hoy" && !desdeHistorial) fechaSel = "";
+  if (id !== "hoy" && typeof cerrarMenuUsuario === "function") cerrarMenuUsuario();
   pantallaActual = id;
   paramActual = param;
   marcarNavActivo(id);
@@ -169,11 +171,59 @@ function inicialesUsuario() {
 }
 
 let hoyToken = 0;
+let fechaSel = "";   // fecha de la lista; vacío = hoy
+
+function fechaEfectiva() {
+  return fechaSel || fechaLocalISO();
+}
+
+function textoFecha(iso) {
+  const [a, m, d] = iso.split("-").map(Number);
+  const f = new Date(a, m - 1, d);
+  const dia = DIAS[f.getDay()];
+  return `${dia[0].toUpperCase()}${dia.slice(1)} ${d} de ${MESES[m - 1]}`;
+}
+
+// El calendario queda escondido: casi siempre se pasa lista el mismo día
+function alternarFechaHoy() {
+  const panel = $("hoyFechaPanel");
+  const abrir = panel.style.display === "none";
+  panel.style.display = abrir ? "" : "none";
+  $("btnFechaHoy").setAttribute("aria-expanded", abrir ? "true" : "false");
+  if (abrir) {
+    const inp = $("hoyFechaSel");
+    inp.value = fechaEfectiva();
+    inp.max = fechaLocalISO();
+    if (typeof inp.focus === "function") inp.focus();
+  }
+}
+
+function cambiarFechaHoy(valor) {
+  if (!valor) return;
+  if (valor > fechaLocalISO()) {
+    showMessage("No se puede pasar lista de una fecha futura.", "error");
+    $("hoyFechaSel").value = fechaEfectiva();
+    return;
+  }
+  fechaSel = valor === fechaLocalISO() ? "" : valor;
+  cargarHoy();
+}
+
+function fechaHoyVolver() {
+  fechaSel = "";
+  $("hoyFechaSel").value = fechaLocalISO();
+  cargarHoy();
+}
 
 async function cargarHoy() {
-  const d = new Date();
-  $("hoyFecha").textContent = `${DIAS[d.getDay()][0].toUpperCase()}${DIAS[d.getDay()].slice(1)} ${d.getDate()} de ${MESES[d.getMonth()]}`;
+  const fecha = fechaEfectiva();
+  const esHoy = fecha === fechaLocalISO();
+  $("hoyFecha").textContent = textoFecha(fecha);
   $("hoyAvatar").textContent = inicialesUsuario();
+  const aviso = $("hoyAviso");
+  aviso.style.display = esHoy ? "none" : "";
+  aviso.innerHTML = esHoy ? "" : `<span>Estás pasando lista de otro día.</span><button class="small secondary" onclick="fechaHoyVolver()">Volver a hoy</button>`;
+  $("btnFechaHoy").classList.toggle("activo", !esHoy);
 
   const cont = $("hoyMaterias");
   if (!materiasLista.length) {
@@ -185,7 +235,6 @@ async function cargarHoy() {
     return;
   }
 
-  const hoy = fechaLocalISO();
   const token = ++hoyToken;
 
   const pintar = estados => {
@@ -195,7 +244,7 @@ async function cargarHoy() {
       let chip = `<span class="chip chip-gris">Comprobando…</span>`;
       let boton = `<button onclick="pasarListaDe('${esc(m.id)}')">Pasar lista</button>`;
       if (en) {
-        chip = `<span class="chip chip-acento">En curso</span>`;
+        chip = `<span class="chip chip-acento">En curso · ${esc(listaCtx.fecha)}</span>`;
         boton = `<button onclick="pasarListaDe('${esc(m.id)}')">Continuar lista</button>`;
       } else if (r === null) {
         chip = `<span class="chip chip-gris">Sin pasar</span>`;
@@ -217,7 +266,7 @@ async function cargarHoy() {
 
   await Promise.all(materiasLista.map(async m => {
     try {
-      const snap = await db.collection("resumenes_dia").doc(`${m.id}_${hoy}`).get();
+      const snap = await db.collection("resumenes_dia").doc(`${m.id}_${fecha}`).get();
       estados[m.id] = snap.exists ? snap.data() : null;
     } catch (e) {
       estados[m.id] = "error";
@@ -228,11 +277,12 @@ async function cargarHoy() {
 
 // Abre la lista de una materia directamente desde «Hoy»
 async function pasarListaDe(materiaId) {
+  const fecha = fechaEfectiva();
   const continuar = listaActiva;
   await mostrar("lista");
   if (continuar) return;
   $("materiaLista").value = materiaId;
-  $("fechaLista").value = fechaLocalISO();
+  $("fechaLista").value = fecha;
   await iniciarLista();
 }
 
@@ -400,3 +450,33 @@ function verQRFicha() {
 }
 function editarFicha() { abrirEditarEstudiante(fichaCedula); }
 function eliminarFicha() { eliminarEstudiante(fichaCedula); }
+
+// ===============================
+// MENÚ DEL USUARIO (círculo con las iniciales)
+// ===============================
+
+function abrirMenuUsuario(ev) {
+  const menu = $("menuUsuario");
+  if (menu.style.display !== "none") { cerrarMenuUsuario(); return; }
+  const nombre = typeof nombreActor === "function" ? nombreActor() : "";
+  $("menuUsuarioNombre").textContent = nombre || (auth.currentUser && auth.currentUser.email) || "";
+  $("menuUsuarioRol").textContent = `${nombre && auth.currentUser ? auth.currentUser.email + " · " : ""}${textoRol(currentUserRole)}`;
+  $("menuUsuarioFondo").style.display = "";
+  menu.style.display = "";
+  // Se coloca justo debajo del círculo, alineado a su borde derecho
+  const btn = ev && (ev.currentTarget || ev.target);
+  if (btn && btn.getBoundingClientRect && typeof window.innerWidth === "number") {
+    const r = btn.getBoundingClientRect();
+    menu.style.top = `${Math.round(r.bottom + 8)}px`;
+    menu.style.right = `${Math.max(8, Math.round(window.innerWidth - r.right))}px`;
+  }
+}
+
+function cerrarMenuUsuario() {
+  const menu = $("menuUsuario");
+  if (menu) menu.style.display = "none";
+  const fondo = $("menuUsuarioFondo");
+  if (fondo) fondo.style.display = "none";
+}
+
+document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarMenuUsuario(); });
