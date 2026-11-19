@@ -757,3 +757,51 @@ li.fila-est.seleccionada { background: var(--accion-suave); border-color: var(--
 .nivel-medio { color: var(--tardanza); }
 .nivel-bajo { color: var(--falta); }
 .asist-fila small { color: var(--suave-texto); }
+
+/* ---------- Pasar lista: calendario escondido, menú de usuario ---------- */
+.cab-acciones { display: flex; align-items: center; gap: 8px; }
+
+.icono-boton {
+  width: 44px; min-width: 44px; height: 44px; margin: 0; padding: 0;
+  background: transparent; color: var(--suave-texto); border: 1px solid transparent; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icono-boton:hover { background: var(--suave-bg); color: var(--texto); }
+.icono-boton svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icono-boton.activo { color: var(--accion); background: var(--accion-suave); }
+
+.avatar-boton { border: none; margin: 0; padding: 0; min-width: 44px; cursor: pointer; font-family: inherit; }
+.avatar-boton:hover { filter: brightness(0.96); }
+
+.fecha-panel {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--borde); border-radius: var(--radio-grande);
+  padding: 10px 14px; margin-bottom: 12px;
+}
+.fecha-panel label { margin: 0; font-weight: 600; }
+.fecha-panel input { margin: 0; width: auto; flex: 1; min-width: 150px; max-width: 220px; }
+
+.aviso-fecha {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--info-bg); border: 1px solid var(--info-borde); color: var(--accion);
+  border-radius: var(--radio); padding: 10px 14px; margin-bottom: 12px; font-size: 14px; font-weight: 600;
+}
+.aviso-fecha button { margin: 0; min-width: 0; }
+
+.menu-fondo { position: fixed; inset: 0; z-index: 40; background: transparent; }
+.menu-usuario {
+  position: fixed; z-index: 41; width: min(300px, calc(100vw - 16px));
+  background: var(--card); border: 1px solid var(--borde); border-radius: var(--radio-grande);
+  box-shadow: 0 12px 32px rgba(21, 32, 43, 0.18); overflow: hidden;
+}
+.menu-usuario-cab { padding: 14px 16px; border-bottom: 1px solid var(--borde); display: flex; flex-direction: column; gap: 2px; }
+.menu-usuario-cab small { color: var(--suave-texto); overflow-wrap: anywhere; }
+.menu-usuario button {
+  width: 100%; min-width: 0; margin: 0; min-height: 50px; padding: 0 16px; border: none; border-radius: 0;
+  background: transparent; color: var(--texto); font-size: 15px; font-weight: 600;
+  display: flex; align-items: center; gap: 12px; text-align: left;
+}
+.menu-usuario button + button { border-top: 1px solid var(--borde); }
+.menu-usuario button:hover { background: var(--suave-bg); }
+.menu-usuario button.peligro { color: var(--peligro); }
+.menu-usuario svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
