@@ -522,7 +522,7 @@ async function exportarQRPNG() {
 }
 
 // Carnet individual: hoja A4 con el carnet del mismo tamaño que en el PDF en lote (90 × 65 mm),
-// colocado en la primera posición de la hoja, listo para imprimir y recortar.
+// centrado en la hoja, listo para imprimir y recortar.
 async function exportarQRPDF() {
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
   const nombre = $("qrNombreDisplay").textContent || "Estudiante";
@@ -531,7 +531,8 @@ async function exportarQRPDF() {
     const qr = await QRCode.toDataURL(cedulaStr, { width: 300, margin: 1 });
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("portrait", "mm", "a4");
-    const { x, y } = posicionCarnet(0);
+    // Centrado en la hoja A4 (210 × 297 mm)
+    const x = (210 - CARNET_W) / 2, y = (297 - CARNET_H) / 2;
     dibujarCarnet(pdf, x, y, nombre, cedulaStr, qr);
     pdf.save(`Carnet_${cedulaStr}.pdf`);
     showMessage("Documento PDF descargado.", "success");
