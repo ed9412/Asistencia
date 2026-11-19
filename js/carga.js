@@ -106,11 +106,34 @@ async function conCarga(opciones, tarea) {
 
 // Envuelve funciones globales ya definidas (las llamadas desde el HTML y desde otras funciones
 // buscan el nombre en el ámbito global al ejecutarse, así que usan la versión envuelta).
+// Consultas sin bloqueo: nunca hay dos iguales a la vez.
+// - modo "ignorar": si ya hay una en curso, el clic extra se descarta (botones y filas tocables).
+// - modo "unir" (por defecto): si el usuario cambia un filtro mientras carga, se repite UNA vez al
+//   terminar con lo último pedido; da igual cuántos clics haga, nunca se acumulan peticiones.
 function envolverConCarga(nombre, opciones) {
   const original = globalThis[nombre];
   if (typeof original !== "function" || original.__conCarga) return;
+  const enCurso = !opciones.bloquear;
+  let corriendo = null;
+  let pendiente = null;
   const envuelta = function (...args) {
-    return conCarga(opciones, () => original.apply(this, args));
+    if (!enCurso) return conCarga(opciones, () => original.apply(this, args));
+    if (corriendo) {
+      if (opciones.repetidos !== "ignorar") pendiente = { esto: this, args };
+      return corriendo;
+    }
+    const ejecutar = (esto, a) => {
+      corriendo = conCarga(opciones, () => original.apply(esto, a)).finally(() => {
+        corriendo = null;
+        if (pendiente) {
+          const p = pendiente;
+          pendiente = null;
+          ejecutar(p.esto, p.args).catch(() => {});
+        }
+      });
+      return corriendo;
+    };
+    return ejecutar(this, args);
   };
   envuelta.__conCarga = true;
   globalThis[nombre] = envuelta;
@@ -156,5 +179,9 @@ function envolverConCarga(nombre, opciones) {
     exportar: "Preparando la exportación… puede tardar unos segundos",
     exportarBusqueda: "Preparando la exportación…"
   };
-  Object.keys(ligeras).forEach(n => envolverConCarga(n, { bloquear: false, textoLargo: ligeras[n] }));
+  // Estas se descartan si ya hay una igual en curso (clic repetido); las demás se unen en una sola repetición
+  const ignorarRepetidos = ["abrirListaHistorial", "verEstudiantesDeMateria", "exportar", "exportarBusqueda"];
+  Object.keys(ligeras).forEach(n => envolverConCarga(n, {
+    bloquear: false, textoLargo: ligeras[n], repetidos: ignorarRepetidos.includes(n) ? "ignorar" : "unir"
+  }));
 })();
