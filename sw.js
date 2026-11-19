@@ -1,13 +1,13 @@
 // Service worker: guarda la app para abrirla sin conexión.
 // Los datos de Firestore se guardan aparte (persistencia de Firestore en nucleo.js).
-const VERSION = "asistencia-v10";
+const VERSION = "asistencia-v11";
 const ARCHIVOS = [
-  "./", "./index.html", "./style.css?v=10", "./manifest.json", "./favicon.ico",
+  "./", "./index.html", "./style.css?v=11", "./manifest.json", "./favicon.ico",
   "./iconos/icono-192.png", "./iconos/icono-512.png",
-  "./js/tema.js?v=10", "./js/nucleo.js?v=10", "./js/librerias.js?v=10", "./js/sesion.js?v=10",
-  "./js/materias-estudiantes.js?v=10", "./js/lista.js?v=10", "./js/reportes.js?v=10",
-  "./js/historial.js?v=10", "./js/admin.js?v=10", "./js/resumenes.js?v=10", "./js/importar.js?v=10",
-  "./js/carnets.js?v=10", "./js/navegacion.js?v=10", "./js/carga.js?v=10", "./js/inicio.js?v=10",
+  "./js/tema.js?v=11", "./js/nucleo.js?v=11", "./js/librerias.js?v=11", "./js/sesion.js?v=11",
+  "./js/materias-estudiantes.js?v=11", "./js/lista.js?v=11", "./js/reportes.js?v=11",
+  "./js/historial.js?v=11", "./js/admin.js?v=11", "./js/resumenes.js?v=11", "./js/importar.js?v=11",
+  "./js/carnets.js?v=11", "./js/navegacion.js?v=11", "./js/carga.js?v=11", "./js/inicio.js?v=11",
   "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js",
   "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js",
   "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"
