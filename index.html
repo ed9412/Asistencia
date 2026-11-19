@@ -6,30 +6,33 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <title>Asistencia App</title>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js" defer></script>
 
-  <!-- Librerías de lectura/generación de QR (direcciones originales) -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <!-- Escáner QR, generador de QR, gráficos, captura y PDF se cargan bajo demanda (js/librerias.js) -->
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-  <link rel="stylesheet" href="style.css">
-  <script src="js/tema.js?v=3"></script>
+  <link rel="stylesheet" href="style.css?v=9">
+  <script src="js/tema.js?v=9"></script>
 </head>
 <body>
 
   <div id="toast" class="toast"></div>
 
+  <div id="barraCarga" class="barra-carga" aria-hidden="true"></div>
+  <div id="cargando" class="cargando" role="status" aria-live="polite" aria-hidden="true">
+    <div class="cargando-caja">
+      <div class="pase" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <p id="cargandoTexto">Cargando</p>
+    </div>
+  </div>
+
   <div id="loginScreen" class="screen active">
     <div class="card login-card">
-      <h1>🎓 Asistencia del Prof. Luis</h1>
-      <p class="subtitle">Sistema de control de asistencia</p>
+      <h1>Asistencia</h1>
+      <p class="subtitle">Prof. Luis · control de asistencia con QR</p>
 
       <label>Correo electrónico <span class="required">*</span></label>
       <input id="email" type="email" placeholder="ejemplo@correo.com" />
@@ -47,6 +50,7 @@
 
   <div id="app" style="display:none">
 
+    <aside class="lateral">
     <header class="topbar">
       <div>
         <strong>Asistencia App</strong>
@@ -57,11 +61,154 @@
         <button class="small danger" onclick="logout()">Salir</button>
       </div>
     </header>
+    <nav class="navbar navlateral" aria-label="Secciones">
+      <button data-ir="hoy" class="" onclick="mostrar('hoy')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l4.5 4.5L20 6.5"/></svg><span>Pasar lista</span></button>
+      <button data-ir="estudiantes" class="" onclick="mostrar('estudiantes')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/></svg><span class="texto-estudiantes">Estudiantes</span></button>
+      <button data-ir="materiasScreen" class="solo-admin" onclick="mostrar('materiasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5a3.5 3.5 0 013.5 3.5v11.5H8.5A3.5 3.5 0 015 16z"/><path d="M5 16a3.5 3.5 0 013.5-3.5H19"/></svg><span>Materias</span></button>
+      <button data-ir="historial" class="" onclick="mostrar('historial')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg><span>Asistencias</span></button>
+      <button data-ir="reportes" class="" onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span></button>
+      <button data-ir="alertasScreen" class="" onclick="mostrar('alertasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>Alertas</span></button>
+      <button data-ir="dashboard" class="" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Panel</span></button>
+      <button data-ir="adminScreen" class="solo-admin" onclick="mostrar('adminScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z"/></svg><span>Administración</span></button>
+    </nav>
+    </aside>
+    <nav class="navbar navmovil" aria-label="Navegación principal">
+      <button data-ir="hoy" onclick="mostrar('hoy')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l4.5 4.5L20 6.5"/></svg><span>Pasar lista</span></button>
+      <button data-ir="estudiantes" onclick="mostrar('estudiantes')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/></svg><span class="texto-estudiantes">Estudiantes</span></button>
+      <button data-ir="historial" onclick="mostrar('historial')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg><span>Asistencias</span></button>
+      <button data-ir="mas" onclick="mostrar('mas')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg><span>Más</span></button>
+    </nav>
+    <div id="menuUsuarioFondo" class="menu-fondo" style="display:none" onclick="cerrarMenuUsuario()"></div>
+    <div id="menuUsuario" class="menu-usuario" role="menu" style="display:none">
+      <div class="menu-usuario-cab"><strong id="menuUsuarioNombre"></strong><small id="menuUsuarioRol"></small></div>
+      <button role="menuitem" onclick="cerrarMenuUsuario(); alternarTema()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg><span>Cambiar tema claro u oscuro</span></button>
+      <button role="menuitem" class="peligro" onclick="cerrarMenuUsuario(); logout()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></svg><span>Cerrar sesión</span></button>
+    </div>
+
+    <header id="appbar" class="appbar" style="display:none">
+      <button class="appbar-atras" onclick="volver()" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="appbar-titulo" id="appbarTitulo"></div>
+      <button id="appbarAvatar" class="avatar avatar-boton appbar-avatar" onclick="abrirMenuUsuario(event)" aria-haspopup="menu" aria-label="Menú de usuario"></button>
+    </header>
+
+    <header id="cabRaiz" class="hoy-cab cab-raiz" style="display:none">
+      <div>
+        <div id="cabRaizSub" class="suave"></div>
+        <h1 id="cabRaizTitulo"></h1>
+      </div>
+      <div class="cab-acciones">
+        <button id="btnFechaHoy" class="icono-boton" onclick="alternarFechaHoy()" aria-label="Elegir otra fecha" aria-expanded="false" title="Elegir otra fecha" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg></button>
+        <button id="cabRaizAvatar" class="avatar avatar-grande avatar-boton" onclick="abrirMenuUsuario(event)" aria-haspopup="menu" aria-label="Menú de usuario"></button>
+      </div>
+    </header>
+
+    <section id="hoy" class="screen">
+      <div id="hoyFechaPanel" class="fecha-panel" style="display:none">
+        <label for="hoyFechaSel">Fecha de la lista</label>
+        <input type="date" id="hoyFechaSel" onchange="cambiarFechaHoy(this.value)" />
+      </div>
+      <div id="hoyAviso" class="aviso-fecha" style="display:none"></div>
+      <p class="etiqueta">Mis materias</p>
+      <div id="hoyMaterias" class="hoy-lista"></div>
+    </section>
+
+    <section id="mas" class="screen">
+      <div class="menu-lista">
+        <button class="fila-menu solo-admin" onclick="mostrar('materiasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5a3.5 3.5 0 013.5 3.5v11.5H8.5A3.5 3.5 0 015 16z"/><path d="M5 16a3.5 3.5 0 013.5-3.5H19"/></svg><span>Materias</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu" onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu" onclick="mostrar('alertasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>Alertas de asistencia</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu" onclick="mostrar('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="11.5" width="7" height="8.5" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Panel</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="fila-menu solo-admin" onclick="mostrar('adminScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z"/></svg><span>Administración</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="menu-lista">
+        <button class="fila-menu" onclick="alternarTema()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg><span>Cambiar tema claro u oscuro</span></button>
+        <button class="fila-menu peligro" onclick="logout()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></svg><span>Cerrar sesión</span></button>
+      </div>
+    </section>
+
+    <section id="ficha" class="screen">
+      <div id="fichaContenido"></div>
+    </section>
+
+    <section id="estudianteNuevo" class="screen">
+      <div class="card">
+        <h2>Nuevo estudiante</h2>
+        <div id="formNuevoEstudiante">
+        <div class="campos campos-3">
+        <div class="campo">
+        <label>Cédula <span class="required">*</span></label>
+        <input id="cedula" placeholder="Solo números" inputmode="numeric" />
+        <small id="error-cedula" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Nombres <span class="required">*</span></label>
+        <input id="nombres" placeholder="Ejemplo: Juan Carlos" />
+        <small id="error-nombres" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Apellidos <span class="required">*</span></label>
+        <input id="apellidos" placeholder="Ejemplo: Pérez Gómez" />
+        <small id="error-apellidos" class="field-error"></small>
+        </div>
+        </div>
+        <div class="campos campos-4">
+        <div class="campo">
+        <label>Grado <span class="required">*</span></label>
+        <input id="gradoEst" placeholder="Ejemplo: 3º A" maxlength="30" />
+        <small id="error-gradoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Teléfono</label>
+        <input id="telefonoEst" type="tel" placeholder="Opcional" maxlength="20" />
+        <small id="error-telefonoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Correo</label>
+        <input id="correoEst" type="email" placeholder="Opcional" maxlength="100" />
+        <small id="error-correoEst" class="field-error"></small>
+        </div>
+        <div class="campo">
+        <label>Representante</label>
+        <input id="representanteEst" placeholder="Opcional" maxlength="80" />
+        <small id="error-representanteEst" class="field-error"></small>
+        </div>
+        </div>
+
+        <button onclick="crearEstudiante()">Guardar estudiante</button>
+
+        <hr />
+
+        <h4>Importar estudiantes desde CSV</h4>
+        <p class="subtitle">Columnas: <strong>cedula; nombres; apellidos; grado</strong> y, si quieres, <strong>telefono; correo; representante</strong> (con o sin encabezado, separadas por «;», «,» o tabulación). El grado es obligatorio: va en el archivo o se indica abajo. Las cédulas que ya existen no se modifican.</p>
+
+        <label>Archivo CSV</label>
+        <input type="file" id="csvArchivo" accept=".csv,.txt,text/csv,text/plain" onchange="cargarArchivoCSV(this)" />
+
+        <label>…o pega el contenido aquí</label>
+        <textarea id="csvTexto" placeholder="12345678;Juan Carlos;Pérez Gómez"></textarea>
+
+        <label>Grado por defecto (para filas sin grado)</label>
+        <input id="csvGrado" placeholder="Opcional: ejemplo 3º A" maxlength="30" />
+
+        <label>Asignación</label>
+        <select id="csvMateria"></select>
+
+        <button class="secondary" onclick="importarRevisar()">Revisar</button>
+        <div id="csvVistaPrevia"></div>
+        <button id="btnCsvImportar" style="display:none" onclick="importarConfirmar()">Importar</button>
+
+        <hr />
+        </div>
+
+      </div>
+    </section>
 
     <section id="dashboard" class="screen">
       <div class="card">
-        <h2>📊 Dashboard</h2>
+        <h2>Dashboard</h2>
 
+        <div class="campos">
+        <div class="campo">
         <label>Periodo</label>
         <select id="dashboardRango" onchange="cargarDashboard(false)">
           <option value="30">Últimos 30 días</option>
@@ -70,10 +217,14 @@
           <option value="todo">Todo el historial</option>
         </select>
 
+        </div>
+        <div class="campo">
         <label>Materia</label>
         <select id="dashboardMateria" onchange="cargarDashboard(false)">
           <option value="todas">Todas mis materias</option>
         </select>
+        </div>
+        </div>
 
         <p id="dashResumen" class="subtitle"></p>
         <canvas id="grafico"></canvas>
@@ -83,11 +234,15 @@
 
     <section id="lista" class="screen">
       <div class="card">
-        <h2>✅ Pasar lista</h2>
+        <h2>Pasar lista</h2>
 
         <div id="infoListaActiva" class="info-activa" style="display: none;">
-          <p>📚 <strong>Materia:</strong> <span id="txtMateriaActiva"></span></p>
-          <p>📅 <strong>Fecha:</strong> <span id="txtFechaActiva"></span></p>
+          <p><strong>Materia:</strong> <span id="txtMateriaActiva"></span></p>
+          <p><strong>Fecha:</strong> <span id="txtFechaActiva"></span></p>
+          <div class="progreso">
+            <div id="progresoTexto" class="progreso-texto"></div>
+            <div class="progreso-pista"><div id="progresoRelleno" class="progreso-relleno"></div></div>
+          </div>
         </div>
 
         <div id="formInicioLista">
@@ -106,16 +261,23 @@
         <div id="zonaLista" style="display:none">
           <hr />
 
+          <div class="lista-grid">
+          <div class="col-escaneo">
           <button class="big-button" onclick="iniciarEscaner()">📷 Escanear QR</button>
           <button class="secondary" onclick="detenerEscaner()">Detener cámara</button>
 
           <div id="reader"></div>
 
-          <label>Registrar lo que escaneo / escribo como</label>
-          <select id="modoRegistro">
-            <option value="presente">✅ Presente</option>
-            <option value="tardanza">⏰ Tardanza</option>
-            <option value="justificado">📝 Justificado (pide el motivo)</option>
+          <label>Registrar lo que escaneo o escribo como</label>
+          <div class="segmento" id="modoSegmento" role="group" aria-label="Estado a registrar">
+            <button type="button" class="activo" data-modo="presente" onclick="elegirModoRegistro('presente')">Presente</button>
+            <button type="button" data-modo="tardanza" onclick="elegirModoRegistro('tardanza')">Tardanza</button>
+            <button type="button" data-modo="justificado" onclick="elegirModoRegistro('justificado')">Justificado</button>
+          </div>
+          <select id="modoRegistro" class="solo-lectura-oculto" tabindex="-1" aria-hidden="true">
+            <option value="presente">Presente</option>
+            <option value="tardanza">Tardanza</option>
+            <option value="justificado">Justificado (pide el motivo)</option>
           </select>
 
           <label>Cédula manual <span class="required">*</span></label>
@@ -123,19 +285,35 @@
           <small id="error-manualCedula" class="field-error"></small>
 
           <button onclick="registrarManual()">Registrar manual</button>
+          </div>
 
+          <div class="col-listas">
+          <div class="tabs-lista" id="listaTabs" role="tablist">
+            <button type="button" role="tab" class="activo" data-panel="presentes" onclick="verPanelLista('presentes')">Presentes <span id="tabPresentes">0</span></button>
+            <button type="button" role="tab" data-panel="faltantes" onclick="verPanelLista('faltantes')">Faltan <span id="tabFaltantes">0</span></button>
+            <button type="button" role="tab" data-panel="justificados" onclick="verPanelLista('justificados')">Justificados <span id="tabJustificados">0</span></button>
+          </div>
+
+          <div id="panel-presentes" class="panel-lista activo">
           <h4>Presentes <span id="contPresentes"></span></h4>
           <ul id="presentes"></ul>
+          </div>
 
-          <h4>Justificados <span id="contJustificados"></span></h4>
-          <ul id="justificados"></ul>
-
+          <div id="panel-faltantes" class="panel-lista">
           <h4>Faltantes <span id="contFaltantes"></span></h4>
           <ul id="faltantes"></ul>
+          </div>
 
-          <div style="display: flex; gap: 12px; margin-top: 15px;">
-            <button id="btnGuardarLista" onclick="cerrarLista()" style="flex: 2;">Guardar lista</button>
-            <button class="danger" onclick="cancelarLista()" style="flex: 1;">❌ Cancelar</button>
+          <div id="panel-justificados" class="panel-lista">
+          <h4>Justificados <span id="contJustificados"></span></h4>
+          <ul id="justificados"></ul>
+          </div>
+
+          <div class="acciones-lista">
+            <button class="danger" onclick="cancelarLista()">Cancelar</button>
+            <button id="btnGuardarLista" onclick="cerrarLista()">Guardar lista</button>
+          </div>
+          </div>
           </div>
         </div>
       </div>
@@ -143,64 +321,30 @@
 
     <section id="estudiantes" class="screen">
       <div class="card">
-        <h2 id="estudiantesTitulo">👨‍🎓 Estudiantes</h2>
+        <h2 id="estudiantesTitulo">Estudiantes</h2>
 
-        <div id="formNuevoEstudiante">
-        <label>Cédula <span class="required">*</span></label>
-        <input id="cedula" placeholder="Solo números" inputmode="numeric" />
-        <small id="error-cedula" class="field-error"></small>
-
-        <label>Nombres <span class="required">*</span></label>
-        <input id="nombres" placeholder="Ejemplo: Juan Carlos" />
-        <small id="error-nombres" class="field-error"></small>
-
-        <label>Apellidos <span class="required">*</span></label>
-        <input id="apellidos" placeholder="Ejemplo: Pérez Gómez" />
-        <small id="error-apellidos" class="field-error"></small>
-
-        <button onclick="crearEstudiante()">Guardar estudiante</button>
-
-        <hr />
-
-        <h4>Importar estudiantes desde CSV</h4>
-        <p class="subtitle">Columnas: <strong>cedula; nombres; apellidos</strong> (con o sin encabezado, separadas por «;», «,» o tabulación). Las cédulas que ya existen no se modifican.</p>
-
-        <label>Archivo CSV</label>
-        <input type="file" id="csvArchivo" accept=".csv,.txt,text/csv,text/plain" onchange="cargarArchivoCSV(this)" />
-
-        <label>…o pega el contenido aquí</label>
-        <textarea id="csvTexto" placeholder="12345678;Juan Carlos;Pérez Gómez"></textarea>
-
-        <label>Asignación</label>
-        <select id="csvMateria"></select>
-
-        <button class="secondary" onclick="importarRevisar()">Revisar</button>
-        <div id="csvVistaPrevia"></div>
-        <button id="btnCsvImportar" style="display:none" onclick="importarConfirmar()">Importar</button>
-
-        <hr />
-        </div>
-
-        <h4>Buscador de Estudiantes</h4>
         <div class="search-box">
-           <input id="searchEstudianteText" placeholder="Buscar por cédula o nombre..." />
-           <select id="searchEstudianteMateria">
+           <input id="searchEstudianteText" type="search" placeholder="Nombre, grado, cédula, teléfono…" enterkeyhint="search" />
+           <select id="searchEstudianteMateria" aria-label="Filtrar por materia">
               <option value="todas">Todas las materias</option>
            </select>
            <button onclick="buscarEstudiantes()">Buscar</button>
         </div>
 
+        <p id="contEstudiantes" class="subtitle contador"></p>
+        <ul id="listaEstudiantes" class="lista-filas"></ul>
+
         <button id="btnCarnetsLote" class="secondary" onclick="descargarCarnetsMateria()">🪪 Descargar carnets de la materia (PDF)</button>
         <p class="subtitle">Elige una materia en el filtro de arriba. Salen 8 carnets por hoja A4.</p>
-
-        <h4>Listado</h4>
-        <ul id="listaEstudiantes"></ul>
       </div>
+  <aside id="estDetalle" class="est-detalle" aria-live="polite"></aside>
     </section>
+
+    <button id="fabNuevoEst" class="fab" onclick="mostrar('estudianteNuevo')" aria-label="Nuevo estudiante" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nuevo</span></button>
 
     <section id="materiasScreen" class="screen">
       <div class="card">
-        <h2>📚 Materias</h2>
+        <h2>Materias</h2>
 
         <label>Nombre de la materia <span class="required">*</span></label>
         <input id="materiaNombre" placeholder="Ejemplo: Matemáticas" />
@@ -230,23 +374,24 @@
 
     <section id="historial" class="screen">
       <div class="card">
-        <h2>📅 Asistencias</h2>
+        <h2>Asistencias</h2>
         <p class="subtitle">Revisa las listas ya pasadas, corrige errores y completa las de hoy. Por defecto se muestran los últimos 30 días.</p>
 
         <div id="historialEnCurso"></div>
 
-        <label>Materia</label>
-        <select id="materiaHistorial"></select>
-
-        <div style="display: flex; gap: 12px; margin-top: 10px;">
-          <div style="flex: 1;">
-            <label style="margin-top: 0;">Desde</label>
-            <input type="date" id="filtroFechaInicio" />
+        <div class="campos campos-3">
+          <div class="campo">
+            <label>Materia</label>
+            <select id="materiaHistorial" onchange="cargarHistorial()"></select>
+          </div>
+          <div class="campo">
+            <label>Desde</label>
+            <input type="date" id="filtroFechaInicio" onchange="cargarHistorial()" />
             <small id="error-filtroFechaInicio" class="field-error"></small>
           </div>
-          <div style="flex: 1;">
-            <label style="margin-top: 0;">Hasta</label>
-            <input type="date" id="filtroFechaFin" />
+          <div class="campo">
+            <label>Hasta</label>
+            <input type="date" id="filtroFechaFin" onchange="cargarHistorial()" />
             <small id="error-filtroFechaFin" class="field-error"></small>
           </div>
         </div>
@@ -258,15 +403,16 @@
 
         <button class="secondary" onclick="exportar()">Exportar CSV (detalle del periodo)</button>
       </div>
+    </section>
 
-      <div id="historialDetalle" class="card" style="display:none">
+    <section id="historialDetalle" class="screen">
+      <div class="card">
         <h3 id="detalleTitulo"></h3>
         <p id="detalleResumen" class="subtitle"></p>
         <p id="detalleAviso" class="subtitle" style="display:none"></p>
 
-        <button class="secondary" onclick="continuarListaDesdeHistorial()">▶ Continuar / completar esta lista</button>
-        <button id="btnAnularLista" class="danger" style="display:none" onclick="anularLista()">🗑 Anular lista completa</button>
-        <button class="secondary" onclick="cerrarDetalleHistorial()">Cerrar</button>
+        <button onclick="continuarListaDesdeHistorial()">Continuar o completar esta lista</button>
+        <button id="btnAnularLista" class="danger" style="display:none" onclick="anularLista()">Anular lista completa</button>
 
         <ul id="detalleLista"></ul>
       </div>
@@ -275,30 +421,32 @@
     <!-- REPORTES -->
     <section id="reportes" class="screen">
       <div class="card">
-        <h2>📈 Reporte por estudiante</h2>
-        <p class="subtitle">Asistencias, tardanzas, justificadas, faltas y porcentaje de cada estudiante, para exportar. (Para revisar o corregir una lista concreta usa «Asistencias».)</p>
+        <h2>Reporte por estudiante</h2>
+        <p class="subtitle">Primero ves el resumen por materia del periodo (últimos 30 días si no indicas fechas) y, desde ahí, el detalle por estudiante. Con una cédula ves directamente a ese estudiante. Para revisar o corregir una lista concreta usa «Asistencias».</p>
 
-        <label>Cédula del estudiante (opcional)</label>
-        <input type="text" id="cedulaReporte" placeholder="Ej: 12345678" inputmode="numeric">
-        <small id="error-cedulaReporte" class="field-error"></small>
-
-        <label>Materia</label>
-        <select id="materiaReporte">
-          <option value="todas">Todas las materias</option>
-        </select>
-
-        <div style="display: flex; gap: 10px;">
-          <div style="flex: 1;">
-            <label>Desde:</label>
+        <div class="campos campos-4">
+          <div class="campo">
+            <label>Cédula (opcional)</label>
+            <input type="text" id="cedulaReporte" placeholder="Ej: 12345678" inputmode="numeric">
+            <small id="error-cedulaReporte" class="field-error"></small>
+          </div>
+          <div class="campo">
+            <label>Materia</label>
+            <select id="materiaReporte">
+              <option value="todas">Todas las materias</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Desde</label>
             <input type="date" id="fechaInicioReporte">
           </div>
-          <div style="flex: 1;">
-            <label>Hasta:</label>
+          <div class="campo">
+            <label>Hasta</label>
             <input type="date" id="fechaFinReporte">
           </div>
         </div>
 
-        <button onclick="generarReporte()" style="margin-top: 15px; width: 100%;">Buscar</button>
+        <button onclick="generarReporte()">Buscar</button>
 
         <div id="reporte"></div>
       </div>
@@ -306,9 +454,11 @@
 
     <section id="alertasScreen" class="screen">
       <div class="card">
-        <h2>🚨 Alertas de inasistencia</h2>
+        <h2>Alertas de inasistencia</h2>
         <p class="subtitle">Estudiantes (por materia) con asistencia por debajo del umbral. Se necesitan al menos 3 registros para generar una alerta. Las ausencias justificadas no cuentan en contra.</p>
 
+        <div class="campos">
+        <div class="campo">
         <label>Periodo a analizar</label>
         <select id="alertasPeriodo">
           <option value="30">Últimos 30 días</option>
@@ -317,6 +467,8 @@
           <option value="todo">Todo el historial</option>
         </select>
 
+        </div>
+        <div class="campo">
         <label>Alertar si la asistencia es menor a</label>
         <select id="alertasUmbral">
           <option value="70">70%</option>
@@ -324,6 +476,8 @@
           <option value="80">80%</option>
           <option value="50">50%</option>
         </select>
+        </div>
+        </div>
 
         <button onclick="generarAlertas()">Actualizar alertas</button>
 
@@ -333,7 +487,7 @@
 
     <section id="adminScreen" class="screen">
       <div class="card">
-        <h2>🔐 Administración</h2>
+        <h2>Administración</h2>
 
         <h4>Mi nombre</h4>
         <p class="subtitle">Es el nombre que aparece como docente en las listas que tú pases y en los reportes.</p>
@@ -381,7 +535,7 @@
 
     <section id="pendienteScreen" class="screen">
       <div class="card">
-        <h2>⏳ Cuenta pendiente de aprobación</h2>
+        <h2>Cuenta pendiente de aprobación</h2>
         <p class="subtitle">
           Tu cuenta se creó correctamente, pero todavía no tiene un rol asignado.
           Pide a un administrador que la apruebe y vuelve a entrar.
@@ -420,6 +574,18 @@
         <label>Apellidos</label>
         <input id="editEstApellidos" />
         <small id="error-editEstApellidos" class="field-error"></small>
+        <label>Grado <span class="required">*</span></label>
+        <input id="editEstGrado" maxlength="30" />
+        <small id="error-editEstGrado" class="field-error"></small>
+        <label>Teléfono</label>
+        <input id="editEstTelefono" type="tel" maxlength="20" />
+        <small id="error-editEstTelefono" class="field-error"></small>
+        <label>Correo</label>
+        <input id="editEstCorreo" type="email" maxlength="100" />
+        <small id="error-editEstCorreo" class="field-error"></small>
+        <label>Representante</label>
+        <input id="editEstRepresentante" maxlength="80" />
+        <small id="error-editEstRepresentante" class="field-error"></small>
 
         <h4>Materias Asignadas</h4>
         <ul id="editEstMateriasList" class="compact-list"></ul>
@@ -497,28 +663,22 @@
       </div>
     </div>
 
-    <nav class="navbar">
-      <button onclick="mostrar('lista')">✅<span>Lista</span></button>
-      <button id="estudiantesNavBtn" onclick="mostrar('estudiantes')" style="display:none">🎓<span id="estudiantesNavTexto">Estudiantes</span></button>
-      <button id="materiasNavBtn" onclick="mostrar('materiasScreen')" style="display:none">📚<span>Materias</span></button>
-      <button onclick="mostrar('historial')">📅<span>Asistencias</span></button>
-      <button onclick="mostrar('reportes')">📈<span>Reportes</span></button>
-      <button onclick="mostrar('alertasScreen')">🚨<span>Alertas</span></button>
-      <button onclick="mostrar('dashboard')">📊<span>Dashboard</span></button>
-      <button id="adminNavBtn" onclick="mostrar('adminScreen')" style="display:none">🔐<span>Admin</span></button>
-    </nav>
 
   </div>
 
-<script src="js/nucleo.js?v=3"></script>
-<script src="js/sesion.js?v=3"></script>
-<script src="js/materias-estudiantes.js?v=3"></script>
-<script src="js/lista.js?v=3"></script>
-<script src="js/reportes.js?v=3"></script>
-<script src="js/admin.js?v=3"></script>
-<script src="js/resumenes.js?v=3"></script>
-<script src="js/importar.js?v=3"></script>
-<script src="js/carnets.js?v=3"></script>
-<script src="js/inicio.js?v=3"></script>
+<script src="js/nucleo.js?v=9" defer></script>
+<script src="js/librerias.js?v=9" defer></script>
+<script src="js/sesion.js?v=9" defer></script>
+<script src="js/materias-estudiantes.js?v=9" defer></script>
+<script src="js/lista.js?v=9" defer></script>
+<script src="js/reportes.js?v=9" defer></script>
+<script src="js/historial.js?v=9" defer></script>
+<script src="js/admin.js?v=9" defer></script>
+<script src="js/resumenes.js?v=9" defer></script>
+<script src="js/importar.js?v=9" defer></script>
+<script src="js/carnets.js?v=9" defer></script>
+<script src="js/navegacion.js?v=9" defer></script>
+<script src="js/carga.js?v=9" defer></script>
+<script src="js/inicio.js?v=9" defer></script>
 </body>
 </html>

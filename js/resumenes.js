@@ -24,8 +24,9 @@ function resumenDeConteos(c) {
   return r;
 }
 
-function datosResumenDia(materiaId, fecha, c, marca) {
-  return {
+// guardado = { email, nombre } de quien guarda (termina) la lista; opcional
+function datosResumenDia(materiaId, fecha, c, marca, guardado) {
+  const d = {
     materia: materiaId,
     fecha,
     presente: c.presente || 0,
@@ -34,6 +35,18 @@ function datosResumenDia(materiaId, fecha, c, marca) {
     falta: c.falta || 0,
     actualizadoEn: marca
   };
+  if (guardado && guardado.email) {
+    d.guardadoPor = guardado.email;
+    d.guardadoPorNombre = guardado.nombre || "";
+  }
+  return d;
+}
+
+// Nombre de quien guardó la lista (no el correo); los resúmenes antiguos no lo tienen
+function nombreGuardador(resumen) {
+  if (!resumen) return "";
+  return (esNombreReal(resumen.guardadoPorNombre) ? resumen.guardadoPorNombre : "") ||
+    nombreDeEmail(resumen.guardadoPor) || resumen.guardadoPor || "";
 }
 
 // Estado final del día = lo ya guardado + las operaciones que se van a escribir
@@ -57,20 +70,49 @@ async function recalcularResumenDia(materiaId, fecha) {
     .get();
   const c = { presente: 0, tardanza: 0, justificado: 0, falta: 0 };
   snap.forEach(d => { c[estadoDe(d.data())]++; });
+  // merge: solo cambian los conteos; se conserva quién guardó la lista
   await db.collection("resumenes_dia").doc(`${materiaId}_${fecha}`)
-    .set(datosResumenDia(materiaId, fecha, c, marcaServidorResumen()));
+    .set(datosResumenDia(materiaId, fecha, c, marcaServidorResumen()), { merge: true });
 }
 
-// Agrupa registros por materia y fecha -> lista de { id, data }
-function construirResumenes(registros, marca) {
+// Mapa "materia_fecha" -> nombre de quien guardó cada lista, para los registros dados
+async function mapaGuardadores(registros) {
+  const mapa = {};
+  try {
+    const materias = [...new Set(registros.map(r => r.materia).filter(Boolean))];
+    if (materias.length === 0) return mapa;
+    const desde = registros.reduce((m, r) => (r.fecha && r.fecha < m ? r.fecha : m), "9999-12-31");
+    const docs = await consultarResumenes({ materiaIds: materias, desde });
+    docs.forEach(d => { mapa[`${d.materia}_${d.fecha}`] = nombreGuardador(d); });
+  } catch (e) { /* sin resúmenes: se usa el docente guardado en cada registro */ }
+  return mapa;
+}
+
+function milisDe(t) {
+  return t && typeof t.toMillis === "function" ? t.toMillis() : 0;
+}
+
+// Agrupa registros por materia y fecha -> lista de { id, data }.
+// previos: resúmenes que ya existían (id -> datos); si tienen guardadoPor se conserva; si no,
+// se deduce del registro modificado más recientemente de esa lista.
+function construirResumenes(registros, marca, previos = {}) {
   const grupos = new Map();
   registros.forEach(x => {
     if (!x.materia || !x.fecha) return;
     const id = `${x.materia}_${x.fecha}`;
-    if (!grupos.has(id)) grupos.set(id, { materia: x.materia, fecha: x.fecha, c: { presente: 0, tardanza: 0, justificado: 0, falta: 0 } });
-    grupos.get(id).c[estadoDe(x)]++;
+    if (!grupos.has(id)) grupos.set(id, { materia: x.materia, fecha: x.fecha, c: { presente: 0, tardanza: 0, justificado: 0, falta: 0 }, ultimo: null, ultimoMs: -1 });
+    const g = grupos.get(id);
+    g.c[estadoDe(x)]++;
+    const ms = milisDe(x.actualizadoEn);
+    if (x.profesor && ms > g.ultimoMs) { g.ultimo = x; g.ultimoMs = ms; }
   });
-  return Array.from(grupos.entries()).map(([id, g]) => ({ id, data: datosResumenDia(g.materia, g.fecha, g.c, marca) }));
+  return Array.from(grupos.entries()).map(([id, g]) => {
+    const prev = previos[id];
+    let guardado = null;
+    if (prev && prev.guardadoPor) guardado = { email: prev.guardadoPor, nombre: prev.guardadoPorNombre || "" };
+    else if (g.ultimo) guardado = { email: g.ultimo.profesor, nombre: esNombreReal(g.ultimo.profesorNombre) ? g.ultimo.profesorNombre : (nombreDeEmail(g.ultimo.profesor) || "") };
+    return { id, data: datosResumenDia(g.materia, g.fecha, g.c, marca, guardado) };
+  });
 }
 
 // Admin: reconstruye todos los resúmenes desde las asistencias (migración inicial o reparación)
@@ -81,6 +123,7 @@ async function recalcularTodosResumenes() {
   const btn = $("btnRecalcularResumenes");
   btn.disabled = true;
   try {
+    try { await cargarUsuariosCache(); } catch (e) { /* sin nombres: se guardan los correos */ }
     const [asis, previos] = await Promise.all([
       db.collection("asistencias").get(),
       db.collection("resumenes_dia").get()
@@ -88,7 +131,9 @@ async function recalcularTodosResumenes() {
     const registros = [];
     asis.forEach(d => registros.push(d.data()));
 
-    const nuevos = construirResumenes(registros, marcaServidorResumen());
+    const previosPorId = {};
+    previos.forEach(d => { previosPorId[d.id] = d.data(); });
+    const nuevos = construirResumenes(registros, marcaServidorResumen(), previosPorId);
     const idsNuevos = new Set(nuevos.map(n => n.id));
     const obsoletos = [];
     previos.forEach(d => { if (!idsNuevos.has(d.id)) obsoletos.push(d.id); });

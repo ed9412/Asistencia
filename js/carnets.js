@@ -27,8 +27,10 @@ async function descargarCarnetsMateria() {
     return showMessage("Elige una materia en el filtro para generar sus carnets.", "error");
   }
   if (!materiasMap[materiaId]) return showMessage("No tienes acceso a esa materia.", "error");
-  if (typeof QRCode === "undefined" || !window.jspdf) {
-    return showMessage("No se cargaron las librerías de QR o PDF. Revisa tu conexión y recarga.", "error");
+  try {
+    await Promise.all([cargarLibreria("qr"), cargarLibreria("pdf")]);
+  } catch (e) {
+    return showMessage(TEXTO_ERROR_LIBRERIA, "error");
   }
 
   const btn = $("btnCarnetsLote");
@@ -69,8 +71,6 @@ async function descargarCarnetsMateria() {
       pdf.setFontSize(10);
       pdf.setTextColor(107, 114, 128);
       pdf.text(`Cédula: ${est.cedula}`, x + 5, y + CARNET_H - 14);
-      const mat = pdf.splitTextToSize(materia, 38);
-      pdf.text(mat.slice(0, 2), x + 5, y + CARNET_H - 8);
 
       pdf.addImage(qr, "PNG", x + 43, y + 12, 42, 42);
     }

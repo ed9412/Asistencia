@@ -1,6 +1,7 @@
 // ===============================
 // IMPORTACIÓN DE ESTUDIANTES POR CSV (solo admin)
-// Formato: cedula;nombres;apellidos  (con o sin fila de encabezado)
+// Formato: cedula;nombres;apellidos;grado;telefono;correo;representante  (con o sin fila de encabezado;
+// grado es obligatorio: en el archivo o como «grado por defecto»; los demás son opcionales)
 // ===============================
 
 const IMPORT_MAX_FILAS = 1000;
@@ -60,7 +61,11 @@ function mapearColumnas(filas) {
   const alias = {
     cedula: ["cedula", "documento", "id", "dni", "ci"],
     nombres: ["nombres", "nombre"],
-    apellidos: ["apellidos", "apellido"]
+    apellidos: ["apellidos", "apellido"],
+    grado: ["grado", "curso"],
+    telefono: ["telefono", "tel", "celular", "movil"],
+    correo: ["correo", "email", "e-mail", "correo electronico"],
+    representante: ["representante", "acudiente", "tutor"]
   };
   const idx = {};
   Object.entries(alias).forEach(([k, lista]) => {
@@ -70,12 +75,12 @@ function mapearColumnas(filas) {
   if (idx.cedula !== undefined && idx.nombres !== undefined && idx.apellidos !== undefined) {
     return { idx, conCabecera: true };
   }
-  return { idx: { cedula: 0, nombres: 1, apellidos: 2 }, conCabecera: false };
+  return { idx: { cedula: 0, nombres: 1, apellidos: 2, grado: 3, telefono: 4, correo: 5, representante: 6 }, conCabecera: false };
 }
 
 // Valida cada fila y decide qué hay que crear. Función pura (se puede probar sin Firebase).
 //  existentes: Set de cédulas ya registradas | relaciones: Set de ids "cedula_materiaId" ya existentes
-function analizarFilasImportacion(filas, existentes, relaciones, materiaId) {
+function analizarFilasImportacion(filas, existentes, relaciones, materiaId, gradoPorDefecto = "") {
   const { idx, conCabecera } = mapearColumnas(filas);
   const datos = conCabecera ? filas.slice(1) : filas;
   const vistas = new Set();
@@ -86,12 +91,21 @@ function analizarFilasImportacion(filas, existentes, relaciones, materiaId) {
     const cedula = String(f[idx.cedula] || "").replace(/[.\s]/g, "");
     const nombres = normalizarTexto(f[idx.nombres] || "");
     const apellidos = normalizarTexto(f[idx.apellidos] || "");
-    const fila = { n, cedula, nombres, apellidos, estado: "nueva", error: "", crearEstudiante: false, asignar: false };
+    const grado = normalizarTexto(f[idx.grado] || "") || normalizarTexto(gradoPorDefecto);
+    const extra = camposExtraEstudiante({
+      grado, telefono: f[idx.telefono] || "", correo: f[idx.correo] || "", representante: f[idx.representante] || ""
+    });
+    const fila = { n, cedula, nombres, apellidos, ...extra, estado: "nueva", error: "", crearEstudiante: false, asignar: false };
 
     if (!/^[0-9]{4,20}$/.test(cedula)) fila.error = "Cédula inválida (4 a 20 dígitos)";
     else if (vistas.has(cedula)) fila.error = "Repetida en el archivo";
     else if (!validarNombre(nombres) || nombres.length > 80) fila.error = "Nombres inválidos";
     else if (!validarNombre(apellidos) || apellidos.length > 80) fila.error = "Apellidos inválidos";
+    else if (!extra.grado) fila.error = "Falta el grado (en el archivo o como grado por defecto)";
+    else if (!validarGrado(extra.grado)) fila.error = "Grado inválido";
+    else if (!validarTelefono(extra.telefono)) fila.error = "Teléfono inválido";
+    else if (!validarCorreoOpcional(extra.correo)) fila.error = "Correo inválido";
+    else if (!validarRepresentante(extra.representante)) fila.error = "Representante inválido";
 
     if (fila.error) {
       fila.estado = "error";
@@ -125,7 +139,11 @@ function calcularOperacionesImportacion(analisis, email, marcaServidor) {
     if (f.crearEstudiante) {
       ops.push({
         coleccion: "estudiantes", id: f.cedula,
-        data: { cedula: f.cedula, nombres: f.nombres, apellidos: f.apellidos, creadoEn: marcaServidor }
+        data: {
+          cedula: f.cedula, nombres: f.nombres, apellidos: f.apellidos,
+          grado: f.grado, telefono: f.telefono, correo: f.correo, representante: f.representante,
+          creadoEn: marcaServidor
+        }
       });
     }
     if (f.asignar) {
@@ -171,7 +189,7 @@ async function importarRevisar() {
     const relaciones = new Set(cacheEst.relaciones.map(r => r.id));
     const materiaId = $("csvMateria").value || "";
 
-    importAnalisis = analizarFilasImportacion(filas, existentes, relaciones, materiaId);
+    importAnalisis = analizarFilasImportacion(filas, existentes, relaciones, materiaId, $("csvGrado") ? $("csvGrado").value : "");
     pintarVistaPreviaImportacion();
   } catch (e) {
     showMessage("No se pudo revisar: " + traducirErrorFirebase(e), "error");
@@ -186,14 +204,14 @@ function pintarVistaPreviaImportacion() {
   let html = `<p><strong>${r.total}</strong> filas · <strong>${r.nuevos} nuevos</strong> · ${r.yaExistian} ya existían`;
   if (a.materiaId) html += ` · ${r.asignaciones} asignaciones a «${esc(nombreMateria({ materia: a.materiaId }))}»`;
   html += r.errores ? ` · <span class="error-text">${r.errores} con error (se omitirán)</span>` : "";
-  html += `</p><table class="vista-previa"><tr><th>#</th><th>Cédula</th><th>Nombre</th><th>Resultado</th></tr>`;
+  html += `</p><table class="vista-previa"><tr><th>#</th><th>Cédula</th><th>Nombre</th><th>Grado</th><th>Resultado</th></tr>`;
 
   a.filas.slice(0, IMPORT_MAX_VISTA).forEach(f => {
     const clase = f.estado === "error" ? "fila-error" : (f.estado === "existe" ? "fila-existe" : "");
     const resultado = f.estado === "error" ? f.error
       : f.crearEstudiante ? "Se creará" + (f.asignar ? " y se asignará" : "")
       : f.asignar ? "Ya existe · se asignará" : "Ya existe · sin cambios";
-    html += `<tr class="${clase}"><td>${f.n}</td><td>${esc(f.cedula)}</td><td>${esc(f.nombres)} ${esc(f.apellidos)}</td><td>${esc(resultado)}</td></tr>`;
+    html += `<tr class="${clase}"><td>${f.n}</td><td>${esc(f.cedula)}</td><td>${esc(f.nombres)} ${esc(f.apellidos)}</td><td>${esc(f.grado)}</td><td>${esc(resultado)}</td></tr>`;
   });
   html += "</table>";
   if (a.filas.length > IMPORT_MAX_VISTA) html += `<p class="subtitle">Se muestran ${IMPORT_MAX_VISTA} de ${a.filas.length} filas.</p>`;

@@ -51,93 +51,6 @@ async function consultarAsistencias({ materiaIds = null, cedula = "", desde = ""
   return registros;
 }
 
-function etiquetaEstado(registro) {
-  const e = estadoDe(registro);
-  return `${ESTADOS[e].icono} ${ESTADOS[e].texto}`;
-}
-
-// ===============================
-// HISTORIAL (paginado)
-// ===============================
-
-async function cargarHistorial(reiniciar = true) {
-  if (reiniciar) {
-    if (!validarRangoFechas()) return;
-    const materia = $("materiaHistorial").value;
-    if (currentUserRole !== "admin" && !materia) {
-      return showMessage("Selecciona una materia.", "error");
-    }
-    histFiltro = { materia, inicio: $("filtroFechaInicio").value, fin: $("filtroFechaFin").value };
-    histCursor = null;
-    limpiarLista("historialLista");
-    $("btnHistMas").style.display = "none";
-  }
-  if (!histFiltro) return;
-
-  try {
-    let query = db.collection("asistencias");
-
-    if (histFiltro.materia) query = query.where("materia", "==", histFiltro.materia);
-    if (histFiltro.inicio && histFiltro.fin) {
-      query = query.where("fecha", ">=", histFiltro.inicio).where("fecha", "<=", histFiltro.fin);
-    }
-
-    query = query.orderBy("fecha", "desc").limit(HIST_PAGE);
-    if (histCursor) query = query.startAfter(histCursor);
-
-    const snap = await query.get();
-    const ul = $("historialLista");
-
-    if (snap.empty && reiniciar) {
-      ul.innerHTML = "<li>No hay registros para mostrar con estos filtros.</li>";
-      return;
-    }
-
-    const esAdmin = currentUserRole === "admin";
-
-    snap.forEach(doc => {
-      const d = doc.data();
-      const estado = estadoDe(d);
-      const li = document.createElement("li");
-
-      li.innerHTML = `
-        ${esc(d.cedula)}<br>
-        <strong>${esc(d.nombres || "")} ${esc(d.apellidos || "")}</strong><br>
-        <strong>Materia: ${esc(nombreMateria(d))}</strong><br>
-        <strong>Fecha: ${esc(formatarFechaUI(d.fecha))}</strong><br>
-        Estado: ${esc(etiquetaEstado(d))}<br>
-        ${d.motivo ? `Motivo: ${esc(d.motivo)}<br>` : ""}
-        Hora: ${esc(d.hora || "Sin hora")}<br>
-        Docente: ${esc(d.profesor || "No registrado")}
-      `;
-
-      // Un docente solo corrige faltas; el admin puede cambiar cualquier estado
-      if (estado === "falta" || esAdmin) {
-        const b = document.createElement("button");
-        b.className = "secondary";
-        b.textContent = estado === "falta" ? "Corregir registro" : "Cambiar estado";
-        b.onclick = () => abrirCorreccion({
-          tipo: "historial",
-          docId: doc.id,
-          materia: d.materia,
-          fecha: d.fecha,
-          nombre: `${d.nombres || ""} ${d.apellidos || ""}`.trim(),
-          estadoActual: estado
-        });
-        li.appendChild(b);
-      }
-
-      ul.appendChild(li);
-    });
-
-    if (snap.docs.length > 0) histCursor = snap.docs[snap.docs.length - 1];
-    $("btnHistMas").style.display = snap.size === HIST_PAGE ? "block" : "none";
-
-  } catch (error) {
-    showMessage("No se pudo cargar el historial: " + traducirErrorFirebase(error), "error");
-  }
-}
-
 // ===============================
 // REPORTES
 // ===============================
@@ -148,13 +61,23 @@ function textoResumen(r) {
   return { partes: partes.join(" · "), pct };
 }
 
+// ===============================
+// REPORTE EN DOS NIVELES (para leer poco)
+//  1) Resumen por materia: sale de los resúmenes diarios (un documento por materia y día).
+//  2) Estudiantes: solo cuando se pide (botón «Estudiantes» de una materia o al buscar una cédula);
+//     es lo único que lee los registros de asistencia, y se pinta por páginas.
+// ===============================
+
+const REPORTE_PAGINA = 50;
+const REPORTE_DIAS_POR_DEFECTO = 30;
+
 async function generarReporte() {
   const contenedor = $("reporte");
   clearFieldError("cedulaReporte");
 
   const ced = $("cedulaReporte").value.trim();
   const matId = $("materiaReporte").value || "todas";
-  const fInicio = $("fechaInicioReporte").value;
+  let fInicio = $("fechaInicioReporte").value;
   const fFin = $("fechaFinReporte").value;
 
   if (ced && !validarCedula(ced)) {
@@ -162,62 +85,164 @@ async function generarReporte() {
     return;
   }
 
-  if (!ced && matId === "todas" && !fInicio && !fFin) {
-    contenedor.innerHTML = "<p style='color:red'>Indica al menos una cédula, una materia o un rango de fechas.</p>";
-    return;
-  }
-
   if (fInicio && fFin && fInicio > fFin) {
-    contenedor.innerHTML = "<p style='color:red'>La fecha de inicio no puede ser mayor que la de fin.</p>";
+    contenedor.innerHTML = "<p class='error-text'>La fecha de inicio no puede ser mayor que la de fin.</p>";
     return;
   }
 
+  // Sin fechas se toman los últimos 30 días (y se muestra en el campo)
+  if (!fInicio && !fFin && !ced) {
+    fInicio = fechaHaceDias(REPORTE_DIAS_POR_DEFECTO);
+    $("fechaInicioReporte").value = fInicio;
+  }
+
+  reporteFiltro = { materia: matId, desde: fInicio, hasta: fFin };
+  resumenMateriasActual = [];
+  resumenReporteActual = [];
+  resultadosBusquedaActual = [];
   contenedor.innerHTML = "<p>Buscando...</p>";
 
   try {
-    const registros = await consultarAsistencias({
-      materiaIds: matId === "todas" ? null : [matId],
-      cedula: ced,
-      desde: fInicio,
-      hasta: fFin
-    });
-
-    const resultados = registros.sort((a, b) =>
-      b.fecha.localeCompare(a.fecha) || (a.apellidos || "").localeCompare(b.apellidos || "")
-    );
-    resultadosBusquedaActual = resultados;
-
-    if (resultados.length === 0) {
-      contenedor.innerHTML = "<p>No se encontraron registros con esos criterios.</p>";
+    // Con cédula: se leen directamente los registros de ese estudiante (son pocos)
+    if (ced) {
+      const registros = await consultarAsistencias({
+        materiaIds: matId === "todas" ? null : [matId], cedula: ced, desde: fInicio, hasta: fFin
+      });
+      contenedor.innerHTML = "<hr><div id=\"reporteEstudiantes\"></div>";
+      pintarEstudiantesReporte(registros);
       return;
     }
 
-    const resumen = resumenEstados(resultados);
-    const { partes, pct } = textoResumen(resumen);
-    const MAX_FILAS = 200;
+    let docs = await consultarResumenes({ materiaIds: matId === "todas" ? null : [matId], desde: fInicio });
+    if (fFin) docs = docs.filter(d => d.fecha <= fFin);
+
+    if (docs.length === 0) {
+      contenedor.innerHTML = "<p>No hay listas en ese periodo." +
+        (currentUserRole === "admin" ? " Si ya pasaste listas antes de actualizar, pulsa «Recalcular resúmenes» en Admin." : "") + "</p>";
+      return;
+    }
+
+    const filas = construirResumenPorMateria(docs);
+    resumenMateriasActual = filas;
+
+    const total = resumenDeConteos(sumarResumenes(docs));
+    const { partes, pct } = textoResumen(total);
 
     let html = `<hr>
-      <p><strong>${resultados.length}</strong> registros · asistencia <strong>${pct}</strong></p>
+      <p><strong>${docs.length}</strong> lista(s) · asistencia general <strong>${pct}</strong></p>
       <p class="subtitle">${partes}</p>
-      <button class="secondary" onclick="exportarBusqueda()">Exportar a CSV</button><ul>`;
+      <button class="secondary" onclick="exportarResumenMaterias()">Exportar resumen por materia (CSV)</button>
+      <table class="vista-previa"><tr><th>Materia</th><th>Listas</th><th>✅</th><th>⏰</th><th>📝</th><th>❌</th><th>%</th><th></th></tr>`;
 
-    resultados.slice(0, MAX_FILAS).forEach(x => {
-      html += `<li>
-        <strong>${esc(x.cedula)}</strong> - ${esc(x.nombres || "")} ${esc(x.apellidos || "")}<br>
-        <strong>Materia:</strong> ${esc(nombreMateria(x))} | <strong>Fecha:</strong> ${esc(formatarFechaUI(x.fecha))}<br>
-        <strong>Estado:</strong> ${esc(etiquetaEstado(x))}${x.motivo ? `<br><strong>Motivo:</strong> ${esc(x.motivo)}` : ""}
-      </li>`;
+    filas.forEach(f => {
+      const pctF = f.porcentaje === null ? "-" : `${f.porcentaje.toFixed(0)}%`;
+      html += `<tr><td>${esc(f.nombre)}</td><td>${f.listas}</td>` +
+        `<td>${f.presente}</td><td>${f.tardanza}</td><td>${f.justificado}</td><td>${f.falta}</td><td>${esc(pctF)}</td>` +
+        `<td><button class="small secondary" onclick="verEstudiantesDeMateria('${esc(f.materia)}')">Estudiantes</button></td></tr>`;
     });
-    html += "</ul>";
-
-    if (resultados.length > MAX_FILAS) {
-      html += `<p class="subtitle">Se muestran ${MAX_FILAS} de ${resultados.length}. El CSV incluye todos.</p>`;
-    }
+    html += `</table>
+      <p class="subtitle">«Estudiantes» muestra el detalle por estudiante de esa materia en el mismo periodo.</p>
+      <div id="reporteEstudiantes"></div>`;
 
     contenedor.innerHTML = html;
   } catch (e) {
-    contenedor.innerHTML = "<p style='color:red'>Error al obtener datos: " + esc(traducirErrorFirebase(e)) + "</p>";
+    contenedor.innerHTML = "<p class='error-text'>Error al obtener datos: " + esc(traducirErrorFirebase(e)) + "</p>";
   }
+}
+
+// Una fila por materia a partir de los resúmenes diarios
+function construirResumenPorMateria(docs) {
+  const grupos = new Map();
+  docs.forEach(d => {
+    if (!grupos.has(d.materia)) grupos.set(d.materia, []);
+    grupos.get(d.materia).push(d);
+  });
+  return Array.from(grupos.entries())
+    .map(([materia, lista]) => ({
+      materia,
+      nombre: materiasMap[materia] || materia,
+      listas: lista.length,
+      ...resumenDeConteos(sumarResumenes(lista))
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
+// Nivel 2: lee los registros de una materia (con el periodo del reporte) y los pinta por páginas
+async function verEstudiantesDeMateria(materiaId) {
+  const destino = $("reporteEstudiantes");
+  if (!destino) return;
+  destino.innerHTML = "<p>Cargando estudiantes...</p>";
+  try {
+    const registros = await consultarAsistencias({
+      materiaIds: [materiaId], desde: reporteFiltro.desde, hasta: reporteFiltro.hasta
+    });
+    pintarEstudiantesReporte(registros, materiasMap[materiaId] || "");
+  } catch (e) {
+    destino.innerHTML = "<p class='error-text'>Error al obtener datos: " + esc(traducirErrorFirebase(e)) + "</p>";
+  }
+}
+
+function pintarEstudiantesReporte(registros, titulo = "") {
+  const destino = $("reporteEstudiantes");
+  resultadosBusquedaActual = registros;
+
+  if (registros.length === 0) {
+    resumenReporteActual = [];
+    destino.innerHTML = "<p>No se encontraron registros con esos criterios.</p>";
+    return;
+  }
+
+  resumenReporteActual = construirResumenPorEstudiante(registros);
+  reporteTitulo = titulo;
+  reporteVisibles = REPORTE_PAGINA;
+  pintarTablaEstudiantes();
+}
+
+function pintarTablaEstudiantes() {
+  const destino = $("reporteEstudiantes");
+  const filas = resumenReporteActual;
+  const total = resumenEstados(resultadosBusquedaActual);
+  const { partes, pct } = textoResumen(total);
+
+  let html = (reporteTitulo ? `<h4>${esc(reporteTitulo)}</h4>` : "") +
+    `<p><strong>${resultadosBusquedaActual.length}</strong> registros · <strong>${filas.length}</strong> estudiante(s) · asistencia general <strong>${pct}</strong></p>
+    <p class="subtitle">${partes}</p>
+    <button class="secondary" onclick="exportarResumenReporte()">Exportar resumen (CSV)</button>
+    <button class="secondary" onclick="exportarBusqueda()">Exportar detalle (CSV)</button>
+    <table class="vista-previa"><tr><th>Estudiante</th><th>Materia</th><th>✅</th><th>⏰</th><th>📝</th><th>❌</th><th>%</th></tr>`;
+
+  filas.slice(0, reporteVisibles).forEach(f => {
+    const pctF = f.porcentaje === null ? "-" : `${f.porcentaje.toFixed(0)}%`;
+    html += `<tr><td>${esc(f.cedula)}<br>${esc(f.nombres)} ${esc(f.apellidos)}</td><td>${esc(nombreMateria(f))}</td>` +
+      `<td>${f.presente}</td><td>${f.tardanza}</td><td>${f.justificado}</td><td>${f.falta}</td><td>${esc(pctF)}</td></tr>`;
+  });
+  html += "</table>";
+
+  if (filas.length > reporteVisibles) {
+    html += `<p class="subtitle">Se muestran ${reporteVisibles} de ${filas.length}. Los CSV incluyen todos.</p>
+      <button class="secondary" onclick="reporteMostrarMas()">Mostrar más</button>`;
+  }
+  destino.innerHTML = html;
+}
+
+function reporteMostrarMas() {
+  reporteVisibles += REPORTE_PAGINA;
+  pintarTablaEstudiantes();
+}
+
+// Una fila por estudiante y materia, ordenada por apellido
+function construirResumenPorEstudiante(registros) {
+  const grupos = new Map();
+  registros.forEach(x => {
+    const clave = `${x.cedula}|${x.materia}`;
+    if (!grupos.has(clave)) {
+      grupos.set(clave, { cedula: x.cedula, nombres: x.nombres || "", apellidos: x.apellidos || "", materia: x.materia, materiaNombre: x.materiaNombre, lista: [] });
+    }
+    grupos.get(clave).lista.push(x);
+  });
+  return Array.from(grupos.values())
+    .map(g => ({ ...g, ...resumenEstados(g.lista), lista: undefined }))
+    .sort((a, b) => a.apellidos.localeCompare(b.apellidos) || a.nombres.localeCompare(b.nombres) || nombreMateria(a).localeCompare(nombreMateria(b)));
 }
 
 // ===============================
@@ -231,13 +256,46 @@ function csvCelda(valor) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-function construirCSV(registros) {
-  const cabecera = ["Cedula", "Nombres", "Apellidos", "Fecha", "Materia", "Estado", "Motivo", "Hora", "Docente"];
+// Asistencias, una fila por registro, solo con lo necesario: nombre, apellido, materia, docente,
+// fecha y tipo de asistencia (nunca los datos personales del estudiante: grado, teléfono, etc.).
+// "Docente" = quien guardó (terminó) la lista; guardadores: mapa "materia_fecha" -> nombre.
+// Si no hay dato, se usa el docente del registro.
+function construirCSV(registros, guardadores = {}) {
+  const cabecera = ["Nombres", "Apellidos", "Materia", "Docente", "Fecha", "Tipo de asistencia"];
   const filas = registros.map(x => [
-    x.cedula, x.nombres, x.apellidos, x.fecha, nombreMateria(x),
-    ESTADOS[estadoDe(x)].texto, x.motivo, x.hora, x.profesor
+    x.nombres, x.apellidos, nombreMateria(x),
+    guardadores[`${x.materia}_${x.fecha}`] || (x.profesor || x.profesorNombre ? nombreDocente(x) : ""),
+    x.fecha, ESTADOS[estadoDe(x)].texto
   ].map(csvCelda).join(";"));
-  return "﻿" + cabecera.join(";") + "\n" + filas.join("\n");
+  return "\uFEFF" + cabecera.join(";") + "\n" + filas.join("\n");
+}
+
+// Resumen: una fila por estudiante y materia
+function construirCSVResumen(filas) {
+  const cabecera = ["Cedula", "Nombres", "Apellidos", "Materia", "Presentes", "Tardanzas", "Justificadas", "Faltas", "Total", "Porcentaje"];
+  const lineas = filas.map(f => [
+    f.cedula, f.nombres, f.apellidos, nombreMateria(f), f.presente, f.tardanza, f.justificado, f.falta, f.total,
+    f.porcentaje === null ? "" : f.porcentaje.toFixed(1) + "%"
+  ].map(csvCelda).join(";"));
+  return "\uFEFF" + cabecera.join(";") + "\n" + lineas.join("\n");
+}
+
+// Resumen por materia (sale de los resúmenes diarios)
+function construirCSVMaterias(filas) {
+  const cabecera = ["Materia", "Listas", "Presentes", "Tardanzas", "Justificadas", "Faltas", "Total", "Porcentaje"];
+  const lineas = filas.map(f => [
+    f.nombre, f.listas, f.presente, f.tardanza, f.justificado, f.falta, f.total,
+    f.porcentaje === null ? "" : f.porcentaje.toFixed(1) + "%"
+  ].map(csvCelda).join(";"));
+  return "\uFEFF" + cabecera.join(";") + "\n" + lineas.join("\n");
+}
+
+function exportarResumenMaterias() {
+  if (!resumenMateriasActual || resumenMateriasActual.length === 0) {
+    return showMessage("No hay datos para exportar.", "error");
+  }
+  descargarCSV(construirCSVMaterias(resumenMateriasActual), "reporte_materias.csv");
+  showMessage("Resumen exportado.", "success");
 }
 
 function descargarCSV(contenido, nombreArchivo) {
@@ -250,38 +308,25 @@ function descargarCSV(contenido, nombreArchivo) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function exportarBusqueda() {
+async function exportarBusqueda() {
   if (!resultadosBusquedaActual || resultadosBusquedaActual.length === 0) {
     return showMessage("No hay datos para exportar.", "error");
   }
-  descargarCSV(construirCSV(resultadosBusquedaActual), "reporte_busqueda.csv");
-  showMessage("Reporte exportado exitosamente.", "success");
+  try {
+    if (currentUserRole === "admin") await cargarUsuariosCache();   // para mostrar nombres, no correos
+  } catch (e) { /* si falla, se exportan los correos */ }
+  const filas = [...resultadosBusquedaActual].sort((a, b) => b.fecha.localeCompare(a.fecha) || (a.apellidos || "").localeCompare(b.apellidos || ""));
+  const guardadores = await mapaGuardadores(filas);
+  descargarCSV(construirCSV(filas, guardadores), "reporte_detalle.csv");
+  showMessage("Detalle exportado.", "success");
 }
 
-// Exporta según la materia y las fechas del historial (o todo, con confirmación)
-async function exportar() {
-  if (!validarRangoFechas()) return;
-  const materia = $("materiaHistorial").value;
-  const inicio = $("filtroFechaInicio").value;
-  const fin = $("filtroFechaFin").value;
-
-  if (currentUserRole !== "admin" && !materia) return showMessage("Selecciona una materia.", "error");
-  if (!inicio && !fin && !confirm("No elegiste fechas: se exportará TODO el historial. ¿Continuar?")) return;
-
-  try {
-    const registros = await consultarAsistencias({
-      materiaIds: materia ? [materia] : null,
-      desde: inicio,
-      hasta: fin
-    });
-    if (registros.length === 0) return showMessage("Sin datos para exportar.", "error");
-
-    registros.sort((a, b) => b.fecha.localeCompare(a.fecha));
-    descargarCSV(construirCSV(registros), inicio && fin ? `asistencias_${inicio}_${fin}.csv` : "asistencias_completo.csv");
-    showMessage(`Exportados ${registros.length} registros.`, "success");
-  } catch (e) {
-    showMessage("Error al exportar: " + traducirErrorFirebase(e), "error");
+function exportarResumenReporte() {
+  if (!resumenReporteActual || resumenReporteActual.length === 0) {
+    return showMessage("No hay datos para exportar.", "error");
   }
+  descargarCSV(construirCSVResumen(resumenReporteActual), "reporte_resumen.csv");
+  showMessage("Resumen exportado.", "success");
 }
 
 // ===============================
@@ -343,9 +388,9 @@ async function cargarDashboard(manual = false) {
   const periodo = $("dashboardRango").value;
   const matSel = $("dashboardMateria").value || "todas";
 
-  if (typeof Chart === "undefined") {
-    return showMessage("No se pudo cargar la librería de gráficos.", "error");
-  }
+  // El gráfico se descarga la primera vez; mientras tanto se leen los datos (en paralelo)
+  const libreriaGrafico = cargarLibreria("grafico");
+  libreriaGrafico.catch(() => {});
 
   try {
     // Lee los resúmenes diarios (pocos documentos) en lugar de todas las asistencias
@@ -362,6 +407,11 @@ async function cargarDashboard(manual = false) {
           ? "Sin resúmenes en este periodo. Si ya había asistencias guardadas, pulsa «Recalcular resúmenes» en Admin."
           : "Sin registros en este periodo.");
 
+    try {
+      await libreriaGrafico;
+    } catch (e) {
+      return showMessage(TEXTO_ERROR_LIBRERIA, "error");
+    }
     if (chartInstance) chartInstance.destroy();
     chartInstance = new Chart($("grafico"), {
       type: "pie",

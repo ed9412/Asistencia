@@ -29,6 +29,36 @@ document.addEventListener("DOMContentLoaded", () => {
   if ($("manualCedula")) {
     $("manualCedula").addEventListener("keydown", e => { if (e.key === "Enter") registrarManual(); });
   }
+  // Enter ejecuta la acción del campo (búsquedas y formularios de un solo campo)
+  const alPulsarEnter = {
+    searchEstudianteText: () => buscarEstudiantes(),
+    cedulaReporte: () => generarReporte(),
+    fechaInicioReporte: () => generarReporte(),
+    fechaFinReporte: () => generarReporte(),
+    filtroFechaInicio: () => cargarHistorial(),
+    filtroFechaFin: () => cargarHistorial(),
+    fechaLista: () => iniciarLista(),
+    materiaNombre: () => crearMateria(),
+    miNombre: () => guardarMiNombre()
+  };
+  Object.keys(alPulsarEnter).forEach(id => {
+    if ($(id)) $(id).addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); alPulsarEnter[id](); }
+    });
+  });
+
+  // Estudiantes: se filtra mientras se escribe (usa datos ya cargados, sin lecturas nuevas)
+  let esperaBusqueda;
+  if ($("searchEstudianteText")) {
+    $("searchEstudianteText").addEventListener("input", () => {
+      clearTimeout(esperaBusqueda);
+      esperaBusqueda = setTimeout(() => buscarEstudiantes(), 250);
+    });
+  }
+  if ($("searchEstudianteMateria")) {
+    $("searchEstudianteMateria").addEventListener("change", () => buscarEstudiantes());
+  }
+
   if ($("correccionPassword")) {
     $("correccionPassword").addEventListener("keydown", e => { if (e.key === "Enter") confirmarCorreccion(); });
   }

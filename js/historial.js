@@ -78,14 +78,25 @@ function pintarListasHistorial() {
 
   histListas.slice(0, histMostrar).forEach(d => {
     const li = document.createElement("li");
-    li.innerHTML = `<strong>${esc(nombreMateria(d))}</strong><br>
-      📅 ${esc(formatarFechaUI(d.fecha))}${d.fecha === hoy ? " · <span class='acento'>Hoy</span>" : ""}<br>
-      <small>${esc(textoConteos(d))}</small><br>`;
-    const b = document.createElement("button");
-    b.className = "small";
-    b.textContent = "Ver / corregir";
-    b.onclick = () => abrirListaHistorial(d.materia, d.fecha);
-    li.appendChild(b);
+    li.className = "fila-est fila-lista";
+    li.tabIndex = 0;
+    li.setAttribute("role", "button");
+    const abrir = () => abrirListaHistorial(d.materia, d.fecha);
+    li.onclick = abrir;
+    li.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } };
+    const chips = [
+      [d.presente, "chip-ok", n => `${n} ${n === 1 ? "presente" : "presentes"}`],
+      [d.tardanza, "chip-tarde", n => `${n} ${n === 1 ? "tardanza" : "tardanzas"}`],
+      [d.justificado, "chip-justif", n => `${n} ${n === 1 ? "justificada" : "justificadas"}`],
+      [d.falta, "chip-falta", n => `${n} ${n === 1 ? "falta" : "faltas"}`]
+    ].filter(([n], i) => n > 0 || i === 0)
+     .map(([n, clase, texto]) => `<span class="chip ${clase}">${texto(n || 0)}</span>`).join("");
+    li.innerHTML = `<span class="fila-texto">
+        <strong>${esc(nombreMateria(d))}</strong>
+        <small>${esc(formatarFechaUI(d.fecha))}${d.fecha === hoy ? " · <span class='acento'>Hoy</span>" : ""}</small>
+        <span class="chips chips-mini">${chips}</span>
+      </span>
+      <svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
     ul.appendChild(li);
   });
 
@@ -102,8 +113,6 @@ function historialMostrarMas() {
 async function abrirListaHistorial(materiaId, fecha) {
   detalleCtx = { materia: materiaId, fecha };
   await refrescarDetalleHistorial();
-  const el = $("historialDetalle");
-  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function refrescarDetalleHistorial() {
@@ -130,7 +139,7 @@ async function refrescarDetalleHistorial() {
 // Si la lista ya no tiene registros (p. ej. fue anulada) se cierra el detalle
 function listaSinRegistros() {
   if (detalleRegistros.length > 0) return false;
-  cerrarDetalleHistorial();
+  cerrarDetalleHistorial(true);
   showMessage("Esa lista no tiene registros.", "info");
   return true;
 }
@@ -176,7 +185,7 @@ function pintarDetalleHistorial() {
     li.innerHTML = `${ESTADOS[estado].icono} <strong>${esc(r.cedula)}</strong> · ${esc(ESTADOS[estado].texto)}<br>${esc(nombre)}<br>` +
       (r.motivo ? `<small>Motivo: ${esc(r.motivo)}</small><br>` : "") +
       (r.hora ? `<small>Hora: ${esc(r.hora)}</small><br>` : "") +
-      (r.corregido ? `<small>Corregido por: ${esc(nombreDeEmail(r.corregidoPor) || r.corregidoPor || "")}</small><br>` : "");
+      (r.corregido ? `<small>Corregido por: ${esc(nombreCorrector(r))}</small><br>` : "");
 
     if (puedeCorregirRegistro(r)) {
       const ctx = { tipo: "historial", docId: r.id, materia: r.materia, fecha: r.fecha, nombre, estadoActual: estado };
@@ -192,19 +201,30 @@ function pintarDetalleHistorial() {
       bc.textContent = "Cambiar estado";
       bc.onclick = () => abrirCorreccion({ ...ctx });
       li.appendChild(bc);
+    } else {
+      // El botón se muestra siempre para que las filas queden iguales; si no hay permiso, explica por qué
+      const bc = document.createElement("button");
+      bc.className = "small secondary boton-bloqueado";
+      bc.textContent = "Cambiar estado";
+      bc.setAttribute("aria-disabled", "true");
+      bc.onclick = () => showMessage("Esa asistencia ya está guardada en una fecha anterior: solo un administrador puede modificarla.", "info");
+      li.appendChild(bc);
     }
     ul.appendChild(li);
   });
 
   $("btnAnularLista").style.display = esAdmin ? "block" : "none";
-  $("historialDetalle").style.display = "block";
+  // El detalle es una pantalla propia, con su botón «Atrás»
+  if (typeof pantallaActual !== "undefined" && pantallaActual !== "historialDetalle") mostrar("historialDetalle", { conservar: true });
 }
 
-function cerrarDetalleHistorial() {
+// Limpia el detalle. Con salir = true, y si se está viendo, vuelve a la lista de listas.
+// (Sin salir no toca la navegación: cargarHistorial() la llama al volver y causaría un bucle.)
+function cerrarDetalleHistorial(salir = false) {
+  const estabaViendo = typeof pantallaActual !== "undefined" && pantallaActual === "historialDetalle";
   detalleCtx = null;
   detalleRegistros = [];
-  const el = $("historialDetalle");
-  if (el) el.style.display = "none";
+  if (salir && estabaViendo) volver();
 }
 
 // Abre la lista en "Pasar lista" para completarla (añade a quien no tenga registro)
@@ -257,7 +277,7 @@ async function anularLista() {
     } catch (e) { /* la auditoría no es crítica */ }
 
     histListas = histListas.filter(d => !(d.materia === materia && d.fecha === fecha));
-    cerrarDetalleHistorial();
+    cerrarDetalleHistorial(true);
     pintarListasHistorial();
     showMessage(`Lista anulada (${n} registros eliminados).`, "success");
   } catch (e) {
