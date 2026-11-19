@@ -88,19 +88,21 @@
     <header id="appbar" class="appbar" style="display:none">
       <button class="appbar-atras" onclick="volver()" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
       <div class="appbar-titulo" id="appbarTitulo"></div>
+      <button id="appbarAvatar" class="avatar avatar-boton appbar-avatar" onclick="abrirMenuUsuario(event)" aria-haspopup="menu" aria-label="Menú de usuario"></button>
+    </header>
+
+    <header id="cabRaiz" class="hoy-cab cab-raiz" style="display:none">
+      <div>
+        <div id="cabRaizSub" class="suave"></div>
+        <h1 id="cabRaizTitulo"></h1>
+      </div>
+      <div class="cab-acciones">
+        <button id="btnFechaHoy" class="icono-boton" onclick="alternarFechaHoy()" aria-label="Elegir otra fecha" aria-expanded="false" title="Elegir otra fecha" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg></button>
+        <button id="cabRaizAvatar" class="avatar avatar-grande avatar-boton" onclick="abrirMenuUsuario(event)" aria-haspopup="menu" aria-label="Menú de usuario"></button>
+      </div>
     </header>
 
     <section id="hoy" class="screen">
-      <header class="hoy-cab">
-        <div>
-          <div id="hoyFecha" class="suave"></div>
-          <h1>Pasar lista</h1>
-        </div>
-        <div class="cab-acciones">
-          <button id="btnFechaHoy" class="icono-boton" onclick="alternarFechaHoy()" aria-label="Elegir otra fecha" aria-expanded="false" title="Elegir otra fecha"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/></svg></button>
-          <button id="hoyAvatar" class="avatar avatar-grande avatar-boton" onclick="abrirMenuUsuario(event)" aria-haspopup="menu" aria-label="Menú de usuario"></button>
-        </div>
-      </header>
       <div id="hoyFechaPanel" class="fecha-panel" style="display:none">
         <label for="hoyFechaSel">Fecha de la lista</label>
         <input type="date" id="hoyFechaSel" onchange="cambiarFechaHoy(this.value)" />
@@ -111,13 +113,6 @@
     </section>
 
     <section id="mas" class="screen">
-      <header class="hoy-cab">
-        <div>
-          <div id="masRol" class="suave"></div>
-          <h1>Más</h1>
-        </div>
-        <button id="masAvatar" class="avatar avatar-grande avatar-boton" onclick="abrirMenuUsuario(event)" aria-haspopup="menu" aria-label="Menú de usuario"></button>
-      </header>
       <div class="menu-lista">
         <button class="fila-menu solo-admin" onclick="mostrar('materiasScreen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5a3.5 3.5 0 013.5 3.5v11.5H8.5A3.5 3.5 0 015 16z"/><path d="M5 16a3.5 3.5 0 013.5-3.5H19"/></svg><span>Materias</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         <button class="fila-menu" onclick="mostrar('reportes')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Reportes</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>

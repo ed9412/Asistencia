@@ -612,7 +612,8 @@ table.vista-previa tr.fila-existe td { color: var(--suave-texto); }
   stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none;
 }
 .appbar-titulo { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
-body.con-appbar .screen.active > .card > h2:first-child { display: none; }
+body.con-appbar .screen.active > .card > h2:first-child,
+body.con-cabraiz .screen.active > .card > h2:first-child { display: none; }
 
 /* Cabecera de las pantallas principales */
 .hoy-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px 14px; }
@@ -805,3 +806,15 @@ li.fila-est.seleccionada { background: var(--accion-suave); border-color: var(--
 .menu-usuario button:hover { background: var(--suave-bg); }
 .menu-usuario button.peligro { color: var(--peligro); }
 .menu-usuario svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* Cabecera uniforme: en PC el menú lateral ya lleva la cuenta, así que no se repite el círculo */
+.cab-raiz { padding: 12px 14px 0; }
+.appbar-avatar { margin-left: auto; width: 36px; min-width: 36px; height: 36px; font-size: 13px; }
+@media (min-width: 960px) {
+  .cab-raiz { max-width: 1120px; margin: 0 auto; padding: 32px 40px 0; }
+  #estudiantes.screen { padding-top: 20px; }
+  .cab-raiz .avatar-boton, .appbar-avatar { display: none; }
+}
+@media (min-width: 1100px) {
+  body.con-cabraiz:has(#estudiantes.active) .cab-raiz { max-width: 1320px; }
+}
