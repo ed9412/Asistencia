@@ -521,30 +521,18 @@ async function exportarQRPNG() {
   }
 }
 
+// Carnet individual: hoja A4 con el carnet del mismo tamaño que en el PDF en lote (90 × 65 mm),
+// colocado en la primera posición de la hoja, listo para imprimir y recortar.
 async function exportarQRPDF() {
-  const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  const nombre = $("qrNombreDisplay").textContent || "Estudiante";
   try {
-    await cargarLibreria("captura");
-    const canvas = await html2canvas(exportArea, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      onclone: (doc) => {
-        const c = doc.querySelector('#qrCanvas');
-        c.getContext('2d', { willReadFrequently: true });
-      }
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-    await cargarLibreria("pdf");
+    await Promise.all([cargarLibreria("qr"), cargarLibreria("pdf")]);
+    const qr = await QRCode.toDataURL(cedulaStr, { width: 300, margin: 1 });
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("portrait", "mm", "a6");
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+    const pdf = new jsPDF("portrait", "mm", "a4");
+    const { x, y } = posicionCarnet(0);
+    dibujarCarnet(pdf, x, y, nombre, cedulaStr, qr);
     pdf.save(`Carnet_${cedulaStr}.pdf`);
     showMessage("Documento PDF descargado.", "success");
   } catch (error) {

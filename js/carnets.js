@@ -13,6 +13,30 @@ function posicionCarnet(i) {
   return { pagina: Math.floor(i / CARNETS_POR_HOJA), x: 10 + col * (CARNET_W + 10), y: 12 + fila * (CARNET_H + 5) };
 }
 
+// Dibuja un carnet (90 × 65 mm) con su esquina superior izquierda en (x, y), en mm.
+// Lo usan el PDF en lote y el PDF individual, para que midan exactamente lo mismo.
+function dibujarCarnet(pdf, x, y, nombreCompleto, cedula, qrDataUrl) {
+  pdf.setDrawColor(180);
+  pdf.roundedRect(x, y, CARNET_W, CARNET_H, 3, 3);
+
+  pdf.setTextColor(37, 99, 235);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(11);
+  pdf.text("Carnet Estudiantil", x + 5, y + 8);
+
+  pdf.setTextColor(17, 24, 39);
+  pdf.setFontSize(12);
+  const nombre = pdf.splitTextToSize(nombreCompleto, 38);
+  pdf.text(nombre.slice(0, 4), x + 5, y + 20);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.setTextColor(107, 114, 128);
+  pdf.text(`Cédula: ${cedula}`, x + 5, y + CARNET_H - 14);
+
+  pdf.addImage(qrDataUrl, "PNG", x + 43, y + 12, 42, 42);
+}
+
 // Estudiantes de una materia, ordenados por apellido (usa la caché ya cargada)
 function estudiantesDeMateria(materiaId) {
   const cedulas = new Set(cacheEst.relaciones.filter(r => r.materiaId === materiaId).map(r => r.cedula));
@@ -54,25 +78,7 @@ async function descargarCarnetsMateria() {
 
       const qr = await QRCode.toDataURL(est.cedula, { width: 300, margin: 1 });
 
-      pdf.setDrawColor(180);
-      pdf.roundedRect(x, y, CARNET_W, CARNET_H, 3, 3);
-
-      pdf.setTextColor(37, 99, 235);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(11);
-      pdf.text("Carnet Estudiantil", x + 5, y + 8);
-
-      pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(12);
-      const nombre = pdf.splitTextToSize(`${est.nombres} ${est.apellidos}`, 38);
-      pdf.text(nombre.slice(0, 4), x + 5, y + 20);
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.setTextColor(107, 114, 128);
-      pdf.text(`Cédula: ${est.cedula}`, x + 5, y + CARNET_H - 14);
-
-      pdf.addImage(qr, "PNG", x + 43, y + 12, 42, 42);
+      dibujarCarnet(pdf, x, y, `${est.nombres} ${est.apellidos}`, est.cedula, qr);
     }
 
     const seguro = materia.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ]+/g, "_");
