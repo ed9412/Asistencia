@@ -207,6 +207,8 @@ function esNombreReal(n) {
 
 // Nombre de una persona a partir de su correo (solo el admin conoce a todos los usuarios)
 function nombreDeEmail(email) {
+  // Uno mismo siempre se conoce, aunque no sea admin
+  if (auth.currentUser && email === auth.currentUser.email && esNombreReal(currentUserNombre)) return currentUserNombre;
   const u = Object.values(usuariosMap).find(x => x.email === email);
   return u && u.nombre ? u.nombre : "";
 }
@@ -224,9 +226,17 @@ function puedeModificarGuardado(fecha) {
   return currentUserRole === "admin" || fecha === fechaLocalISO();
 }
 
-// ¿Puede corregir este registro? Una falta se puede cambiar siempre (p. ej. para justificarla).
+// ¿Puede corregir este registro? Una falta se puede cambiar siempre (p. ej. para justificarla),
+// y quien ya corrigió un registro puede volver a corregirlo si se equivocó.
 function puedeCorregirRegistro(registro) {
-  return currentUserRole === "admin" || estadoDe(registro) === "falta" || registro.fecha === fechaLocalISO();
+  return currentUserRole === "admin" || estadoDe(registro) === "falta" || registro.fecha === fechaLocalISO() ||
+    (!!registro.corregido && !!auth.currentUser && registro.corregidoPor === auth.currentUser.email);
+}
+
+// Quién corrigió un registro: nombre (no correo). Los antiguos solo guardaban el correo.
+function nombreCorrector(registro) {
+  return (esNombreReal(registro.corregidoPorNombre) ? registro.corregidoPorNombre : "") ||
+    nombreDeEmail(registro.corregidoPor) || registro.corregidoPor || "";
 }
 
 // Estado de un registro. Los registros antiguos solo tienen "presente": true/false.

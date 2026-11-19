@@ -139,7 +139,7 @@ async function refrescarDetalleHistorial() {
 // Si la lista ya no tiene registros (p. ej. fue anulada) se cierra el detalle
 function listaSinRegistros() {
   if (detalleRegistros.length > 0) return false;
-  cerrarDetalleHistorial();
+  cerrarDetalleHistorial(true);
   showMessage("Esa lista no tiene registros.", "info");
   return true;
 }
@@ -185,7 +185,7 @@ function pintarDetalleHistorial() {
     li.innerHTML = `${ESTADOS[estado].icono} <strong>${esc(r.cedula)}</strong> · ${esc(ESTADOS[estado].texto)}<br>${esc(nombre)}<br>` +
       (r.motivo ? `<small>Motivo: ${esc(r.motivo)}</small><br>` : "") +
       (r.hora ? `<small>Hora: ${esc(r.hora)}</small><br>` : "") +
-      (r.corregido ? `<small>Corregido por: ${esc(nombreDeEmail(r.corregidoPor) || r.corregidoPor || "")}</small><br>` : "");
+      (r.corregido ? `<small>Corregido por: ${esc(nombreCorrector(r))}</small><br>` : "");
 
     if (puedeCorregirRegistro(r)) {
       const ctx = { tipo: "historial", docId: r.id, materia: r.materia, fecha: r.fecha, nombre, estadoActual: estado };
@@ -210,11 +210,13 @@ function pintarDetalleHistorial() {
   if (typeof pantallaActual !== "undefined" && pantallaActual !== "historialDetalle") mostrar("historialDetalle", { conservar: true });
 }
 
-function cerrarDetalleHistorial() {
+// Limpia el detalle. Con salir = true, y si se está viendo, vuelve a la lista de listas.
+// (Sin salir no toca la navegación: cargarHistorial() la llama al volver y causaría un bucle.)
+function cerrarDetalleHistorial(salir = false) {
+  const estabaViendo = typeof pantallaActual !== "undefined" && pantallaActual === "historialDetalle";
   detalleCtx = null;
   detalleRegistros = [];
-  // Si se está viendo el detalle, se vuelve a la lista de listas
-  if (typeof pantallaActual !== "undefined" && pantallaActual === "historialDetalle") volver();
+  if (salir && estabaViendo) volver();
 }
 
 // Abre la lista en "Pasar lista" para completarla (añade a quien no tenga registro)
@@ -267,7 +269,7 @@ async function anularLista() {
     } catch (e) { /* la auditoría no es crítica */ }
 
     histListas = histListas.filter(d => !(d.materia === materia && d.fecha === fecha));
-    cerrarDetalleHistorial();
+    cerrarDetalleHistorial(true);
     pintarListasHistorial();
     showMessage(`Lista anulada (${n} registros eliminados).`, "success");
   } catch (e) {

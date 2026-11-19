@@ -512,6 +512,7 @@ function calcularOperacionesLista({ estudiantes, marcas, existentes, ctx, profes
         actualizadoEn: marcaServidor,
         corregido: true, corregidoPor: profesor, corregidoEn: marcaServidor
       };
+      if (esNombreReal(profesorNombre)) data.corregidoPorNombre = profesorNombre;
       if (estado === "justificado") data.motivo = motivo;
       else if (ex.data.motivo !== undefined) data.motivo = borrarCampo();
       ops.push({ tipo: "update", id: ex.id, data });
@@ -697,6 +698,7 @@ function aplicarCorreccionTemporal(cedula, estado, motivo, conSonido = false) {
 
 // ctx: { docId, materia, fecha, estadoActual, ... }
 async function aplicarCorreccionHistorial(ctx, estado, motivo) {
+  await asegurarNombre();   // si el perfil no tiene nombre, se pide para que no salga el correo
   const ahora = new Date();
   const asiste = ESTADOS_ASISTE.includes(estado);
 
@@ -709,6 +711,7 @@ async function aplicarCorreccionHistorial(ctx, estado, motivo) {
     corregidoEn: serverTs(),
     actualizadoEn: serverTs()
   };
+  if (esNombreReal(nombreActor())) datos.corregidoPorNombre = nombreActor();
 
   if (!asiste) {
     datos.hora = null;
