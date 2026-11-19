@@ -772,7 +772,8 @@ li.fila-est.seleccionada { background: var(--accion-suave); border-color: var(--
 .icono-boton.activo { color: var(--accion); background: var(--accion-suave); }
 
 .avatar-boton { border: none; margin: 0; padding: 0; min-width: 44px; cursor: pointer; font-family: inherit; }
-.avatar-boton:hover { filter: brightness(0.96); }
+.avatar-boton { min-height: 0; }
+.avatar-boton:hover { background: var(--accion-suave); filter: brightness(0.95); color: var(--accion); }
 
 .fecha-panel {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -809,7 +810,7 @@ li.fila-est.seleccionada { background: var(--accion-suave); border-color: var(--
 
 /* Cabecera uniforme: en PC el menú lateral ya lleva la cuenta, así que no se repite el círculo */
 .cab-raiz { padding: 12px 14px 0; }
-.appbar-avatar { margin-left: auto; width: 36px; min-width: 36px; height: 36px; font-size: 13px; }
+.appbar-avatar { margin-left: auto; width: 36px; min-width: 36px; height: 36px; min-height: 36px; font-size: 13px; }
 @media (min-width: 960px) {
   .cab-raiz { max-width: 1120px; margin: 0 auto; padding: 32px 40px 0; }
   #estudiantes.screen { padding-top: 20px; }
