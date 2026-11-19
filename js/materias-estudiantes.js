@@ -305,6 +305,7 @@ async function buscarEstudiantes() {
 
       const li = document.createElement("li");
       li.className = "fila-est";
+      li.dataset.ced = est.cedula;
       li.tabIndex = 0;
       li.setAttribute("role", "button");
       const abrir = () => abrirFicha(est.cedula);

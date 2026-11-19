@@ -37,6 +37,8 @@ function raizDe(id) {
 
 let pantallaActual = "";
 let paramActual = "";
+let fichaCedula = "";      // estudiante mostrado (en pantalla propia o en el panel de PC)
+let detalleCedula = "";    // estudiante abierto en el panel de detalle (solo PC)
 const posicionesScroll = {};
 
 function rutaDePantalla(id, param) {
@@ -120,6 +122,8 @@ mostrar = async function (id, opts = {}) {
     }
   }
 
+  if (id !== "estudiantes" && id !== "ficha") detalleCedula = "";
+  if (id === "estudiantes" && !desdeHistorial) { detalleCedula = ""; vaciarDetalle(); }
   pantallaActual = id;
   paramActual = param;
   marcarNavActivo(id);
@@ -251,16 +255,40 @@ function pintarMas() {
 // FICHA DEL ESTUDIANTE
 // ===============================
 
+function hayPanelDetalle() {
+  return typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1100px)").matches;
+}
+
+// En PC la ficha se abre en el panel de la derecha; en móvil, en su propia pantalla
 function abrirFicha(cedula) {
+  if (pantallaActual === "estudiantes" && hayPanelDetalle()) {
+    detalleCedula = cedula;
+    marcarFilaSeleccionada();
+    return pintarFicha(cedula, "estDetalle");
+  }
   return mostrar("ficha", { param: cedula });
+}
+
+function vaciarDetalle() {
+  const d = $("estDetalle");
+  if (d) d.innerHTML = `<div class="detalle-vacio"><p>Elige un estudiante de la lista para ver su ficha.</p></div>`;
+}
+
+function marcarFilaSeleccionada() {
+  const ul = $("listaEstudiantes");
+  if (!ul) return;
+  Array.from(ul.children).forEach(li => {
+    if (li.dataset) li.classList.toggle("seleccionada", !!detalleCedula && li.dataset.ced === detalleCedula);
+  });
 }
 
 function buscarEstudianteEnCache(cedula) {
   return cacheEst.estudiantes.find(e => e.cedula === cedula) || null;
 }
 
-async function pintarFicha(cedula) {
-  const cont = $("fichaContenido");
+async function pintarFicha(cedula, destino = "fichaContenido") {
+  const cont = $(destino);
+  fichaCedula = cedula;
   try {
     await cargarCacheEstudiantes();
   } catch (e) {
@@ -310,20 +338,65 @@ async function pintarFicha(cedula) {
     </div>
     <section class="card"><h4>Contacto</h4>${contacto}</section>
     <section class="card"><h4>Materias</h4><div class="chips">${chips}</div></section>
+    <section class="card">
+      <h4>Asistencia · últimos 30 días</h4>
+      <div id="asist-${destino}"><button class="secondary" onclick="cargarAsistenciaFicha('${destino}')">Ver asistencia</button></div>
+    </section>
     ${esAdmin ? `<button class="danger ficha-eliminar" onclick="eliminarFicha()">Eliminar estudiante</button>` : ""}
   `;
 }
 
 // Tras editar o eliminar, buscarEstudiantes() avisa: se repinta la ficha o se vuelve a la lista
 function refrescarFichaSiAbierta() {
-  if (pantallaActual !== "ficha") return;
-  if (!buscarEstudianteEnCache(paramActual)) { volver(); return; }
-  pintarFicha(paramActual);
+  if (pantallaActual === "ficha") {
+    if (!buscarEstudianteEnCache(paramActual)) { volver(); return; }
+    pintarFicha(paramActual);
+  } else if (pantallaActual === "estudiantes" && detalleCedula) {
+    if (!buscarEstudianteEnCache(detalleCedula)) { detalleCedula = ""; vaciarDetalle(); }
+    else pintarFicha(detalleCedula, "estDetalle");
+  }
+  marcarFilaSeleccionada();
+}
+
+// Porcentaje de asistencia del estudiante por materia (se calcula al pulsar el botón: son lecturas)
+async function cargarAsistenciaFicha(destino) {
+  const cont = $("asist-" + destino);
+  const cedula = fichaCedula;
+  if (!cont || !cedula) return;
+  cont.innerHTML = `<p class="subtitle">Calculando…</p>`;
+  try {
+    const materiaIds = cacheEst.relaciones.filter(r => r.cedula === cedula && materiasMap[r.materiaId]).map(r => r.materiaId);
+    if (!materiaIds.length) { cont.innerHTML = `<p class="subtitle">Sin materias asignadas.</p>`; return; }
+    const registros = await consultarAsistencias({ materiaIds, cedula, desde: fechaHaceDias(30) });
+    if (fichaCedula !== cedula) return;   // se abrió otro estudiante mientras tanto
+    if (!registros.length) { cont.innerHTML = `<p class="subtitle">Sin registros en los últimos 30 días.</p>`; return; }
+
+    const filas = materiaIds
+      .map(id => ({ id, regs: registros.filter(r => r.materia === id) }))
+      .filter(g => g.regs.length)
+      .sort((a, b) => materiasMap[a.id].localeCompare(materiasMap[b.id]))
+      .map(g => {
+        const r = resumenEstados(g.regs);
+        const pct = Math.round(r.porcentaje);
+        const nivel = pct >= 85 ? "nivel-ok" : pct >= 70 ? "nivel-medio" : "nivel-bajo";
+        const nota = r.base < MIN_REGISTROS_ALERTA ? " · pocas clases para valorar" : "";
+        const just = r.justificado ? ` · ${r.justificado} justificada(s) aparte` : "";
+        return `<div class="asist-fila ${nivel}">
+          <div class="asist-cab"><span>${esc(materiasMap[g.id])}</span><strong>${pct} %</strong></div>
+          <div class="asist-pista"><div class="asist-relleno" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>
+          <small>${r.asistidas} de ${r.base} clases${just}${nota}</small>
+        </div>`;
+      });
+    cont.innerHTML = filas.join("") || `<p class="subtitle">Sin registros en los últimos 30 días.</p>`;
+  } catch (e) {
+    cont.innerHTML = `<button class="secondary" onclick="cargarAsistenciaFicha('${destino}')">Reintentar</button>`;
+    showMessage("No se pudo calcular la asistencia: " + traducirErrorFirebase(e), "error");
+  }
 }
 
 function verQRFicha() {
-  const e = buscarEstudianteEnCache(paramActual);
+  const e = buscarEstudianteEnCache(fichaCedula);
   if (e) mostrarQR(e.cedula, `${e.nombres} ${e.apellidos}`);
 }
-function editarFicha() { abrirEditarEstudiante(paramActual); }
-function eliminarFicha() { eliminarEstudiante(paramActual); }
+function editarFicha() { abrirEditarEstudiante(fichaCedula); }
+function eliminarFicha() { eliminarEstudiante(fichaCedula); }
