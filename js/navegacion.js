@@ -12,18 +12,19 @@ const PANTALLAS_RAIZ = ["hoy", "estudiantes", "historial", "mas"];
 const RUTA_DE = {
   hoy: "hoy", estudiantes: "estudiantes", historial: "asistencias", mas: "mas",
   lista: "lista", reportes: "reportes", alertasScreen: "alertas", dashboard: "panel",
-  materiasScreen: "materias", adminScreen: "admin", estudianteNuevo: "estudiantes/nuevo"
+  materiasScreen: "materias", adminScreen: "admin", estudianteNuevo: "estudiantes/nuevo",
+  historialDetalle: "asistencias/lista"
 };
 
 const TITULO_DE = {
   lista: "Pasar lista", reportes: "Reportes", alertasScreen: "Alertas de asistencia",
   dashboard: "Panel", materiasScreen: "Materias", adminScreen: "Administración",
-  estudianteNuevo: "Nuevo estudiante", ficha: "Estudiante"
+  estudianteNuevo: "Nuevo estudiante", ficha: "Estudiante", historialDetalle: "Lista guardada"
 };
 
 // A dónde lleva «Atrás» si no hay historial dentro de la app (por ejemplo, al abrir un enlace directo)
 const PADRE_DE = {
-  lista: "hoy", ficha: "estudiantes", estudianteNuevo: "estudiantes",
+  lista: "hoy", ficha: "estudiantes", estudianteNuevo: "estudiantes", historialDetalle: "historial",
   reportes: "mas", alertasScreen: "mas", dashboard: "mas", materiasScreen: "mas", adminScreen: "mas"
 };
 
@@ -32,6 +33,7 @@ function raizDe(id) {
   if (PANTALLAS_RAIZ.includes(id)) return id;
   if (id === "lista") return "hoy";
   if (id === "ficha" || id === "estudianteNuevo") return "estudiantes";
+  if (id === "historialDetalle") return "historial";
   return "mas";
 }
 
@@ -55,6 +57,7 @@ function leerRuta(hash) {
     try { ced = decodeURIComponent(ced); } catch (e) { /* se deja tal cual */ }
     return { id: "ficha", param: ced };
   }
+  if (partes[0] === "asistencias") return { id: "historial", param: "" };
   const id = Object.keys(RUTA_DE).find(k => RUTA_DE[k] === partes[0]);
   return { id: id || "hoy", param: "" };
 }
@@ -66,7 +69,7 @@ function rutaInicial() {
 
 function marcarNavActivo(id) {
   const raiz = raizDe(id);
-  const exacta = id === "ficha" || id === "estudianteNuevo" ? "estudiantes" : id === "lista" ? "hoy" : id;
+  const exacta = id === "ficha" || id === "estudianteNuevo" ? "estudiantes" : id === "lista" ? "hoy" : id === "historialDetalle" ? "historial" : id;
   document.querySelectorAll(".navmovil button").forEach(b => {
     b.classList.toggle("activo", b.dataset.ir === raiz);
   });
@@ -133,6 +136,9 @@ const mostrarBase = mostrar;
 // Misma función que usa todo el código (menús, botones…), ahora con historial
 mostrar = async function (id, opts = {}) {
   const desdeHistorial = !!opts.desdeHistorial;
+  // El detalle de una lista solo existe mientras haya una lista abierta
+  if (id === "historialDetalle" && !detalleCtx) { id = "historial"; opts = { ...opts, conservar: false }; }
+  if (id !== "historialDetalle") { detalleCtx = null; detalleRegistros = []; }
   const param = opts.param || "";
 
   if (pantallaActual) posicionesScroll[pantallaActual + "|" + paramActual] = window.scrollY;
@@ -162,6 +168,7 @@ mostrar = async function (id, opts = {}) {
   marcarNavActivo(id);
   actualizarBarraSuperior(id);
 
+  if (id === "lista") sincronizarModoRegistro();
   if (id === "hoy") cargarHoy();
   else if (id === "mas") pintarMas();
   else if (id === "ficha") await pintarFicha(param);
@@ -508,3 +515,64 @@ function cerrarMenuUsuario() {
 }
 
 document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarMenuUsuario(); });
+
+// ===============================
+// PANTALLA «PASAR LISTA» (lista en curso): progreso, pestañas y modo de registro
+// Se apoya en las funciones de lista.js sin cambiar su lógica.
+// ===============================
+
+function verPanelLista(nombre) {
+  ["presentes", "faltantes", "justificados"].forEach(n => {
+    const panel = $("panel-" + n);
+    if (panel) panel.classList.toggle("activo", n === nombre);
+  });
+  document.querySelectorAll("#listaTabs button").forEach(b => {
+    b.classList.toggle("activo", b.dataset.panel === nombre);
+  });
+}
+
+function sincronizarModoRegistro() {
+  const modo = $("modoRegistro").value || "presente";
+  document.querySelectorAll("#modoSegmento button").forEach(b => {
+    b.classList.toggle("activo", b.dataset.modo === modo);
+  });
+}
+
+function elegirModoRegistro(modo) {
+  $("modoRegistro").value = modo;
+  sincronizarModoRegistro();
+}
+
+// Progreso de la lista en curso y números de las pestañas
+function actualizarProgresoLista() {
+  const total = estudiantesMateria.length;
+  let asisten = 0, justif = 0;
+  marcas.forEach(m => {
+    if (ESTADOS_ASISTE.includes(m.estado)) asisten++;
+    if (m.estado === "justificado") justif++;
+  });
+  const faltan = estudiantesMateria.filter(e => estadoEnLista(e.cedula) === "falta").length;
+  $("tabPresentes").textContent = String(asisten);
+  $("tabFaltantes").textContent = String(faltan);
+  $("tabJustificados").textContent = String(justif);
+  $("progresoTexto").textContent = total ? `${asisten} de ${total} presentes` : "";
+  $("progresoRelleno").style.width = total ? `${Math.round((asisten / total) * 100)}%` : "0%";
+}
+
+["actualizarPresentes", "actualizarJustificados", "actualizarFaltantes"].forEach(nombre => {
+  const original = globalThis[nombre];
+  globalThis[nombre] = function () {
+    const r = original.apply(this, arguments);
+    actualizarProgresoLista();
+    return r;
+  };
+});
+
+// Al reiniciar la pantalla de lista vuelve la pestaña «Presentes» y el modo «Presente»
+const resetUIListaBase = resetUILista;
+resetUILista = function () {
+  resetUIListaBase();
+  verPanelLista("presentes");
+  actualizarProgresoLista();
+  sincronizarModoRegistro();
+};
