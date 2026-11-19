@@ -884,3 +884,7 @@ li.fila-lista .fila-flecha { align-self: center; }
 
 #historialDetalle .card > button { margin-top: 8px; }
 #historialDetalle h3 { margin-bottom: 4px; }
+
+/* Botón visible pero sin permiso: se ve atenuado y, al pulsarlo, explica el motivo */
+button.boton-bloqueado { opacity: 0.55; }
+button.boton-bloqueado:hover { background: var(--secundario-bg); border-color: var(--borde-input); }
