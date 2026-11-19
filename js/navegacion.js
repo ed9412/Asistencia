@@ -75,6 +75,35 @@ function marcarNavActivo(id) {
   });
 }
 
+// Cabecera común de las pantallas principales: fecha o dato de apoyo, título e iniciales del usuario
+function tituloRaiz(id) {
+  if (id === "hoy") return "Pasar lista";
+  if (id === "estudiantes") return currentUserRole === "admin" ? "Estudiantes" : "Mis estudiantes";
+  if (id === "historial") return "Asistencias";
+  return "Más";
+}
+
+function actualizarCabeceraRaiz(id) {
+  const cab = $("cabRaiz");
+  if (!cab) return;
+  const raiz = PANTALLAS_RAIZ.includes(id);
+  cab.style.display = raiz ? "" : "none";
+  document.body.classList.toggle("con-cabraiz", raiz);
+  const ini = inicialesUsuario();
+  $("appbarAvatar").textContent = ini;
+  if (!raiz) return;
+  $("cabRaizTitulo").textContent = tituloRaiz(id);
+  $("cabRaizAvatar").textContent = ini;
+  $("btnFechaHoy").style.display = id === "hoy" ? "" : "none";
+  let sub;
+  if (id === "hoy") sub = textoFecha(fechaEfectiva());
+  else if (id === "mas") {
+    const nombre = typeof nombreActor === "function" ? nombreActor() : "";
+    sub = `${nombre ? nombre + " · " : ""}${textoRol(currentUserRole)}`;
+  } else sub = textoFecha(fechaLocalISO());
+  $("cabRaizSub").textContent = sub;
+}
+
 function actualizarBarraSuperior(id) {
   const barra = $("appbar");
   if (!barra) return;
@@ -82,6 +111,8 @@ function actualizarBarraSuperior(id) {
   barra.style.display = conBarra ? "" : "none";
   document.body.classList.toggle("con-appbar", conBarra);
   if (conBarra) $("appbarTitulo").textContent = TITULO_DE[id] || "";
+
+  actualizarCabeceraRaiz(id);
 
   const fab = $("fabNuevoEst");
   if (fab) fab.style.display = (id === "estudiantes" && fab.dataset.admin === "1") ? "" : "none";
@@ -218,8 +249,7 @@ function fechaHoyVolver() {
 async function cargarHoy() {
   const fecha = fechaEfectiva();
   const esHoy = fecha === fechaLocalISO();
-  $("hoyFecha").textContent = textoFecha(fecha);
-  $("hoyAvatar").textContent = inicialesUsuario();
+  actualizarCabeceraRaiz("hoy");
   const aviso = $("hoyAviso");
   aviso.style.display = esHoy ? "none" : "";
   aviso.innerHTML = esHoy ? "" : `<span>Estás pasando lista de otro día.</span><button class="small secondary" onclick="fechaHoyVolver()">Volver a hoy</button>`;
@@ -296,9 +326,7 @@ function alCargarMaterias() {
 // ===============================
 
 function pintarMas() {
-  $("masAvatar").textContent = inicialesUsuario();
-  const nombre = typeof nombreActor === "function" ? nombreActor() : "";
-  $("masRol").textContent = `${nombre ? nombre + " · " : ""}${textoRol(currentUserRole)}`;
+  actualizarCabeceraRaiz("mas");
 }
 
 // ===============================
