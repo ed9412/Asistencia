@@ -201,6 +201,14 @@ function pintarDetalleHistorial() {
       bc.textContent = "Cambiar estado";
       bc.onclick = () => abrirCorreccion({ ...ctx });
       li.appendChild(bc);
+    } else {
+      // El botón se muestra siempre para que las filas queden iguales; si no hay permiso, explica por qué
+      const bc = document.createElement("button");
+      bc.className = "small secondary boton-bloqueado";
+      bc.textContent = "Cambiar estado";
+      bc.setAttribute("aria-disabled", "true");
+      bc.onclick = () => showMessage("Esa asistencia ya está guardada en una fecha anterior: solo un administrador puede modificarla.", "info");
+      li.appendChild(bc);
     }
     ul.appendChild(li);
   });
