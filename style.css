@@ -691,8 +691,8 @@ li.fila-est:focus-visible { outline: 2px solid var(--accion); outline-offset: 2p
 .ficha-id .subtitle { margin-bottom: 12px; }
 .ficha-acciones { display: flex; gap: 10px; width: 100%; max-width: 420px; }
 .ficha-acciones button { flex: 1; margin: 0; }
-#ficha .card { margin-bottom: 12px; }
-#ficha .card h4 { margin: 0 0 6px; color: var(--suave-texto); font-size: 13px; }
+#ficha .card, .est-detalle .card { margin-bottom: 12px; }
+#ficha .card h4, .est-detalle .card h4 { margin: 0 0 6px; color: var(--suave-texto); font-size: 13px; }
 .dato { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--borde); }
 .dato:last-child { border-bottom: none; }
 .dato-icono {
@@ -705,6 +705,7 @@ li.fila-est:focus-visible { outline: 2px solid var(--accion); outline-offset: 2p
 .dato-valor { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .dato-valor a { color: inherit; text-decoration: none; }
 .ficha-eliminar { margin-top: 4px; }
+.est-detalle .ficha-cab { background: var(--card); border: 1px solid var(--borde); border-radius: var(--radio-grande); padding: 20px; margin-bottom: 12px; }
 
 @media (min-width: 960px) {
   .appbar { padding: 12px 40px; }
@@ -723,3 +724,36 @@ li.fila-est:focus-visible { outline: 2px solid var(--accion); outline-offset: 2p
   .hoy-cab h1 { font-size: 32px; }
   #ficha .card { max-width: 760px; }
 }
+
+/* ---------- Estudiantes en PC: lista a la izquierda, ficha a la derecha ---------- */
+.est-detalle { display: none; }
+li.fila-est.seleccionada { background: var(--accion-suave); border-color: var(--accion); }
+
+@media (min-width: 1100px) {
+  #estudiantes.screen { max-width: 1320px; }
+  #estudiantes.screen.active {
+    display: grid;
+    grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .est-detalle { display: block; position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; }
+  .detalle-vacio {
+    border: 1px dashed var(--borde-input); border-radius: var(--radio-grande);
+    padding: 48px 24px; text-align: center; color: var(--suave-texto);
+  }
+  .est-detalle .card { max-width: none; }
+  .est-detalle .ficha-cab { margin-bottom: 4px; }
+}
+
+/* Asistencia en la ficha */
+.asist-fila { padding: 8px 0; }
+.asist-cab { display: flex; justify-content: space-between; gap: 10px; font-size: 14.5px; margin-bottom: 6px; }
+.asist-cab span { font-weight: 600; }
+.asist-pista { height: 8px; border-radius: 4px; background: var(--borde); overflow: hidden; }
+.asist-relleno { height: 100%; border-radius: 4px; background: currentColor; }
+.asist-fila small { display: block; margin-top: 5px; color: var(--suave-texto); }
+.nivel-ok { color: var(--presente); }
+.nivel-medio { color: var(--tardanza); }
+.nivel-bajo { color: var(--falta); }
+.asist-fila small { color: var(--suave-texto); }
