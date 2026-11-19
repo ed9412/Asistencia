@@ -63,7 +63,7 @@ async function cargarHistorial() {
     pintarListasHistorial();
 
     if (docs.length === 0) {
-      $("historialLista").innerHTML = "<li>No hay listas en este periodo." +
+      $("historialLista").innerHTML = "<li class=\"vacio-lista\">No hay listas en este periodo." +
         (currentUserRole === "admin" ? " Si ya pasaste listas antes de actualizar, pulsa «Recalcular resúmenes» en Admin." : "") + "</li>";
     }
   } catch (e) {

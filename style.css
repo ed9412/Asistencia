@@ -888,3 +888,72 @@ li.fila-lista .fila-flecha { align-self: center; }
 /* Botón visible pero sin permiso: se ve atenuado y, al pulsarlo, explica el motivo */
 button.boton-bloqueado { opacity: 0.55; }
 button.boton-bloqueado:hover { background: var(--secundario-bg); border-color: var(--borde-input); }
+
+/* Aviso emergente cuando una consulta tarda: no bloquea, solo informa */
+.aviso-carga {
+  position: fixed; top: 14px; left: 50%; z-index: 9400; display: none; align-items: center; gap: 12px;
+  max-width: calc(100vw - 24px); padding: 12px 18px; border-radius: 999px;
+  background: var(--card); color: var(--texto); border: 1px solid var(--borde);
+  box-shadow: 0 10px 30px var(--sombra); font-size: 14.5px; font-weight: 600; pointer-events: none;
+  transform: translateX(-50%);
+}
+.aviso-carga.visible { display: flex; animation: aviso-entra 0.2s ease-out; }
+@keyframes aviso-entra { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.aviso-carga .loader { flex: none; }
+@media (min-width: 960px) { .aviso-carga { left: calc(50% + var(--lateral) / 2); } }
+@media (prefers-reduced-motion: reduce) { .aviso-carga.visible { animation: none; } }
+.aviso-carga .loader { border-color: var(--borde); border-top-color: var(--accion); margin-left: 0; }
+
+/* ---------- Reportes y alertas: filas con porcentaje ---------- */
+.reporte-cab {
+  display: flex; align-items: center; gap: 16px; padding: 16px; margin: 14px 0 12px;
+  background: var(--suave-bg); border: 1px solid var(--borde); border-radius: var(--radio-grande);
+}
+.reporte-pct { font-size: 34px; font-weight: 750; letter-spacing: -0.02em; color: currentColor; line-height: 1; }
+.reporte-datos { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: var(--texto); }
+.reporte-datos span { color: var(--suave-texto); font-size: 13.5px; }
+.reporte-datos .chips { margin-top: 6px; }
+.acciones-reporte { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.acciones-reporte button { margin: 0; flex: 1 1 200px; }
+.fila-pct { font-size: 17px; font-weight: 750; flex: none; align-self: center; color: currentColor; }
+li.fila-lista.nivel-ok, li.fila-lista.nivel-medio, li.fila-lista.nivel-bajo, li.fila-lista.nivel-vacio { color: var(--texto); }
+li.fila-lista.nivel-ok .fila-pct, li.fila-lista.nivel-ok .asist-relleno { color: var(--presente); }
+li.fila-lista.nivel-medio .fila-pct, li.fila-lista.nivel-medio .asist-relleno { color: var(--tardanza); }
+li.fila-lista.nivel-bajo .fila-pct, li.fila-lista.nivel-bajo .asist-relleno { color: var(--falta); }
+li.fila-lista.nivel-vacio .fila-pct { color: var(--suave-texto); }
+li.fila-lista .asist-pista { margin: 6px 0 0; }
+li.fila-lista small { display: block; }
+.nivel-vacio { color: var(--suave-texto); }
+.vacio-lista { text-align: center; color: var(--suave-texto); background: transparent; border-style: dashed; }
+
+/* Etiqueta de sección y filas de menú dentro de tarjetas */
+.etiqueta { margin: 18px 2px 6px; font-weight: 650; font-size: 13.5px; color: var(--suave-texto); }
+.card .menu-lista { margin-top: 12px; }
+.card .menu-lista + .menu-lista { margin-top: 12px; }
+
+/* ---------- Pulido final: transiciones, ventanas, login, estados vacíos ---------- */
+@keyframes entra-pantalla { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes entra-fondo { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sube-ventana { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+#app .screen.active { animation: entra-pantalla 0.18s ease-out; }
+.modal[style*="block"] { animation: entra-fondo 0.15s ease-out; }
+.modal[style*="block"] .modal-content { animation: sube-ventana 0.2s ease-out; }
+.modal-content h3 { margin-top: 0; }
+
+/* Login centrado y con más presencia */
+#loginScreen.active { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding-bottom: 14px; }
+#loginScreen .login-card { margin: 0 auto; width: 100%; box-shadow: 0 10px 30px rgba(8, 14, 18, 0.10); }
+#loginScreen h1 { font-size: 28px; letter-spacing: -0.02em; }
+
+/* Estados vacíos con más aire */
+.vacio, .vacio-lista { padding: 28px 16px; border-radius: var(--radio); line-height: 1.5; }
+.vacio p { margin: 4px 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  #app .screen.active, .modal[style*="block"], .modal[style*="block"] .modal-content { animation: none; }
+}
+
+.aviso-sin-conexion {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 90; padding: 8px 14px; text-align: center;
+  font-size: 13.5px; font-weight: 600; background: var(--tardanza); color: #1f1300;
+}

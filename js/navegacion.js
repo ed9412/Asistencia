@@ -13,19 +13,25 @@ const RUTA_DE = {
   hoy: "hoy", estudiantes: "estudiantes", historial: "asistencias", mas: "mas",
   lista: "lista", reportes: "reportes", alertasScreen: "alertas", dashboard: "panel",
   materiasScreen: "materias", adminScreen: "admin", estudianteNuevo: "estudiantes/nuevo",
-  historialDetalle: "asistencias/lista"
+  historialDetalle: "asistencias/lista",
+  materiaNueva: "materias/nueva", materiaAsignar: "materias/asignar",
+  adminUsuarios: "admin/usuarios", adminDocente: "admin/docente", adminMantenimiento: "admin/mantenimiento"
 };
 
 const TITULO_DE = {
   lista: "Pasar lista", reportes: "Reportes", alertasScreen: "Alertas de asistencia",
-  dashboard: "Panel", materiasScreen: "Materias", adminScreen: "Administración",
-  estudianteNuevo: "Nuevo estudiante", ficha: "Estudiante", historialDetalle: "Lista guardada"
+  dashboard: "Gráfico", materiasScreen: "Materias", adminScreen: "Administración",
+  estudianteNuevo: "Nuevo estudiante", ficha: "Estudiante", historialDetalle: "Lista guardada",
+  materiaNueva: "Nueva materia", materiaAsignar: "Asignar estudiante", materiaDetalle: "Materia",
+  adminUsuarios: "Usuarios y roles", adminDocente: "Crear docente", adminMantenimiento: "Mantenimiento"
 };
 
 // A dónde lleva «Atrás» si no hay historial dentro de la app (por ejemplo, al abrir un enlace directo)
 const PADRE_DE = {
   lista: "hoy", ficha: "estudiantes", estudianteNuevo: "estudiantes", historialDetalle: "historial",
-  reportes: "mas", alertasScreen: "mas", dashboard: "mas", materiasScreen: "mas", adminScreen: "mas"
+  reportes: "mas", alertasScreen: "mas", dashboard: "mas", materiasScreen: "mas", adminScreen: "mas",
+  materiaNueva: "materiasScreen", materiaAsignar: "materiasScreen", materiaDetalle: "materiasScreen",
+  adminUsuarios: "adminScreen", adminDocente: "adminScreen", adminMantenimiento: "adminScreen"
 };
 
 // Pestaña de la barra inferior que queda marcada para cada pantalla
@@ -45,6 +51,7 @@ const posicionesScroll = {};
 
 function rutaDePantalla(id, param) {
   if (id === "ficha") return `#/estudiantes/${encodeURIComponent(param || "")}`;
+  if (id === "materiaDetalle") return `#/materias/${encodeURIComponent(param || "")}`;
   return `#/${RUTA_DE[id] || "hoy"}`;
 }
 
@@ -57,6 +64,14 @@ function leerRuta(hash) {
     try { ced = decodeURIComponent(ced); } catch (e) { /* se deja tal cual */ }
     return { id: "ficha", param: ced };
   }
+  if (partes[0] === "materias" && partes[1] && !["nueva", "asignar"].includes(partes[1])) {
+    let mid = partes[1];
+    try { mid = decodeURIComponent(mid); } catch (e) { /* se deja tal cual */ }
+    return { id: "materiaDetalle", param: mid };
+  }
+  const completa = partes.join("/");
+  const exacto = Object.keys(RUTA_DE).find(k => RUTA_DE[k] === completa);
+  if (exacto) return { id: exacto, param: "" };
   if (partes[0] === "asistencias") return { id: "historial", param: "" };
   const id = Object.keys(RUTA_DE).find(k => RUTA_DE[k] === partes[0]);
   return { id: id || "hoy", param: "" };
@@ -172,6 +187,8 @@ mostrar = async function (id, opts = {}) {
   if (id === "hoy") cargarHoy();
   else if (id === "mas") pintarMas();
   else if (id === "ficha") await pintarFicha(param);
+  else if (id === "materiaDetalle") pintarMateriaDetalle(param);
+  else if (id === "adminUsuarios") cargarUsuarios();
 
   const guardado = desdeHistorial ? posicionesScroll[id + "|" + param] : 0;
   window.scrollTo(0, guardado || 0);
@@ -331,6 +348,29 @@ function alCargarMaterias() {
 // ===============================
 // PANTALLA «MÁS»
 // ===============================
+
+// ===============================
+// MATERIAS: DETALLE
+// ===============================
+
+let materiaDetalleId = "";
+
+function nombreMateriaDetalle() {
+  const m = materiasLista.find(x => x.id === materiaDetalleId);
+  return m ? m.nombre : "";
+}
+
+function pintarMateriaDetalle(id) {
+  materiaDetalleId = id || materiaDetalleId;
+  const m = materiasLista.find(x => x.id === materiaDetalleId);
+  if (!m) { if (pantallaActual === "materiaDetalle") volver(); return; }
+  const docentes = (m.profesores || []).map(uid => {
+    const u = usuariosMap[uid];
+    return u ? (u.nombre || u.email) : "cuenta desconocida";
+  });
+  $("matDetNombre").textContent = m.nombre;
+  $("matDetInfo").textContent = "Docentes: " + (docentes.length ? docentes.join(", ") : "ninguno");
+}
 
 function pintarMas() {
   actualizarCabeceraRaiz("mas");

@@ -387,7 +387,7 @@ function actualizarPresentes() {
   $("contPresentes").textContent = `(${asistentes.length}/${estudiantesMateria.length})`;
 
   if (asistentes.length === 0) {
-    ul.innerHTML = "<li>No hay presentes.</li>";
+    ul.innerHTML = "<li class=\"vacio-lista\">No hay presentes.</li>";
     return;
   }
 
@@ -418,7 +418,7 @@ function actualizarJustificados() {
   $("contJustificados").textContent = `(${justificados.length})`;
 
   if (justificados.length === 0) {
-    ul.innerHTML = "<li>No hay justificados.</li>";
+    ul.innerHTML = "<li class=\"vacio-lista\">No hay justificados.</li>";
     return;
   }
 
@@ -438,7 +438,7 @@ function actualizarFaltantes() {
   $("contFaltantes").textContent = `(${faltantes.length})`;
 
   if (faltantes.length === 0) {
-    ul.innerHTML = "<li>No hay faltantes.</li>";
+    ul.innerHTML = "<li class=\"vacio-lista\">No hay faltantes.</li>";
     return;
   }
 

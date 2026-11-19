@@ -87,41 +87,26 @@ function listarMaterias() {
   ul.innerHTML = "";
 
   if (materiasLista.length === 0) {
-    ul.innerHTML = "<li>No hay materias registradas.</li>";
-    return;
+    ul.innerHTML = `<li class="vacio-lista">Aún no hay materias. Crea la primera con «Nueva materia».</li>`;
   }
 
-  materiasLista.forEach(m => {
+  materiasLista.forEach(mat => {
     const li = document.createElement("li");
-    const docentes = (m.profesores || []).map(uid => {
+    li.className = "fila-est fila-lista";
+    li.tabIndex = 0;
+    li.setAttribute("role", "button");
+    const docentes = (mat.profesores || []).map(uid => {
       const u = usuariosMap[uid];
       return u ? (u.nombre || u.email) : "cuenta desconocida";
     });
-    li.innerHTML = `<strong>${esc(m.nombre)}</strong><br><small>Docentes: ${esc(docentes.length ? docentes.join(", ") : "ninguno")}</small><br>`;
-
-    if (currentUserRole === "admin") {
-      const btnEdit = document.createElement("button");
-      btnEdit.className = "small";
-      btnEdit.textContent = "Editar";
-      btnEdit.onclick = () => abrirEditarMateria(m.id, m.nombre);
-
-      const btnDel = document.createElement("button");
-      btnDel.className = "small danger";
-      btnDel.textContent = "Eliminar";
-      btnDel.onclick = () => eliminarMateria(m.id);
-
-      const btnDoc = document.createElement("button");
-      btnDoc.className = "small secondary";
-      btnDoc.textContent = "Docentes";
-      btnDoc.onclick = () => abrirDocentesMateria(m.id);
-
-      li.appendChild(btnDoc);
-      li.appendChild(btnEdit);
-      li.appendChild(btnDel);
-    }
-
+    li.innerHTML = `<span class="avatar">${esc(iniciales(mat.nombre, ""))}</span>
+      <span class="fila-texto"><strong>${esc(mat.nombre)}</strong>
+      <small>${esc(docentes.length ? docentes.join(", ") : "Sin docentes asignados")}</small></span>${FLECHA_FILA}`;
+    li.onclick = () => mostrar("materiaDetalle", { param: mat.id });
     ul.appendChild(li);
   });
+
+  if (typeof pintarMateriaDetalle === "function" && pantallaActual === "materiaDetalle") pintarMateriaDetalle(materiaDetalleId);
 }
 
 async function crearMateria() {
@@ -140,6 +125,7 @@ async function crearMateria() {
     limpiarInput("materiaNombre");
     clearFieldError("materiaNombre");
     await cargarMaterias();
+    if (pantallaActual === "materiaNueva") volver();
   } catch (error) {
     showMessage("Error: " + traducirErrorFirebase(error), "error");
   }
@@ -535,30 +521,19 @@ async function exportarQRPNG() {
   }
 }
 
+// Carnet individual: hoja A4 con el carnet del mismo tamaño que en el PDF en lote (90 × 65 mm),
+// centrado en la hoja, listo para imprimir y recortar.
 async function exportarQRPDF() {
-  const exportArea = $("qrExportArea");
   const cedulaStr = $("qrCedulaDisplay").textContent.replace("Cédula: ", "");
+  const nombre = $("qrNombreDisplay").textContent || "Estudiante";
   try {
-    await cargarLibreria("captura");
-    const canvas = await html2canvas(exportArea, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      onclone: (doc) => {
-        const c = doc.querySelector('#qrCanvas');
-        c.getContext('2d', { willReadFrequently: true });
-      }
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-    await cargarLibreria("pdf");
+    await Promise.all([cargarLibreria("qr"), cargarLibreria("pdf")]);
+    const qr = await QRCode.toDataURL(cedulaStr, { width: 300, margin: 1 });
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("portrait", "mm", "a6");
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+    const pdf = new jsPDF("portrait", "mm", "a4");
+    // Centrado en la hoja A4 (210 × 297 mm)
+    const x = (210 - CARNET_W) / 2, y = (297 - CARNET_H) / 2;
+    dibujarCarnet(pdf, x, y, nombre, cedulaStr, qr);
     pdf.save(`Carnet_${cedulaStr}.pdf`);
     showMessage("Documento PDF descargado.", "success");
   } catch (error) {
