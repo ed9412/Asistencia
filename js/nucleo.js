@@ -288,7 +288,7 @@ async function mostrar(id, opts = {}) {
   if (!esStaff && id !== "pendienteScreen") return false;
 
   // Restricción por rol (la protección real está en las reglas de Firestore)
-  if (currentUserRole !== "admin" && ["materiasScreen", "materiaNueva", "materiaAsignar", "materiaDetalle", "adminScreen", "adminUsuarios", "adminDocente", "adminMantenimiento", "estudianteNuevo"].includes(id)) {
+  if (currentUserRole !== "admin" && ["materiasScreen", "materiaNueva", "materiaAsignar", "materiaDetalle", "adminScreen", "adminUsuarios", "usuarioNuevo", "usuarioDetalle", "adminMantenimiento", "estudianteNuevo"].includes(id)) {
     showMessage("No tienes permisos para acceder a esta sección.", "error");
     return false;
   }

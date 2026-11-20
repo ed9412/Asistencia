@@ -14,26 +14,27 @@ function generarPasswordTemporal() {
   window.crypto.getRandomValues(bytes);
   let pass = "";
   bytes.forEach(b => { pass += alfabeto[b % alfabeto.length]; });
-  $("nuevoDocentePassword").value = pass;
-  clearFieldError("nuevoDocentePassword");
+  $("nuevoUsuarioPassword").value = pass;
+  clearFieldError("nuevoUsuarioPassword");
 }
 
-async function crearDocente() {
-  if (currentUserRole !== "admin") return showMessage("Solo admin puede crear docentes.", "error");
+async function crearUsuario() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede crear usuarios.", "error");
 
-  clearFields(["nuevoDocenteNombre", "nuevoDocenteEmail", "nuevoDocentePassword"]);
-  const nombre = normalizarTexto($("nuevoDocenteNombre").value);
-  const email = $("nuevoDocenteEmail").value.trim();
-  const password = $("nuevoDocentePassword").value;
-  const enviarCorreo = $("nuevoDocenteCorreo").checked;
+  clearFields(["nuevoUsuarioNombre", "nuevoUsuarioEmail", "nuevoUsuarioPassword"]);
+  const nombre = normalizarTexto($("nuevoUsuarioNombre").value);
+  const email = $("nuevoUsuarioEmail").value.trim();
+  const password = $("nuevoUsuarioPassword").value;
+  const enviarCorreo = $("nuevoUsuarioCorreo").checked;
+  const rol = $("nuevoUsuarioRol").value === "admin" ? "admin" : "profesor";
 
   let ok = true;
-  if (!validarNombre(nombre)) { showFieldError("nuevoDocenteNombre", "Solo letras y espacios."); ok = false; } else markFieldValid("nuevoDocenteNombre");
-  if (!validarEmail(email)) { showFieldError("nuevoDocenteEmail", "Correo inválido."); ok = false; } else markFieldValid("nuevoDocenteEmail");
-  if (!validarPassword(password)) { showFieldError("nuevoDocentePassword", "Mínimo 6 caracteres (usa «Generar»)."); ok = false; } else markFieldValid("nuevoDocentePassword");
+  if (!validarNombre(nombre)) { showFieldError("nuevoUsuarioNombre", "Solo letras y espacios."); ok = false; } else markFieldValid("nuevoUsuarioNombre");
+  if (!validarEmail(email)) { showFieldError("nuevoUsuarioEmail", "Correo inválido."); ok = false; } else markFieldValid("nuevoUsuarioEmail");
+  if (!validarPassword(password)) { showFieldError("nuevoUsuarioPassword", "Mínimo 6 caracteres (usa «Generar»)."); ok = false; } else markFieldValid("nuevoUsuarioPassword");
   if (!ok) return;
 
-  const btn = $("btnCrearDocente");
+  const btn = $("btnCrearUsuario");
   btn.disabled = true;
 
   let uid = null;
@@ -45,7 +46,7 @@ async function crearDocente() {
   } catch (e) {
     btn.disabled = false;
     if (e && e.code === "auth/email-already-in-use") {
-      return showFieldError("nuevoDocenteEmail", "Ya existe una cuenta con ese correo. Búscala en la lista de usuarios y cámbiale el rol a Docente.");
+      return showFieldError("nuevoUsuarioEmail", "Ya existe una cuenta con ese correo. Búscala en la lista de usuarios y cámbiale el rol.");
     }
     return showMessage(traducirErrorFirebase(e), "error");
   }
@@ -54,7 +55,7 @@ async function crearDocente() {
     await db.collection("users").doc(uid).set({
       email,
       nombre,
-      role: "profesor",
+      role: rol,
       creadoEn: serverTs(),
       creadoPor: auth.currentUser.email
     });
@@ -72,16 +73,18 @@ async function crearDocente() {
   }
 
   btn.disabled = false;
-  limpiarInput("nuevoDocenteNombre");
-  limpiarInput("nuevoDocenteEmail");
-  limpiarInput("nuevoDocentePassword");
-  clearFields(["nuevoDocenteNombre", "nuevoDocenteEmail", "nuevoDocentePassword"]);
+  limpiarInput("nuevoUsuarioNombre");
+  limpiarInput("nuevoUsuarioEmail");
+  limpiarInput("nuevoUsuarioPassword");
+  clearFields(["nuevoUsuarioNombre", "nuevoUsuarioEmail", "nuevoUsuarioPassword"]);
 
   showMessage(
-    "Docente creado." + (correoEnviado ? " Le enviamos un correo para elegir su contraseña." : "") + " Asígnalo a sus materias en Materias > Docentes.",
+    (rol === "admin" ? "Administrador creado." : "Docente creado.") + (correoEnviado ? " Le enviamos un correo para elegir su contraseña." : "")
+      + (rol === "admin" ? "" : " Asígnalo a sus materias en Materias > Docentes."),
     "success"
   );
-  cargarUsuarios();
+  if (pantallaActual === "usuarioNuevo") volver();
+  else cargarUsuarios();
 }
 
 async function guardarMiNombre() {
@@ -103,9 +106,9 @@ async function guardarMiNombre() {
 
 async function cargarUsuarios() {
   if (currentUserRole !== "admin") return;
-  $("miNombre").value = currentUserNombre;
+  if ($("miNombre")) $("miNombre").value = currentUserNombre;
   const ul = $("listaUsuarios");
-  ul.innerHTML = "<li>Cargando...</li>";
+  ul.innerHTML = "<li class=\"vacio-lista\">Cargando…</li>";
 
   try {
     await cargarUsuariosCache();
@@ -126,33 +129,16 @@ async function cargarUsuarios() {
 
     usuarios.forEach(u => {
       const li = document.createElement("li");
-      const esYo = u.uid === auth.currentUser.uid;
-
-      li.innerHTML = `<strong>${esc(u.nombre || u.email || u.uid)}</strong>${esYo ? " <small>(tú)</small>" : ""}<br><small>${esc(u.email || "")}</small><br>`;
-
-      const select = document.createElement("select");
-      ROLES_VALIDOS.forEach(r => select.add(new Option(textoRol(r), r)));
-      if (!ROLES_VALIDOS.includes(u.role)) select.add(new Option(textoRol(u.role), ""), 0);
-      select.value = ROLES_VALIDOS.includes(u.role) ? u.role : "";
-      select.disabled = esYo;
-      li.appendChild(select);
-
-      if (!esYo) {
-        const btn = document.createElement("button");
-        btn.className = "small";
-        btn.textContent = "Guardar rol";
-        btn.onclick = () => cambiarRolUsuario(u.uid, select.value);
-        li.appendChild(btn);
-
-        if (u.email) {
-          const btnCorreo = document.createElement("button");
-          btnCorreo.className = "small secondary";
-          btnCorreo.textContent = "Correo de contraseña";
-          btnCorreo.onclick = () => enviarCorreoPassword(u.email);
-          li.appendChild(btnCorreo);
-        }
-      }
-
+      li.className = "fila-est fila-lista";
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      const esYo = auth.currentUser && u.uid === auth.currentUser.uid;
+      const nombre = u.nombre || u.email || u.uid;
+      li.innerHTML = `<span class="avatar">${esc(iniciales(nombre, ""))}</span>
+        <span class="fila-texto"><strong>${esc(nombre)}${esYo ? " (tú)" : ""}</strong>
+        <small>${esc(u.email || "")}</small></span>
+        <span class="chip ${claseRol(u.role)}">${esc(textoRol(u.role))}</span>${FLECHA_FILA}`;
+      li.onclick = () => mostrar("usuarioDetalle", { param: u.uid });
       ul.appendChild(li);
     });
   } catch (e) {
@@ -184,3 +170,111 @@ async function enviarCorreoPassword(email) {
   }
 }
 
+
+
+// ===============================
+// DETALLE DE USUARIO: nombre, rol y contraseña
+// ===============================
+
+let usuarioDetalleUid = "";
+
+function claseRol(rol) {
+  return rol === "admin" ? "chip-justif" : rol === "profesor" ? "chip-ok" : "chip-tarde";
+}
+
+async function pintarUsuarioDetalle(uid) {
+  usuarioDetalleUid = uid || usuarioDetalleUid;
+  if (!usuariosMap[usuarioDetalleUid]) {
+    try { await cargarUsuariosCache(); } catch (e) { /* se muestra el error abajo */ }
+  }
+  const u = usuariosMap[usuarioDetalleUid];
+  if (!u) {
+    showMessage("No se encontró ese usuario.", "error");
+    if (pantallaActual === "usuarioDetalle") volver();
+    return;
+  }
+  const esYo = !!auth.currentUser && u.uid === auth.currentUser.uid;
+  const nombre = u.nombre || u.email || u.uid;
+
+  $("usuDetTitulo").textContent = esYo ? "Mi cuenta" : "Usuario";
+  $("usuDetAvatar").textContent = iniciales(nombre, "");
+  $("usuDetNombreTexto").textContent = nombre + (esYo ? " (tú)" : "");
+  $("usuDetEmail").textContent = u.email || "";
+  const chip = $("usuDetRolChip");
+  chip.textContent = textoRol(u.role);
+  chip.className = "chip " + claseRol(u.role);
+
+  $("usuDetNombre").value = u.nombre || "";
+
+  const select = $("usuDetRol");
+  select.innerHTML = "";
+  ROLES_VALIDOS.forEach(r => select.add(new Option(textoRol(r), r)));
+  if (!ROLES_VALIDOS.includes(u.role)) select.add(new Option(textoRol(u.role), ""), 0);
+  select.value = ROLES_VALIDOS.includes(u.role) ? u.role : "";
+  select.disabled = esYo;
+  $("btnUsuDetRol").style.display = esYo ? "none" : "";
+  $("usuDetRolAviso").textContent = esYo ? "No puedes cambiar tu propio rol: otro administrador puede hacerlo." : "";
+
+  $("usuDetOtro").style.display = !esYo && u.email ? "" : "none";
+  $("usuDetYo").style.display = esYo ? "" : "none";
+}
+
+async function guardarNombreUsuario() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin.", "error");
+  clearFieldError("usuDetNombre");
+  const uid = usuarioDetalleUid;
+  const nombre = normalizarTexto($("usuDetNombre").value);
+  if (!validarNombre(nombre) || nombre.length > 80) {
+    return showFieldError("usuDetNombre", "Solo letras y espacios (2 a 80 caracteres).");
+  }
+  const esYo = uid === auth.currentUser.uid;
+  try {
+    // Las reglas permiten a cada persona cambiar solo su nombre; el admin puede además marcar la fecha en los demás
+    await db.collection("users").doc(uid).update(esYo ? { nombre } : { nombre, actualizadoEn: serverTs() });
+    if (usuariosMap[uid]) usuariosMap[uid].nombre = nombre;
+    if (esYo) currentUserNombre = nombre;
+    showMessage("Nombre guardado.", "success");
+    pintarUsuarioDetalle(uid);
+  } catch (e) {
+    showMessage("No se pudo guardar el nombre: " + traducirErrorFirebase(e), "error");
+  }
+}
+
+async function guardarRolDetalle() {
+  const uid = usuarioDetalleUid;
+  const rol = $("usuDetRol").value;
+  if (uid === auth.currentUser.uid) return showMessage("No puedes cambiar tu propio rol.", "error");
+  await cambiarRolUsuario(uid, rol);
+}
+
+async function enviarCorreoPasswordDetalle() {
+  const u = usuariosMap[usuarioDetalleUid];
+  if (u && u.email) await enviarCorreoPassword(u.email);
+}
+
+async function cambiarMiPassword() {
+  ["miPasswordActual", "miPasswordNueva", "miPasswordRepetir"].forEach(clearFieldError);
+  const actual = $("miPasswordActual").value;
+  const nueva = $("miPasswordNueva").value;
+  const repetida = $("miPasswordRepetir").value;
+
+  let ok = true;
+  if (!actual) { showFieldError("miPasswordActual", "Escribe tu contraseña actual."); ok = false; }
+  if (!validarPassword(nueva)) { showFieldError("miPasswordNueva", "Mínimo 6 caracteres."); ok = false; }
+  else if (nueva === actual) { showFieldError("miPasswordNueva", "Debe ser distinta de la actual."); ok = false; }
+  if (nueva !== repetida) { showFieldError("miPasswordRepetir", "No coincide con la contraseña nueva."); ok = false; }
+  if (!ok) return;
+
+  try {
+    await reautenticar(actual);
+  } catch (e) {
+    return showFieldError("miPasswordActual", "La contraseña actual es incorrecta.");
+  }
+  try {
+    await auth.currentUser.updatePassword(nueva);
+    ["miPasswordActual", "miPasswordNueva", "miPasswordRepetir"].forEach(limpiarInput);
+    showMessage("Contraseña cambiada.", "success");
+  } catch (e) {
+    showMessage("No se pudo cambiar la contraseña: " + traducirErrorFirebase(e), "error");
+  }
+}
