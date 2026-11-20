@@ -959,3 +959,74 @@ li.fila-lista small { display: block; }
   position: fixed; left: 0; right: 0; top: 0; z-index: 90; padding: 8px 14px; text-align: center;
   font-size: 13.5px; font-weight: 600; background: var(--tardanza); color: #1f1300;
 }
+
+/* ---------- Cambios en masa (v16): filtros por grado, selección múltiple y pantallas nuevas ---------- */
+.chips-grado { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scrollbar-width: thin; }
+.chip-filtro {
+  flex: none; width: auto; min-width: 0; min-height: 0; margin: 0; height: 32px; padding: 0 12px; border-radius: 16px;
+  background: var(--card); color: var(--texto); border: 1px solid var(--borde-input); font-size: 14px; font-weight: 600;
+}
+.chip-filtro span { color: var(--suave-texto); font-weight: 500; margin-left: 2px; }
+.chip-filtro:hover { background: var(--suave-bg); }
+.chip-filtro.activo { background: var(--accion-suave); border-color: var(--accion); color: var(--acento-texto); }
+.chip-filtro.activo span { color: var(--acento-texto); }
+.chip-filtro.chip-aviso:not(.activo) { color: var(--tardanza); border-color: var(--tardanza); }
+
+.herramientas-est { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
+.herramientas-est button { margin: 0; min-width: 0; }
+
+.casilla {
+  flex: none; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--borde-input);
+  background: var(--card); position: relative; display: inline-block;
+}
+.marcada > .casilla, .marcada .casilla { background: var(--accion); border-color: var(--accion); }
+.marcada > .casilla::after, .marcada .casilla::after {
+  content: ""; position: absolute; left: 6px; top: 1px; width: 5px; height: 11px;
+  border: solid var(--accion-texto); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+li.fila-est.marcada { background: var(--accion-suave); border-color: var(--accion); }
+
+.barra-sel {
+  position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 19;
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: var(--card); border: 1px solid var(--borde-input); border-radius: var(--radio-grande);
+  box-shadow: 0 8px 24px var(--sombra);
+}
+.barra-sel span { flex: 1; font-weight: 600; font-size: 14px; min-width: 0; }
+.barra-sel button { margin: 0; min-width: 0; }
+.barra-sel-x { width: 40px; padding: 0; }
+body.con-barra-sel #estudiantes .card { padding-bottom: 96px; }
+@media (min-width: 960px) {
+  .barra-sel { left: calc(50% + var(--lateral) / 2 - 260px); right: auto; width: 520px; bottom: 24px; }
+}
+
+.segmentos { display: flex; border: 1px solid var(--borde-input); border-radius: var(--radio); overflow: hidden; margin: 12px 0; }
+.segmentos button {
+  flex: 1; margin: 0; min-width: 0; border-radius: 0; background: var(--card); color: var(--texto);
+  border: none; border-right: 1px solid var(--borde-input); font-weight: 600;
+}
+.segmentos button:last-child { border-right: none; }
+.segmentos button.activo { background: var(--accion); color: var(--accion-texto); }
+
+.mm-lista { display: flex; flex-direction: column; }
+.mm-fila {
+  display: flex; align-items: center; gap: 12px; margin: 0; min-width: 0; width: 100%; text-align: left;
+  background: transparent; color: var(--texto); border: none; border-top: 1px solid var(--borde);
+  border-radius: 0; padding: 10px 4px; font-weight: 500;
+}
+.mm-fila:hover { background: var(--suave-bg); }
+.mm-fila.marcada { font-weight: 650; }
+
+.previa { margin: 12px 0; }
+.previa-lista { list-style: none; margin: 0; padding: 10px 12px; background: var(--suave-bg); border: 1px solid var(--borde); border-radius: var(--radio); font-size: 14px; }
+.previa-lista li { padding: 3px 0; border: none; background: none; }
+.aviso-previa { margin: 8px 0 0; padding: 8px 12px; border-radius: var(--radio); background: color-mix(in srgb, var(--tardanza) 14%, transparent); color: var(--tardanza); font-size: 14px; }
+
+.pc-fila { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--borde); }
+.pc-origen { flex: 1; min-width: 0; display: flex; flex-direction: column; padding-top: 8px; }
+.pc-origen small { color: var(--suave-texto); }
+.pc-fila .fila-flecha { margin-top: 14px; }
+.pc-destino { flex: 1.2; min-width: 0; }
+.pc-destino input { margin: 0; }
+
+.cerrar-pantalla { float: right; margin: 0 0 8px 8px; }
