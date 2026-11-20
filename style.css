@@ -1030,3 +1030,5 @@ body.con-barra-sel #estudiantes .card { padding-bottom: 96px; }
 .pc-destino input { margin: 0; }
 
 .cerrar-pantalla { float: right; margin: 0 0 8px 8px; }
+
+.grafico-caja { max-width: 420px; margin: 8px auto 4px; }
