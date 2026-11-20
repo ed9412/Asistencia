@@ -1,13 +1,18 @@
 // Service worker: guarda la app para abrirla sin conexión.
 // Los datos de Firestore se guardan aparte (persistencia de Firestore en nucleo.js).
-const VERSION = "asistencia-v13";
+const VERSION = "asistencia-v14";
 const ARCHIVOS = [
-  "./", "./index.html", "./style.css?v=13", "./manifest.json", "./favicon.ico",
+  "./libs/html5-qrcode.min.js",
+  "./libs/qrcode.min.js",
+  "./libs/chart.umd.js",
+  "./libs/jspdf.umd.min.js",
+  "./libs/html2canvas.min.js",
+  "./", "./index.html", "./style.css?v=14", "./manifest.json", "./favicon.ico",
   "./iconos/icono-192.png", "./iconos/icono-512.png",
-  "./js/tema.js?v=13", "./js/nucleo.js?v=13", "./js/librerias.js?v=13", "./js/sesion.js?v=13",
-  "./js/materias-estudiantes.js?v=13", "./js/lista.js?v=13", "./js/reportes.js?v=13",
-  "./js/historial.js?v=13", "./js/admin.js?v=13", "./js/resumenes.js?v=13", "./js/importar.js?v=13",
-  "./js/carnets.js?v=13", "./js/navegacion.js?v=13", "./js/carga.js?v=13", "./js/inicio.js?v=13",
+  "./js/tema.js?v=14", "./js/nucleo.js?v=14", "./js/librerias.js?v=14", "./js/sesion.js?v=14",
+  "./js/materias-estudiantes.js?v=14", "./js/lista.js?v=14", "./js/reportes.js?v=14",
+  "./js/historial.js?v=14", "./js/admin.js?v=14", "./js/resumenes.js?v=14", "./js/importar.js?v=14",
+  "./js/carnets.js?v=14", "./js/navegacion.js?v=14", "./js/carga.js?v=14", "./js/inicio.js?v=14",
   "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js",
   "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js",
   "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"
