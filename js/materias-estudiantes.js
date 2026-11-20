@@ -31,7 +31,7 @@ async function cargarMaterias() {
 }
 
 function renderSelectsMaterias() {
-  ["materiaLista", "materiaSelect", "searchEstudianteMateria", "editEstAddMateria", "csvMateria"].forEach(id => {
+  ["materiaLista", "materiaSelect", "searchEstudianteMateria", "editEstAddMateria"].forEach(id => {
     const el = $(id);
     if (el) el.innerHTML = "";
   });
@@ -43,7 +43,6 @@ function renderSelectsMaterias() {
   $("editEstAddMateria").add(new Option("Selecciona materia a añadir", ""));
   $("materiaLista").add(new Option(textoBase, ""));
   $("materiaSelect").add(new Option(textoBase, ""));
-  if ($("csvMateria")) $("csvMateria").add(new Option("No asignar a ninguna materia", ""));
 
   const aviso = $("avisoSinMaterias");
   if (aviso) aviso.style.display = (vacio && currentUserRole === "profesor") ? "block" : "none";
@@ -53,12 +52,49 @@ function renderSelectsMaterias() {
     $("materiaSelect").add(new Option(m.nombre, m.id));
     $("searchEstudianteMateria").add(new Option(m.nombre, m.id));
     $("editEstAddMateria").add(new Option(m.nombre, m.id));
-    if ($("csvMateria")) $("csvMateria").add(new Option(`Asignar a: ${m.nombre}`, m.id));
   });
 
   // Con una sola materia se deja elegida para pasar lista
   if (materiasLista.length === 1) $("materiaLista").value = materiasLista[0].id;
+
+  pintarChecksMaterias("nuevo");
+  pintarChecksMaterias("csv");
 }
+
+// Materias que se asignan a los estudiantes nuevos (una o varias): al crear a mano y al importar CSV
+const materiasNuevoSel = { nuevo: new Set(), csv: new Set() };
+
+function pintarChecksMaterias(clave) {
+  const cont = $(clave === "nuevo" ? "nuevoEstMaterias" : "csvMaterias");
+  if (!cont) return;
+  const sel = materiasNuevoSel[clave];
+  Array.from(sel).forEach(id => { if (!materiasMap[id]) sel.delete(id); });
+  if (!materiasLista.length) {
+    cont.innerHTML = `<p class="subtitle">Todavía no hay materias. Puedes asignarlas después.</p>`;
+    return;
+  }
+  cont.innerHTML = `<div class="mm-lista">` + materiasLista.map(m => `
+    <button type="button" class="mm-fila mat-check${sel.has(m.id) ? " marcada" : ""}" role="checkbox" aria-checked="${sel.has(m.id)}" data-lista="${clave}" data-id="${esc(m.id)}">
+      <span class="casilla" aria-hidden="true"></span><span>${esc(m.nombre)}</span>
+    </button>`).join("") + `</div>`;
+}
+
+function alternarMateriaNuevo(clave, id) {
+  const sel = materiasNuevoSel[clave];
+  if (sel.has(id)) sel.delete(id); else sel.add(id);
+  pintarChecksMaterias(clave);
+  // Cambiar las materias invalida la revisión del CSV: hay que volver a revisar
+  if (clave === "csv" && typeof importAnalisis !== "undefined" && importAnalisis) {
+    importAnalisis = null;
+    $("csvVistaPrevia").innerHTML = "";
+    $("btnCsvImportar").style.display = "none";
+  }
+}
+
+document.addEventListener("click", ev => {
+  const b = ev.target.closest && ev.target.closest(".mat-check");
+  if (b) alternarMateriaNuevo(b.dataset.lista, b.dataset.id);
+});
 
 // Selects de historial, reportes y dashboard
 function cargarMateriasEnReportes() {
@@ -236,8 +272,19 @@ async function crearEstudiante() {
       grado: $("gradoEst").value, telefono: $("telefonoEst").value,
       correo: $("correoEst").value, representante: $("representanteEst").value
     });
-    await ref.set({ cedula, nombres, apellidos, ...extra, creadoEn: serverTs() });
-    showMessage("Estudiante creado.", "success");
+    // El estudiante y sus materias se guardan juntos (todo o nada)
+    const materiasElegidas = Array.from(materiasNuevoSel.nuevo).filter(id => materiasMap[id]);
+    const batch = db.batch();
+    batch.set(ref, { cedula, nombres, apellidos, ...extra, creadoEn: serverTs() });
+    materiasElegidas.forEach(mid => {
+      batch.set(db.collection("materia_estudiante").doc(`${cedula}_${mid}`), {
+        cedula, materiaId: mid, creadoEn: serverTs(), creadoPor: auth.currentUser.email
+      });
+    });
+    await batch.commit();
+    materiasNuevoSel.nuevo.clear();
+    pintarChecksMaterias("nuevo");
+    showMessage(materiasElegidas.length ? `Estudiante creado y asignado a ${plural(materiasElegidas.length, "materia", "materias")}.` : "Estudiante creado.", "success");
     ["cedula", "nombres", "apellidos", "gradoEst", "telefonoEst", "correoEst", "representanteEst"].forEach(limpiarInput);
     clearFields(["cedula", "nombres", "apellidos", "gradoEst", "telefonoEst", "correoEst", "representanteEst"]);
     invalidarCacheEstudiantes();
@@ -332,6 +379,7 @@ async function buscarEstudiantes() {
     const cont = $("contEstudiantes");
     if (cont) cont.textContent = mostrados === 1 ? "1 estudiante" : `${mostrados} estudiantes`;
     actualizarBarraSel();
+    if (esAdmin && ultimoCambio === undefined) cargarUltimoCambio();
     if (typeof refrescarFichaSiAbierta === "function") refrescarFichaSiAbierta();
   } catch (error) {
     showMessage("Error al buscar estudiantes: " + traducirErrorFirebase(error), "error");

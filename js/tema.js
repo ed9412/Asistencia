@@ -24,6 +24,32 @@ function colorTextoGrafico() {
   return temaVigente === "dark" ? "#e5e7eb" : "#374151";
 }
 
+// Colores del gráfico: los mismos que las chips de asistencia (variables --presente, --tardanza…)
+const COLORES_GRAFICO_BASE = { presente: "#1a7f4b", tardanza: "#a16207", justificado: "#4f46b8", falta: "#b42318", card: "#ffffff" };
+
+function variableCss(nombre, defecto) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+    return v || defecto;
+  } catch (e) { return defecto; }
+}
+
+function fuenteGrafico() {
+  try { return getComputedStyle(document.body).fontFamily || "sans-serif"; } catch (e) { return "sans-serif"; }
+}
+
+function coloresGrafico() {
+  const b = COLORES_GRAFICO_BASE;
+  return {
+    estados: [
+      variableCss("--presente", b.presente), variableCss("--tardanza", b.tardanza),
+      variableCss("--justificado", b.justificado), variableCss("--falta", b.falta)
+    ],
+    borde: variableCss("--card", b.card),
+    texto: colorTextoGrafico()
+  };
+}
+
 function aplicarTema(t) {
   temaVigente = t === "dark" ? "dark" : "light";
   document.documentElement.setAttribute("data-tema", temaVigente);
@@ -37,7 +63,10 @@ function aplicarTema(t) {
   // Si el gráfico ya está dibujado, adaptar el color de sus textos
   try {
     if (typeof chartInstance !== "undefined" && chartInstance) {
-      chartInstance.options.color = colorTextoGrafico();
+      const c = coloresGrafico();
+      chartInstance.options.color = c.texto;
+      chartInstance.data.datasets[0].backgroundColor = c.estados;
+      chartInstance.data.datasets[0].borderColor = c.borde;
       chartInstance.update();
     }
   } catch (e) { /* el gráfico se redibuja al abrir el dashboard */ }

@@ -477,14 +477,26 @@ async function cargarDashboard(manual = false) {
       return showMessage(TEXTO_ERROR_LIBRERIA, "error");
     }
     if (chartInstance) chartInstance.destroy();
+    const col = coloresGrafico();
     chartInstance = new Chart($("grafico"), {
-      type: "pie",
-      options: { color: colorTextoGrafico() },
+      type: "doughnut",
+      options: {
+        color: col.texto,
+        cutout: "58%",
+        maintainAspectRatio: true,
+        font: { family: fuenteGrafico() },
+        plugins: {
+          legend: { position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8, padding: 16, font: { size: 14 } } }
+        }
+      },
       data: {
         labels: ["Presentes", "Tardanzas", "Justificadas", "Faltas"],
         datasets: [{
           data: [r.presente, r.tardanza, r.justificado, r.falta],
-          backgroundColor: ["#16a34a", "#f59e0b", "#2563eb", "#dc2626"]
+          backgroundColor: col.estados,
+          borderColor: col.borde,
+          borderWidth: 3,
+          hoverOffset: 6
         }]
       }
     });

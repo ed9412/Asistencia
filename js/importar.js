@@ -80,7 +80,9 @@ function mapearColumnas(filas) {
 
 // Valida cada fila y decide qué hay que crear. Función pura (se puede probar sin Firebase).
 //  existentes: Set de cédulas ya registradas | relaciones: Set de ids "cedula_materiaId" ya existentes
+//  materiaId: una materia (texto) o varias (lista de ids); vacío = no asignar
 function analizarFilasImportacion(filas, existentes, relaciones, materiaId, gradoPorDefecto = "") {
+  const materiaIds = (Array.isArray(materiaId) ? materiaId : [materiaId]).filter(Boolean);
   const { idx, conCabecera } = mapearColumnas(filas);
   const datos = conCabecera ? filas.slice(1) : filas;
   const vistas = new Set();
@@ -95,7 +97,7 @@ function analizarFilasImportacion(filas, existentes, relaciones, materiaId, grad
     const extra = camposExtraEstudiante({
       grado, telefono: f[idx.telefono] || "", correo: f[idx.correo] || "", representante: f[idx.representante] || ""
     });
-    const fila = { n, cedula, nombres, apellidos, ...extra, estado: "nueva", error: "", crearEstudiante: false, asignar: false };
+    const fila = { n, cedula, nombres, apellidos, ...extra, estado: "nueva", error: "", crearEstudiante: false, asignar: false, materiasNuevas: [] };
 
     if (!/^[0-9]{4,20}$/.test(cedula)) fila.error = "Cédula inválida (4 a 20 dígitos)";
     else if (vistas.has(cedula)) fila.error = "Repetida en el archivo";
@@ -113,7 +115,8 @@ function analizarFilasImportacion(filas, existentes, relaciones, materiaId, grad
       vistas.add(cedula);
       if (existentes.has(cedula)) fila.estado = "existe";
       else fila.crearEstudiante = true;
-      if (materiaId && !relaciones.has(`${cedula}_${materiaId}`)) fila.asignar = true;
+      fila.materiasNuevas = materiaIds.filter(mid => !relaciones.has(`${cedula}_${mid}`));
+      fila.asignar = fila.materiasNuevas.length > 0;
     }
     resultado.push(fila);
   });
@@ -121,12 +124,12 @@ function analizarFilasImportacion(filas, existentes, relaciones, materiaId, grad
   const cuenta = fn => resultado.filter(fn).length;
   return {
     filas: resultado,
-    materiaId: materiaId || "",
+    materiaIds,
     resumen: {
       total: resultado.length,
       nuevos: cuenta(f => f.crearEstudiante),
       yaExistian: cuenta(f => f.estado === "existe"),
-      asignaciones: cuenta(f => f.asignar),
+      asignaciones: resultado.reduce((n, f) => n + f.materiasNuevas.length, 0),
       errores: cuenta(f => f.estado === "error")
     }
   };
@@ -146,12 +149,12 @@ function calcularOperacionesImportacion(analisis, email, marcaServidor) {
         }
       });
     }
-    if (f.asignar) {
+    f.materiasNuevas.forEach(mid => {
       ops.push({
-        coleccion: "materia_estudiante", id: `${f.cedula}_${analisis.materiaId}`,
-        data: { cedula: f.cedula, materiaId: analisis.materiaId, creadoEn: marcaServidor, creadoPor: email }
+        coleccion: "materia_estudiante", id: `${f.cedula}_${mid}`,
+        data: { cedula: f.cedula, materiaId: mid, creadoEn: marcaServidor, creadoPor: email }
       });
-    }
+    });
   });
   return ops;
 }
@@ -187,9 +190,9 @@ async function importarRevisar() {
     await cargarCacheEstudiantes(true);
     const existentes = new Set(cacheEst.estudiantes.map(e => e.cedula));
     const relaciones = new Set(cacheEst.relaciones.map(r => r.id));
-    const materiaId = $("csvMateria").value || "";
+    const materiaIds = Array.from(materiasNuevoSel.csv).filter(id => materiasMap[id]);
 
-    importAnalisis = analizarFilasImportacion(filas, existentes, relaciones, materiaId, $("csvGrado") ? $("csvGrado").value : "");
+    importAnalisis = analizarFilasImportacion(filas, existentes, relaciones, materiaIds, $("csvGrado") ? $("csvGrado").value : "");
     pintarVistaPreviaImportacion();
   } catch (e) {
     showMessage("No se pudo revisar: " + traducirErrorFirebase(e), "error");
@@ -202,15 +205,15 @@ function pintarVistaPreviaImportacion() {
   const cont = $("csvVistaPrevia");
 
   let html = `<p><strong>${r.total}</strong> filas · <strong>${r.nuevos} nuevos</strong> · ${r.yaExistian} ya existían`;
-  if (a.materiaId) html += ` · ${r.asignaciones} asignaciones a «${esc(nombreMateria({ materia: a.materiaId }))}»`;
+  if (a.materiaIds.length) html += ` · ${r.asignaciones} asignaciones (${esc(a.materiaIds.map(m => materiasMap[m] || "Materia").join(", "))})`;
   html += r.errores ? ` · <span class="error-text">${r.errores} con error (se omitirán)</span>` : "";
   html += `</p><table class="vista-previa"><tr><th>#</th><th>Cédula</th><th>Nombre</th><th>Grado</th><th>Resultado</th></tr>`;
 
   a.filas.slice(0, IMPORT_MAX_VISTA).forEach(f => {
     const clase = f.estado === "error" ? "fila-error" : (f.estado === "existe" ? "fila-existe" : "");
     const resultado = f.estado === "error" ? f.error
-      : f.crearEstudiante ? "Se creará" + (f.asignar ? " y se asignará" : "")
-      : f.asignar ? "Ya existe · se asignará" : "Ya existe · sin cambios";
+      : f.crearEstudiante ? "Se creará" + (f.asignar ? ` y se asignará a ${f.materiasNuevas.length === 1 ? "1 materia" : f.materiasNuevas.length + " materias"}` : "")
+      : f.asignar ? `Ya existe · se asignará a ${f.materiasNuevas.length === 1 ? "1 materia" : f.materiasNuevas.length + " materias"}` : "Ya existe · sin cambios";
     html += `<tr class="${clase}"><td>${f.n}</td><td>${esc(f.cedula)}</td><td>${esc(f.nombres)} ${esc(f.apellidos)}</td><td>${esc(f.grado)}</td><td>${esc(resultado)}</td></tr>`;
   });
   html += "</table>";
@@ -229,7 +232,7 @@ async function importarConfirmar() {
   if (ops.length === 0) return showMessage("No hay nada nuevo que importar.", "info");
 
   const r = importAnalisis.resumen;
-  if (!confirm(`Se crearán ${r.nuevos} estudiante(s)${importAnalisis.materiaId ? ` y ${r.asignaciones} asignación(es)` : ""}.` +
+  if (!confirm(`Se crearán ${r.nuevos} estudiante(s)${importAnalisis.materiaIds.length ? ` y ${r.asignaciones} asignación(es)` : ""}.` +
                (r.errores ? `\nSe omitirán ${r.errores} fila(s) con error.` : "") + "\n\n¿Continuar?")) return;
 
   const btn = $("btnCsvImportar");

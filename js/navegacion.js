@@ -205,6 +205,7 @@ mostrar = async function (id, opts = {}) {
   else if (id === "adminUsuarios") cargarUsuarios();
   else if (id === "usuarioDetalle") pintarUsuarioDetalle(param);
   else if (id === "usuarioNuevo") $("nuevoUsuarioRol").value = "profesor";
+  else if (id === "estudianteNuevo") { materiasNuevoSel.nuevo.clear(); materiasNuevoSel.csv.clear(); pintarChecksMaterias("nuevo"); pintarChecksMaterias("csv"); }
 
   const guardado = desdeHistorial ? posicionesScroll[id + "|" + param] : 0;
   window.scrollTo(0, guardado || 0);
