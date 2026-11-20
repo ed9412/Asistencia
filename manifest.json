@@ -1,5 +1,5 @@
 {
-  "name": "Asistencia QR",
+  "name": "Sistema de asistencias",
   "short_name": "Asistencia",
   "description": "Control de asistencia de estudiantes con códigos QR",
   "start_url": "./index.html",
