@@ -153,6 +153,7 @@ function envolverConCarga(nombre, opciones) {
     crearUsuario: "Creando la cuenta",
     guardarNombreUsuario: "Guardando",
     guardarRolDetalle: "Guardando",
+    eliminarUsuarioDetalle: "Eliminando el usuario",
     enviarCorreoPasswordDetalle: "Enviando el correo",
     cambiarMiPassword: "Cambiando la contraseña",
     guardarDocentesMateria: "Guardando",

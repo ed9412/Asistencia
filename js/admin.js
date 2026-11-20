@@ -46,7 +46,7 @@ async function crearUsuario() {
   } catch (e) {
     btn.disabled = false;
     if (e && e.code === "auth/email-already-in-use") {
-      return showFieldError("nuevoUsuarioEmail", "Ya existe una cuenta con ese correo. Búscala en la lista de usuarios y cámbiale el rol.");
+      return showFieldError("nuevoUsuarioEmail", "Ya existe una cuenta con ese correo (puede ser de un usuario eliminado). Búscala en la lista de usuarios; si no aparece, pídele que inicie sesión una vez y quedará como pendiente.");
     }
     return showMessage(traducirErrorFirebase(e), "error");
   }
@@ -215,6 +215,8 @@ async function pintarUsuarioDetalle(uid) {
   $("btnUsuDetRol").style.display = esYo ? "none" : "";
   $("usuDetRolAviso").textContent = esYo ? "No puedes cambiar tu propio rol: otro administrador puede hacerlo." : "";
 
+  $("usuDetEliminar").style.display = esYo ? "none" : "";
+  $("usuDetEliminarYo").style.display = esYo ? "" : "none";
   $("usuDetOtro").style.display = !esYo && u.email ? "" : "none";
   $("usuDetYo").style.display = esYo ? "" : "none";
 }
@@ -245,6 +247,51 @@ async function guardarRolDetalle() {
   const rol = $("usuDetRol").value;
   if (uid === auth.currentUser.uid) return showMessage("No puedes cambiar tu propio rol.", "error");
   await cambiarRolUsuario(uid, rol);
+}
+
+// Elimina el perfil de otra persona y la quita de sus materias (todo o nada).
+// El admin no puede eliminarse a sí mismo; otro admin sí puede eliminarlo.
+// La cuenta de acceso (Firebase Authentication) no se puede borrar desde la web: si esa persona
+// vuelve a entrar, queda como «pendiente» y sin acceso a ningún dato.
+async function eliminarUsuarioDetalle() {
+  if (currentUserRole !== "admin") return showMessage("Solo admin puede eliminar usuarios.", "error");
+  const uid = usuarioDetalleUid;
+  if (!auth.currentUser || uid === auth.currentUser.uid) {
+    return showMessage("No puedes eliminar tu propia cuenta. Otro administrador puede hacerlo.", "error");
+  }
+  const u = usuariosMap[uid];
+  if (!u) return showMessage("No se encontró ese usuario.", "error");
+  const nombre = u.nombre || u.email || uid;
+
+  try {
+    const snap = await db.collection("materias").where("profesores", "array-contains", uid).get();
+    const materias = [];
+    snap.forEach(d => materias.push(d));
+
+    const detalle = [
+      `¿Eliminar a ${nombre}${u.email ? " (" + u.email + ")" : ""}?`,
+      u.role === "admin" ? "Es administrador." : "",
+      `Se borra su perfil y se le quita de ${materias.length === 1 ? "1 materia" : materias.length + " materias"}. Ya no podrá usar el sistema.`,
+      "Las asistencias que guardó se conservan."
+    ].filter(Boolean).join("\n\n");
+    if (!confirm(detalle)) return;
+
+    const batch = db.batch();
+    materias.forEach(d => {
+      const resto = (d.data().profesores || []).filter(x => x !== uid);
+      batch.update(d.ref, { profesores: resto });
+    });
+    batch.delete(db.collection("users").doc(uid));
+    await batch.commit();
+
+    delete usuariosMap[uid];
+    showMessage(`${nombre} eliminado. Ya no tiene acceso al sistema.`, "success");
+    if (pantallaActual === "usuarioDetalle") await volver();
+    cargarUsuarios();
+    try { await cargarMaterias(); } catch (e) { /* la lista de materias se actualiza al abrirla */ }
+  } catch (e) {
+    showMessage("No se pudo eliminar al usuario: " + traducirErrorFirebase(e), "error");
+  }
 }
 
 async function enviarCorreoPasswordDetalle() {
