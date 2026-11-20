@@ -165,6 +165,7 @@ function envolverConCarga(nombre, opciones) {
     aplicarGradoMasivo: "Guardando los cambios",
     aplicarMateriasMasivo: "Guardando los cambios",
     aplicarPasoCurso: "Guardando los cambios",
+    deshacerUltimoCambio: "Deshaciendo el cambio",
     asignar: "Asignando",
     descargarCarnetsMateria: "Generando los carnets",
     exportarQRPNG: "Preparando la imagen",

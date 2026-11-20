@@ -23,6 +23,112 @@ async function ejecutarEnLotes(operaciones) {
   }
 }
 
+// ---------------------------------------------------------------
+// Registro del último cambio en masa (para poder deshacerlo)
+// ---------------------------------------------------------------
+
+let ultimoCambio;   // undefined = sin cargar · null = no hay · objeto = el último registro
+
+function crearRegistroCambio(tipo, resumen, grados, rels) {
+  const id = Date.now().toString(36).padStart(9, "0") + Math.random().toString(36).slice(2, 7);
+  const datos = { tipo, resumen: String(resumen).slice(0, 300), grados: grados || [], rels: rels || [], deshecho: false };
+  const op = batch => batch.set(db.collection("cambios_masivos").doc(id), {
+    ...datos, creadoEn: serverTs(), creadoPor: auth.currentUser.email
+  });
+  return { id, datos, op };
+}
+
+// Tras guardar bien, el registro pasa a ser «el último»
+function recordarCambio(reg) {
+  ultimoCambio = { id: reg.id, ...reg.datos, creadoEn: new Date() };
+  actualizarBarraSel();
+}
+
+async function cargarUltimoCambio() {
+  if (!esAdminMasivo()) return;
+  try {
+    const snap = await db.collection("cambios_masivos").orderBy("creadoEn", "desc").limit(1).get();
+    ultimoCambio = snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
+  } catch (e) {
+    ultimoCambio = null;   // por ejemplo, reglas sin publicar: simplemente no se ofrece deshacer
+  }
+  actualizarBarraSel();
+}
+
+function textoFechaCambio(c) {
+  try {
+    const f = c.creadoEn && c.creadoEn.toDate ? c.creadoEn.toDate() : (c.creadoEn instanceof Date ? c.creadoEn : null);
+    return f ? f.toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" }) : "";
+  } catch (e) { return ""; }
+}
+
+async function deshacerUltimoCambio() {
+  if (!esAdminMasivo()) return showMessage("Solo admin puede deshacer cambios.", "error");
+  const c = ultimoCambio;
+  if (!c || c.deshecho) return showMessage("No hay ningún cambio que deshacer.", "info");
+  const cuando = textoFechaCambio(c);
+  if (!confirm(`Vas a deshacer:\n${c.resumen}${cuando ? `\n(${cuando})` : ""}\n\nSolo se revierte lo que no se haya modificado después. ¿Continuar?`)) return;
+
+  try {
+    // Debe seguir siendo el último registro y no estar deshecho
+    const ult = await db.collection("cambios_masivos").orderBy("creadoEn", "desc").limit(1).get();
+    const actual = ult.empty ? null : { id: ult.docs[0].id, ...ult.docs[0].data() };
+    if (!actual || actual.id !== c.id) {
+      ultimoCambio = actual;
+      actualizarBarraSel();
+      return showMessage("Ya hay un cambio más reciente: ese no se puede deshacer desde aquí.", "error");
+    }
+    if (actual.deshecho) {
+      ultimoCambio = actual;
+      actualizarBarraSel();
+      return showMessage("Ese cambio ya estaba deshecho.", "info");
+    }
+
+    await cargarCacheEstudiantes(true);
+    const porCedula = {};
+    cacheEst.estudiantes.forEach(e => { porCedula[e.cedula] = e; });
+    const relPorPar = {};
+    cacheEst.relaciones.forEach(r => { relPorPar[r.cedula + "|" + r.materiaId] = r; });
+
+    const ops = [];
+    let hechos = 0, omitidos = 0;
+    (actual.grados || []).forEach(g => {
+      const est = porCedula[g.c];
+      // Solo si sigue teniendo el grado que puso el cambio
+      if (!est || claveGrado(est.grado) !== claveGrado(g.d)) { omitidos++; return; }
+      hechos++;
+      ops.push(batch => batch.update(db.collection("estudiantes").doc(g.c),
+        { grado: g.a ? g.a : firebase.firestore.FieldValue.delete() }));
+    });
+    (actual.rels || []).forEach(r => {
+      const rel = relPorPar[r.c + "|" + r.m];
+      if (r.t === "c") {            // el cambio la creó: se borra
+        if (!rel) { omitidos++; return; }
+        hechos++;
+        ops.push(batch => batch.delete(db.collection("materia_estudiante").doc(rel.id)));
+      } else {                      // el cambio la borró: se vuelve a crear
+        if (rel || !porCedula[r.c] || !materiasMap[r.m]) { omitidos++; return; }
+        hechos++;
+        ops.push(batch => batch.set(db.collection("materia_estudiante").doc(`${r.c}_${r.m}`), {
+          cedula: r.c, materiaId: r.m, creadoEn: serverTs(), creadoPor: auth.currentUser.email
+        }));
+      }
+    });
+    // Se marca como deshecho en el mismo lote que el primer cambio
+    ops.unshift(batch => batch.update(db.collection("cambios_masivos").doc(actual.id),
+      { deshecho: true, deshechoEn: serverTs(), deshechoPor: auth.currentUser.email }));
+    await ejecutarEnLotes(ops);
+
+    ultimoCambio = { ...actual, deshecho: true };
+    invalidarCacheEstudiantes();
+    showMessage(`Cambio deshecho (${hechos})${omitidos ? `. ${plural(omitidos, "elemento no se tocó", "elementos no se tocaron")} porque cambió después` : ""}.`, "success");
+    actualizarBarraSel();
+    await buscarEstudiantes();
+  } catch (e) {
+    showMessage("Error al deshacer: " + traducirErrorFirebase(e), "error");
+  }
+}
+
 function claveGrado(g) {
   return quitarAcentos(normalizarTexto(g)).toLowerCase();
 }
@@ -158,6 +264,8 @@ function actualizarBarraSel() {
       bTodos.textContent = todos ? "Quitar selección" : "Seleccionar todos";
     }
     if (bCurso) bCurso.style.display = modoSel ? "none" : "";
+    const bDes = $("btnDeshacer");
+    if (bDes) bDes.style.display = !modoSel && ultimoCambio && !ultimoCambio.deshecho ? "" : "none";
   }
 }
 
@@ -222,8 +330,11 @@ async function aplicarGradoMasivo() {
   if (r.cambian.length === 0) return showMessage("No hay cambios que aplicar.", "info");
 
   try {
-    await ejecutarEnLotes(r.cambian.map(e => batch =>
-      batch.update(db.collection("estudiantes").doc(e.cedula), { grado: nuevo })));
+    const reg = crearRegistroCambio("grado", `Grado ${nuevo}: ${plural(r.cambian.length, "estudiante", "estudiantes")}`,
+      r.cambian.map(e => ({ c: e.cedula, a: e.grado || "", d: nuevo })), []);
+    await ejecutarEnLotes([reg.op, ...r.cambian.map(e => batch =>
+      batch.update(db.collection("estudiantes").doc(e.cedula), { grado: nuevo }))]);
+    recordarCambio(reg);
     cerrarGradoMasivo();
     invalidarCacheEstudiantes();
     showMessage(`Grado actualizado en ${plural(r.cambian.length, "estudiante", "estudiantes")}.`, "success");
@@ -383,7 +494,11 @@ async function aplicarMateriasMasivo() {
     const r = calcularMateriasMasivo();
     if (r.ops.length === 0) return showMessage("No hay cambios que aplicar.", "info");
     const email = auth.currentUser.email;
-    await ejecutarEnLotes(r.ops.map(o => batch => {
+    const nombresMat = mmModo === "mover" ? `${materiasMap[mmOrigen]} → ${materiasMap[mmDestino]}` : [...mmElegidas].map(id => materiasMap[id]).join(", ");
+    const verbo = mmModo === "anadir" ? "Añadir a" : mmModo === "quitar" ? "Quitar de" : "Mover";
+    const reg = crearRegistroCambio("materias", `${verbo} ${nombresMat}: ${plural(r.personas, "estudiante", "estudiantes")}`, [],
+      r.ops.map(o => ({ t: o.tipo === "crear" ? "c" : "b", c: o.cedula, m: o.materiaId })));
+    await ejecutarEnLotes([reg.op, ...r.ops.map(o => batch => {
       if (o.tipo === "crear") {
         batch.set(db.collection("materia_estudiante").doc(`${o.cedula}_${o.materiaId}`), {
           cedula: o.cedula, materiaId: o.materiaId, creadoEn: serverTs(), creadoPor: email
@@ -391,7 +506,8 @@ async function aplicarMateriasMasivo() {
       } else {
         batch.delete(db.collection("materia_estudiante").doc(o.relId));
       }
-    }));
+    })]);
+    recordarCambio(reg);
     invalidarCacheEstudiantes();
     const msg = mmModo === "anadir" ? "Inscripciones añadidas." : mmModo === "quitar" ? "Inscripciones quitadas." : "Estudiantes movidos.";
     showMessage(msg, "success");
@@ -486,9 +602,15 @@ async function aplicarPasoCurso() {
 
   try {
     const ops = [];
-    cambios.forEach(c => c.grupo.cedulas.forEach(ced =>
-      ops.push(batch => batch.update(db.collection("estudiantes").doc(ced), { grado: c.nuevo }))));
-    await ejecutarEnLotes(ops);
+    const grados = [];
+    cambios.forEach(c => c.grupo.cedulas.forEach(ced => {
+      const est = buscarEstudianteEnCache(ced);
+      grados.push({ c: ced, a: (est && est.grado) || "", d: c.nuevo });
+      ops.push(batch => batch.update(db.collection("estudiantes").doc(ced), { grado: c.nuevo }));
+    }));
+    const reg = crearRegistroCambio("curso", `Pasar de curso: ${plural(n, "estudiante", "estudiantes")}`, grados, []);
+    await ejecutarEnLotes([reg.op, ...ops]);
+    recordarCambio(reg);
     invalidarCacheEstudiantes();
     showMessage(`Grado actualizado en ${plural(n, "estudiante", "estudiantes")}.`, "success");
     await volver();
