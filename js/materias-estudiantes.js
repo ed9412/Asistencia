@@ -533,7 +533,7 @@ async function exportarQRPDF() {
     const pdf = new jsPDF("portrait", "mm", "a4");
     // Centrado en la hoja A4 (210 × 297 mm)
     const x = (210 - CARNET_W) / 2, y = (297 - CARNET_H) / 2;
-    dibujarCarnet(pdf, x, y, nombre, cedulaStr, qr);
+    dibujarCarnet(pdf, x, y, nombre, cedulaStr, qr, $("qrGradoDisplay").textContent.replace("Grado: ", ""));
     pdf.save(`Carnet_${cedulaStr}.pdf`);
     showMessage("Documento PDF descargado.", "success");
   } catch (error) {
@@ -541,11 +541,12 @@ async function exportarQRPDF() {
   }
 }
 
-async function mostrarQR(cedulaValue, nombreCompleto) {
+async function mostrarQR(cedulaValue, nombreCompleto, grado) {
   $("qrModal").style.display = "block";
 
   $("qrNombreDisplay").textContent = nombreCompleto || "Estudiante";
   $("qrCedulaDisplay").textContent = `Cédula: ${cedulaValue}`;
+  $("qrGradoDisplay").textContent = grado ? `Grado: ${grado}` : "";
 
   try {
     await cargarLibreria("qr");

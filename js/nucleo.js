@@ -117,6 +117,12 @@ function esc(valor) {
   }[c]));
 }
 
+// Valor seguro para pasarlo como argumento dentro de un onclick="..." del HTML.
+// esc() no basta ahí: el navegador decodifica &#39; antes de ejecutar el JavaScript.
+function escJs(valor) {
+  return esc(JSON.stringify(String(valor === null || valor === undefined ? "" : valor)));
+}
+
 function serverTs() {
   return firebase.firestore.FieldValue.serverTimestamp();
 }
@@ -282,7 +288,7 @@ async function mostrar(id, opts = {}) {
   if (!esStaff && id !== "pendienteScreen") return false;
 
   // Restricción por rol (la protección real está en las reglas de Firestore)
-  if (currentUserRole !== "admin" && ["materiasScreen", "materiaNueva", "materiaAsignar", "materiaDetalle", "adminScreen", "adminUsuarios", "adminDocente", "adminMantenimiento", "estudianteNuevo"].includes(id)) {
+  if (currentUserRole !== "admin" && ["materiasScreen", "materiaNueva", "materiaAsignar", "materiaDetalle", "adminScreen", "adminUsuarios", "usuarioNuevo", "usuarioDetalle", "adminMantenimiento", "estudianteNuevo"].includes(id)) {
     showMessage("No tienes permisos para acceder a esta sección.", "error");
     return false;
   }

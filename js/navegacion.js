@@ -15,7 +15,7 @@ const RUTA_DE = {
   materiasScreen: "materias", adminScreen: "admin", estudianteNuevo: "estudiantes/nuevo",
   historialDetalle: "asistencias/lista",
   materiaNueva: "materias/nueva", materiaAsignar: "materias/asignar",
-  adminUsuarios: "admin/usuarios", adminDocente: "admin/docente", adminMantenimiento: "admin/mantenimiento"
+  adminUsuarios: "admin/usuarios", usuarioNuevo: "admin/usuarios/nuevo", adminMantenimiento: "admin/mantenimiento"
 };
 
 const TITULO_DE = {
@@ -23,7 +23,7 @@ const TITULO_DE = {
   dashboard: "Gráfico", materiasScreen: "Materias", adminScreen: "Administración",
   estudianteNuevo: "Nuevo estudiante", ficha: "Estudiante", historialDetalle: "Lista guardada",
   materiaNueva: "Nueva materia", materiaAsignar: "Asignar estudiante", materiaDetalle: "Materia",
-  adminUsuarios: "Usuarios y roles", adminDocente: "Crear docente", adminMantenimiento: "Mantenimiento"
+  adminUsuarios: "Usuarios y roles", usuarioNuevo: "Nuevo usuario", usuarioDetalle: "Usuario", adminMantenimiento: "Mantenimiento"
 };
 
 // A dónde lleva «Atrás» si no hay historial dentro de la app (por ejemplo, al abrir un enlace directo)
@@ -31,7 +31,7 @@ const PADRE_DE = {
   lista: "hoy", ficha: "estudiantes", estudianteNuevo: "estudiantes", historialDetalle: "historial",
   reportes: "mas", alertasScreen: "mas", dashboard: "mas", materiasScreen: "mas", adminScreen: "mas",
   materiaNueva: "materiasScreen", materiaAsignar: "materiasScreen", materiaDetalle: "materiasScreen",
-  adminUsuarios: "adminScreen", adminDocente: "adminScreen", adminMantenimiento: "adminScreen"
+  adminUsuarios: "adminScreen", usuarioNuevo: "adminUsuarios", usuarioDetalle: "adminUsuarios", adminMantenimiento: "adminScreen"
 };
 
 // Pestaña de la barra inferior que queda marcada para cada pantalla
@@ -52,6 +52,7 @@ const posicionesScroll = {};
 function rutaDePantalla(id, param) {
   if (id === "ficha") return `#/estudiantes/${encodeURIComponent(param || "")}`;
   if (id === "materiaDetalle") return `#/materias/${encodeURIComponent(param || "")}`;
+  if (id === "usuarioDetalle") return `#/admin/usuarios/${encodeURIComponent(param || "")}`;
   return `#/${RUTA_DE[id] || "hoy"}`;
 }
 
@@ -68,6 +69,11 @@ function leerRuta(hash) {
     let mid = partes[1];
     try { mid = decodeURIComponent(mid); } catch (e) { /* se deja tal cual */ }
     return { id: "materiaDetalle", param: mid };
+  }
+  if (partes[0] === "admin" && partes[1] === "usuarios" && partes[2] && partes[2] !== "nuevo") {
+    let uid = partes[2];
+    try { uid = decodeURIComponent(uid); } catch (e) { /* se deja tal cual */ }
+    return { id: "usuarioDetalle", param: uid };
   }
   const completa = partes.join("/");
   const exacto = Object.keys(RUTA_DE).find(k => RUTA_DE[k] === completa);
@@ -189,6 +195,8 @@ mostrar = async function (id, opts = {}) {
   else if (id === "ficha") await pintarFicha(param);
   else if (id === "materiaDetalle") pintarMateriaDetalle(param);
   else if (id === "adminUsuarios") cargarUsuarios();
+  else if (id === "usuarioDetalle") pintarUsuarioDetalle(param);
+  else if (id === "usuarioNuevo") $("nuevoUsuarioRol").value = "profesor";
 
   const guardado = desdeHistorial ? posicionesScroll[id + "|" + param] : 0;
   window.scrollTo(0, guardado || 0);
@@ -296,10 +304,10 @@ async function cargarHoy() {
       const en = listaActiva && listaCtx && listaCtx.materiaId === m.id;
       const r = estados[m.id];
       let chip = `<span class="chip chip-gris">Comprobando…</span>`;
-      let boton = `<button onclick="pasarListaDe('${esc(m.id)}')">Pasar lista</button>`;
+      let boton = `<button onclick="pasarListaDe(${escJs(m.id)})">Pasar lista</button>`;
       if (en) {
         chip = `<span class="chip chip-acento">En curso · ${esc(listaCtx.fecha)}</span>`;
-        boton = `<button onclick="pasarListaDe('${esc(m.id)}')">Continuar lista</button>`;
+        boton = `<button onclick="pasarListaDe(${escJs(m.id)})">Continuar lista</button>`;
       } else if (r === null) {
         chip = `<span class="chip chip-gris">Sin pasar</span>`;
       } else if (r === "error") {
@@ -308,7 +316,7 @@ async function cargarHoy() {
         const p = (r.presente || 0) + (r.tardanza || 0) + (r.justificado || 0);
         const t = p + (r.falta || 0);
         chip = `<span class="chip chip-ok">Guardada · ${p} de ${t}</span>`;
-        boton = `<button class="secondary" onclick="pasarListaDe('${esc(m.id)}')">Abrir lista</button>`;
+        boton = `<button class="secondary" onclick="pasarListaDe(${escJs(m.id)})">Abrir lista</button>`;
       }
       return `<section class="tarjeta-materia"><div class="tarjeta-cab"><h3>${esc(m.nombre)}</h3>${chip}</div>${boton}</section>`;
     }).join("");
@@ -465,7 +473,7 @@ async function pintarFicha(cedula, destino = "fichaContenido") {
     <section class="card"><h4>Materias</h4><div class="chips">${chips}</div></section>
     <section class="card">
       <h4>Asistencia · últimos 30 días</h4>
-      <div id="asist-${destino}"><button class="secondary" onclick="cargarAsistenciaFicha('${destino}')">Ver asistencia</button></div>
+      <div id="asist-${destino}"><button class="secondary" onclick="cargarAsistenciaFicha(${escJs(destino)})">Ver asistencia</button></div>
     </section>
     ${esAdmin ? `<button class="danger ficha-eliminar" onclick="eliminarFicha()">Eliminar estudiante</button>` : ""}
   `;
@@ -514,14 +522,14 @@ async function cargarAsistenciaFicha(destino) {
       });
     cont.innerHTML = filas.join("") || `<p class="subtitle">Sin registros en los últimos 30 días.</p>`;
   } catch (e) {
-    cont.innerHTML = `<button class="secondary" onclick="cargarAsistenciaFicha('${destino}')">Reintentar</button>`;
+    cont.innerHTML = `<button class="secondary" onclick="cargarAsistenciaFicha(${escJs(destino)})">Reintentar</button>`;
     showMessage("No se pudo calcular la asistencia: " + traducirErrorFirebase(e), "error");
   }
 }
 
 function verQRFicha() {
   const e = buscarEstudianteEnCache(fichaCedula);
-  if (e) mostrarQR(e.cedula, `${e.nombres} ${e.apellidos}`);
+  if (e) mostrarQR(e.cedula, `${e.nombres} ${e.apellidos}`, e.grado);
 }
 function editarFicha() { abrirEditarEstudiante(fichaCedula); }
 function eliminarFicha() { eliminarEstudiante(fichaCedula); }

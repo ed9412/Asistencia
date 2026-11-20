@@ -6,6 +6,12 @@
 
 auth.onAuthStateChanged(async user => {
   if (user && $("app").style.display === "none") {
+    // Sesión recordada pero sin uso desde hace demasiado: se cierra en vez de entrar sola
+    if (sesionCaducada()) {
+      await logout("Tu sesión se cerró por inactividad. Vuelve a entrar.");
+      return;
+    }
+    iniciarControlInactividad();
     await initApp();
   }
 });
@@ -15,6 +21,7 @@ auth.onAuthStateChanged(async user => {
 // ===============================
 
 document.addEventListener("DOMContentLoaded", () => {
+  mostrarMotivoSalida();
   aplicarTema(temaVigente);   // pone el icono correcto en el botón de tema
 
   // Campos numéricos: solo dígitos

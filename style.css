@@ -400,7 +400,9 @@ table.vista-previa tr.fila-existe td { color: var(--suave-texto); }
 }
 .carnet h3 { margin-bottom: 10px; color: #0e5a75; }
 .carnet .carnet-nombre { font-size: 20px; font-weight: bold; margin: 5px 0; }
-.carnet .carnet-cedula { font-size: 16px; color: #6b7280; margin: 0 0 15px 0; }
+.carnet .carnet-cedula { font-size: 16px; color: #6b7280; margin: 0 0 4px 0; }
+.carnet .carnet-grado { font-size: 16px; color: #6b7280; margin: 0 0 15px 0; }
+.carnet .carnet-grado:empty { display: none; }
 
 .loader {
   border: 3px solid rgba(255, 255, 255, 0.35);
