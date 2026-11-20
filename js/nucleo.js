@@ -1,5 +1,5 @@
 // ============================================================
-// Asistencia App - app.js (Fase 1)
+// Sistema de asistencias - app.js (Fase 1)
 // ============================================================
 
 const firebaseConfig = {
