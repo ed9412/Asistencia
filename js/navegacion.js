@@ -15,20 +15,21 @@ const RUTA_DE = {
   materiasScreen: "materias", adminScreen: "admin", estudianteNuevo: "estudiantes/nuevo",
   historialDetalle: "asistencias/lista",
   materiaNueva: "materias/nueva", materiaAsignar: "materias/asignar",
+  materiasMasivo: "estudiantes/materias", pasoCurso: "estudiantes/pasar-curso",
   adminUsuarios: "admin/usuarios", usuarioNuevo: "admin/usuarios/nuevo", adminMantenimiento: "admin/mantenimiento"
 };
 
 const TITULO_DE = {
   lista: "Pasar lista", reportes: "Reportes", alertasScreen: "Alertas de asistencia",
   dashboard: "Gráfico", materiasScreen: "Materias", adminScreen: "Administración",
-  estudianteNuevo: "Nuevo estudiante", ficha: "Estudiante", historialDetalle: "Lista guardada",
+  estudianteNuevo: "Nuevo estudiante", materiasMasivo: "Materias en masa", pasoCurso: "Pasar de curso", ficha: "Estudiante", historialDetalle: "Lista guardada",
   materiaNueva: "Nueva materia", materiaAsignar: "Asignar estudiante", materiaDetalle: "Materia",
   adminUsuarios: "Usuarios y roles", usuarioNuevo: "Nuevo usuario", usuarioDetalle: "Usuario", adminMantenimiento: "Mantenimiento"
 };
 
 // A dónde lleva «Atrás» si no hay historial dentro de la app (por ejemplo, al abrir un enlace directo)
 const PADRE_DE = {
-  lista: "hoy", ficha: "estudiantes", estudianteNuevo: "estudiantes", historialDetalle: "historial",
+  lista: "hoy", ficha: "estudiantes", estudianteNuevo: "estudiantes", materiasMasivo: "estudiantes", pasoCurso: "estudiantes", historialDetalle: "historial",
   reportes: "mas", alertasScreen: "mas", dashboard: "mas", materiasScreen: "mas", adminScreen: "mas",
   materiaNueva: "materiasScreen", materiaAsignar: "materiasScreen", materiaDetalle: "materiasScreen",
   adminUsuarios: "adminScreen", usuarioNuevo: "adminUsuarios", usuarioDetalle: "adminUsuarios", adminMantenimiento: "adminScreen"
@@ -38,7 +39,7 @@ const PADRE_DE = {
 function raizDe(id) {
   if (PANTALLAS_RAIZ.includes(id)) return id;
   if (id === "lista") return "hoy";
-  if (id === "ficha" || id === "estudianteNuevo") return "estudiantes";
+  if (id === "ficha" || id === "estudianteNuevo" || id === "materiasMasivo" || id === "pasoCurso") return "estudiantes";
   if (id === "historialDetalle") return "historial";
   return "mas";
 }
@@ -60,6 +61,8 @@ function rutaDePantalla(id, param) {
 function leerRuta(hash) {
   const partes = String(hash || "").replace(/^#\/?/, "").split("/").filter(Boolean);
   if (partes[0] === "estudiantes" && partes[1] === "nuevo") return { id: "estudianteNuevo", param: "" };
+  if (partes[0] === "estudiantes" && partes[1] === "materias") return { id: "materiasMasivo", param: "" };
+  if (partes[0] === "estudiantes" && partes[1] === "pasar-curso") return { id: "pasoCurso", param: "" };
   if (partes[0] === "estudiantes" && partes[1]) {
     let ced = partes[1];
     try { ced = decodeURIComponent(ced); } catch (e) { /* se deja tal cual */ }
@@ -90,7 +93,7 @@ function rutaInicial() {
 
 function marcarNavActivo(id) {
   const raiz = raizDe(id);
-  const exacta = id === "ficha" || id === "estudianteNuevo" ? "estudiantes" : id === "lista" ? "hoy" : id === "historialDetalle" ? "historial" : id;
+  const exacta = id === "ficha" || id === "estudianteNuevo" || id === "materiasMasivo" || id === "pasoCurso" ? "estudiantes" : id === "lista" ? "hoy" : id === "historialDetalle" ? "historial" : id;
   document.querySelectorAll(".navmovil button").forEach(b => {
     b.classList.toggle("activo", b.dataset.ir === raiz);
   });
@@ -180,6 +183,8 @@ mostrar = async function (id, opts = {}) {
     }
   }
 
+  // La selección múltiple solo vive en la lista y en la pantalla de materias en masa
+  if (id !== "estudiantes" && id !== "materiasMasivo" && (modoSel || seleccion.size)) salirSeleccion(false);
   if (id !== "estudiantes" && id !== "ficha") detalleCedula = "";
   if (id === "estudiantes" && !desdeHistorial) { detalleCedula = ""; vaciarDetalle(); }
   if (id === "hoy" && !desdeHistorial) fechaSel = "";
@@ -188,12 +193,15 @@ mostrar = async function (id, opts = {}) {
   paramActual = param;
   marcarNavActivo(id);
   actualizarBarraSuperior(id);
+  actualizarBarraSel();
 
   if (id === "lista") sincronizarModoRegistro();
   if (id === "hoy") cargarHoy();
   else if (id === "mas") pintarMas();
   else if (id === "ficha") await pintarFicha(param);
   else if (id === "materiaDetalle") pintarMateriaDetalle(param);
+  else if (id === "materiasMasivo") await pintarMateriasMasivo();
+  else if (id === "pasoCurso") await pintarPasoCurso();
   else if (id === "adminUsuarios") cargarUsuarios();
   else if (id === "usuarioDetalle") pintarUsuarioDetalle(param);
   else if (id === "usuarioNuevo") $("nuevoUsuarioRol").value = "profesor";

@@ -274,10 +274,19 @@ async function buscarEstudiantes() {
 
     const esAdmin = currentUserRole === "admin";
 
-    ordenados.forEach(est => {
-      if (materiaId !== "todas" && !cedulasDeMateria.has(est.cedula)) return;
+    // Quién ve la persona (por materia y rol), antes de la búsqueda de texto y del filtro de grado
+    const candidatos = ordenados.filter(est => {
+      if (materiaId !== "todas" && !cedulasDeMateria.has(est.cedula)) return false;
       // El docente solo ve estudiantes de sus propias materias
-      if (!esAdmin && !materiasPorCedula[est.cedula]) return;
+      if (!esAdmin && !materiasPorCedula[est.cedula]) return false;
+      return true;
+    });
+    pintarChipsGrado(candidatos);
+    cedulasMostradas = [];
+    const enSeleccion = esAdmin && modoSel;
+
+    candidatos.forEach(est => {
+      if (!coincideGrado(est)) return;
 
       const nombreCompleto = `${est.nombres} ${est.apellidos}`;
       const mats = materiasPorCedula[est.cedula] ? Array.from(materiasPorCedula[est.cedula]).join(", ") : "Ninguna";
@@ -288,22 +297,31 @@ async function buscarEstudiantes() {
       if (!palabras.every(p => pajar.includes(p))) return;
 
       mostrados++;
+      cedulasMostradas.push(est.cedula);
 
       const li = document.createElement("li");
       li.className = "fila-est";
       li.dataset.ced = est.cedula;
       li.tabIndex = 0;
-      li.setAttribute("role", "button");
-      const abrir = () => abrirFicha(est.cedula);
+      // En modo selección, tocar la fila la marca; si no, abre la ficha
+      const abrir = enSeleccion ? () => alternarSeleccion(est.cedula) : () => abrirFicha(est.cedula);
+      if (enSeleccion) {
+        li.setAttribute("role", "checkbox");
+        li.setAttribute("aria-checked", seleccion.has(est.cedula) ? "true" : "false");
+        if (seleccion.has(est.cedula)) li.classList.add("marcada");
+      } else {
+        li.setAttribute("role", "button");
+      }
       li.onclick = abrir;
       li.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } };
       li.innerHTML = `
+        ${enSeleccion ? `<span class="casilla" aria-hidden="true"></span>` : ""}
         <span class="avatar">${esc(iniciales(est.nombres, est.apellidos))}</span>
         <span class="fila-texto">
           <strong>${esc(nombreCompleto)}</strong>
           <small>${esc(est.grado || "Sin grado")} · ${esc(est.cedula)}</small>
         </span>
-        <svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        ${enSeleccion ? "" : `<svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`}
       `;
       ul.appendChild(li);
     });
@@ -313,6 +331,7 @@ async function buscarEstudiantes() {
     }
     const cont = $("contEstudiantes");
     if (cont) cont.textContent = mostrados === 1 ? "1 estudiante" : `${mostrados} estudiantes`;
+    actualizarBarraSel();
     if (typeof refrescarFichaSiAbierta === "function") refrescarFichaSiAbierta();
   } catch (error) {
     showMessage("Error al buscar estudiantes: " + traducirErrorFirebase(error), "error");
