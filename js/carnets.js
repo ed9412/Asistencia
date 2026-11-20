@@ -15,7 +15,7 @@ function posicionCarnet(i) {
 
 // Dibuja un carnet (90 × 65 mm) con su esquina superior izquierda en (x, y), en mm.
 // Lo usan el PDF en lote y el PDF individual, para que midan exactamente lo mismo.
-function dibujarCarnet(pdf, x, y, nombreCompleto, cedula, qrDataUrl) {
+function dibujarCarnet(pdf, x, y, nombreCompleto, cedula, qrDataUrl, grado) {
   pdf.setDrawColor(180);
   pdf.roundedRect(x, y, CARNET_W, CARNET_H, 3, 3);
 
@@ -33,6 +33,8 @@ function dibujarCarnet(pdf, x, y, nombreCompleto, cedula, qrDataUrl) {
   pdf.setFontSize(10);
   pdf.setTextColor(107, 114, 128);
   pdf.text(`Cédula: ${cedula}`, x + 5, y + CARNET_H - 14);
+
+  if (grado) pdf.text(pdf.splitTextToSize(`Grado: ${grado}`, 38)[0], x + 5, y + CARNET_H - 8);
 
   pdf.addImage(qrDataUrl, "PNG", x + 43, y + 12, 42, 42);
 }
@@ -78,7 +80,7 @@ async function descargarCarnetsMateria() {
 
       const qr = await QRCode.toDataURL(est.cedula, { width: 300, margin: 1 });
 
-      dibujarCarnet(pdf, x, y, `${est.nombres} ${est.apellidos}`, est.cedula, qr);
+      dibujarCarnet(pdf, x, y, `${est.nombres} ${est.apellidos}`, est.cedula, qr, est.grado);
     }
 
     const seguro = materia.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ]+/g, "_");

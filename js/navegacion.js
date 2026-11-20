@@ -529,7 +529,7 @@ async function cargarAsistenciaFicha(destino) {
 
 function verQRFicha() {
   const e = buscarEstudianteEnCache(fichaCedula);
-  if (e) mostrarQR(e.cedula, `${e.nombres} ${e.apellidos}`);
+  if (e) mostrarQR(e.cedula, `${e.nombres} ${e.apellidos}`, e.grado);
 }
 function editarFicha() { abrirEditarEstudiante(fichaCedula); }
 function eliminarFicha() { eliminarEstudiante(fichaCedula); }
