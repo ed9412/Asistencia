@@ -17,8 +17,8 @@
 
   <!-- Escáner QR, generador de QR, gráficos, captura y PDF se cargan bajo demanda (js/librerias.js) -->
 
-  <link rel="stylesheet" href="style.css?v=15">
-  <script src="js/tema.js?v=15"></script>
+  <link rel="stylesheet" href="style.css?v=16">
+  <script src="js/tema.js?v=16"></script>
 </head>
 <body>
 
@@ -338,7 +338,14 @@
            <button onclick="buscarEstudiantes()">Buscar</button>
         </div>
 
+        <div id="chipsGrado" class="chips-grado" role="group" aria-label="Filtrar por grado"></div>
+
         <p id="contEstudiantes" class="subtitle contador"></p>
+        <div id="herramientasEst" class="herramientas-est" style="display:none">
+          <button id="btnModoSel" class="small secondary" onclick="alternarModoSeleccion()">Seleccionar</button>
+          <button id="btnSelTodos" class="small secondary" onclick="seleccionarTodosMostrados()" style="display:none">Seleccionar todos</button>
+          <button id="btnPasarCurso" class="small secondary" onclick="abrirPasoCurso()">Pasar de curso</button>
+        </div>
         <ul id="listaEstudiantes" class="lista-filas"></ul>
 
         <button id="btnCarnetsLote" class="secondary" onclick="descargarCarnetsMateria()">🪪 Descargar carnets de la materia (PDF)</button>
@@ -346,6 +353,13 @@
       </div>
   <aside id="estDetalle" class="est-detalle" aria-live="polite"></aside>
     </section>
+
+    <div id="barraSel" class="barra-sel" style="display:none" role="toolbar" aria-label="Acciones para los seleccionados">
+      <span id="barraSelTexto">Elige estudiantes</span>
+      <button class="small secondary" onclick="abrirGradoMasivo()">Grado</button>
+      <button class="small secondary" onclick="abrirMateriasMasivo()">Materia</button>
+      <button class="small secondary barra-sel-x" onclick="alternarModoSeleccion()" aria-label="Cancelar selección">X</button>
+    </div>
 
     <button id="fabNuevoEst" class="fab" onclick="mostrar('estudianteNuevo')" aria-label="Nuevo estudiante" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nuevo</span></button>
 
@@ -358,6 +372,32 @@
         </div>
         <p class="etiqueta">Todas las materias</p>
         <ul id="listaMateriasUl" class="lista-filas"></ul>
+      </div>
+    </section>
+
+    <section id="materiasMasivo" class="screen">
+      <div class="card">
+        <h2>Materias en masa</h2>
+        <p id="mmResumen" class="subtitle"></p>
+        <div id="mmSegmentos" class="segmentos" role="group" aria-label="Qué hacer">
+          <button type="button" data-modo="anadir" onclick="mmCambiarModo('anadir')">Añadir</button>
+          <button type="button" data-modo="mover" onclick="mmCambiarModo('mover')">Mover</button>
+          <button type="button" data-modo="quitar" onclick="mmCambiarModo('quitar')">Quitar</button>
+        </div>
+        <div id="mmCuerpo"></div>
+        <div id="mmPrevia" class="previa"></div>
+        <button id="mmAplicar" onclick="aplicarMateriasMasivo()">Aplicar</button>
+      </div>
+    </section>
+
+    <section id="pasoCurso" class="screen">
+      <div class="card">
+        <h2>Pasar de curso</h2>
+        <p class="subtitle">Escribe el grado nuevo de cada grupo. Los que dejes vacíos no cambian. Las materias no se tocan: se cambian aparte, con «Seleccionar» y «Materia».</p>
+        <div id="pcGrupos"></div>
+        <datalist id="pcGrados"></datalist>
+        <p id="pcResumen" class="subtitle"></p>
+        <button id="pcAplicar" onclick="aplicarPasoCurso()">Aplicar cambios</button>
       </div>
     </section>
 
@@ -657,6 +697,20 @@
       </div>
     </div>
 
+    <div id="gradoMasivoModal" class="modal">
+      <div class="modal-content">
+        <button class="small danger" onclick="cerrarGradoMasivo()" style="float: right; margin-bottom: 10px;" aria-label="Cerrar">X</button>
+        <h3>Cambiar grado</h3>
+        <p id="gradoMasivoResumen" class="subtitle"></p>
+        <label>Grado nuevo <span class="required">*</span></label>
+        <input id="gradoMasivoNuevo" maxlength="30" placeholder="Ejemplo: 4º A" oninput="actualizarPrevistaGrado()" autocomplete="off" />
+        <small id="error-gradoMasivoNuevo" class="field-error"></small>
+        <div id="gradoMasivoPrevia" class="previa"></div>
+        <button id="btnGradoMasivo" onclick="aplicarGradoMasivo()">Aplicar</button>
+        <button class="secondary" onclick="cerrarGradoMasivo()">Cancelar</button>
+      </div>
+    </div>
+
     <div id="editStudentModal" class="modal">
       <div class="modal-content">
         <button class="small danger" onclick="cerrarEditStudentModal()" style="float: right; margin-bottom: 10px;" aria-label="Cerrar">X</button>
@@ -761,19 +815,20 @@
 
   </div>
 
-<script src="js/nucleo.js?v=15" defer></script>
-<script src="js/librerias.js?v=15" defer></script>
-<script src="js/sesion.js?v=15" defer></script>
-<script src="js/materias-estudiantes.js?v=15" defer></script>
-<script src="js/lista.js?v=15" defer></script>
-<script src="js/reportes.js?v=15" defer></script>
-<script src="js/historial.js?v=15" defer></script>
-<script src="js/admin.js?v=15" defer></script>
-<script src="js/resumenes.js?v=15" defer></script>
-<script src="js/importar.js?v=15" defer></script>
-<script src="js/carnets.js?v=15" defer></script>
-<script src="js/navegacion.js?v=15" defer></script>
-<script src="js/carga.js?v=15" defer></script>
-<script src="js/inicio.js?v=15" defer></script>
+<script src="js/nucleo.js?v=16" defer></script>
+<script src="js/librerias.js?v=16" defer></script>
+<script src="js/sesion.js?v=16" defer></script>
+<script src="js/materias-estudiantes.js?v=16" defer></script>
+<script src="js/lista.js?v=16" defer></script>
+<script src="js/reportes.js?v=16" defer></script>
+<script src="js/historial.js?v=16" defer></script>
+<script src="js/admin.js?v=16" defer></script>
+<script src="js/resumenes.js?v=16" defer></script>
+<script src="js/importar.js?v=16" defer></script>
+<script src="js/carnets.js?v=16" defer></script>
+<script src="js/masivo.js?v=16" defer></script>
+<script src="js/navegacion.js?v=16" defer></script>
+<script src="js/carga.js?v=16" defer></script>
+<script src="js/inicio.js?v=16" defer></script>
 </body>
 </html>
