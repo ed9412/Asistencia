@@ -17,8 +17,8 @@
 
   <!-- Escáner QR, generador de QR, gráficos, captura y PDF se cargan bajo demanda (js/librerias.js) -->
 
-  <link rel="stylesheet" href="style.css?v=11">
-  <script src="js/tema.js?v=11"></script>
+  <link rel="stylesheet" href="style.css?v=12">
+  <script src="js/tema.js?v=12"></script>
 </head>
 <body>
 
@@ -525,8 +525,8 @@
         <button class="secondary" onclick="guardarMiNombre()">Guardar mi nombre</button>
         <p class="etiqueta">Gestión</p>
         <div class="menu-lista">
+          <button class="fila-menu" onclick="mostrar('usuarioDetalle', { param: auth.currentUser.uid })"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3-6 7-6s7 2.4 7 6"/></svg><span>Mi cuenta y contraseña</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
           <button class="fila-menu " onclick="mostrar('adminUsuarios')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"/></svg><span>Usuarios y roles</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-          <button class="fila-menu " onclick="mostrar('adminDocente')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Crear docente</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
           <button class="fila-menu " onclick="mostrar('adminMantenimiento')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6a4 4 0 005 5l-9 9-3-3 9-9a4 4 0 01-2-2z"/></svg><span>Mantenimiento</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
       </div>
@@ -535,36 +535,86 @@
     <section id="adminUsuarios" class="screen">
       <div class="card">
         <h2>Usuarios y roles</h2>
-        <p class="subtitle">Los pendientes aparecen primero. Quien se registra por su cuenta necesita que le asignes un rol.</p>
+        <p class="subtitle">Toca un usuario para cambiar su nombre o su rol, o enviarle un correo para restablecer la contraseña. Los pendientes aparecen primero: quien se registra por su cuenta necesita que le asignes un rol.</p>
+        <div class="menu-lista">
+          <button class="fila-menu" onclick="mostrar('usuarioNuevo')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nuevo usuario</span><svg class="fila-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+        <p class="etiqueta">Todos los usuarios</p>
         <ul id="listaUsuarios" class="lista-filas"></ul>
       </div>
     </section>
 
-    <section id="adminDocente" class="screen">
+    <section id="usuarioNuevo" class="screen">
       <div class="card">
-        <h2>Crear docente</h2>
+        <h2>Nuevo usuario</h2>
         <label>Nombre completo <span class="required">*</span></label>
-        <input id="nuevoDocenteNombre" placeholder="Ejemplo: María López" />
-        <small id="error-nuevoDocenteNombre" class="field-error"></small>
+        <input id="nuevoUsuarioNombre" placeholder="Ejemplo: María López" />
+        <small id="error-nuevoUsuarioNombre" class="field-error"></small>
 
         <label>Correo electrónico <span class="required">*</span></label>
-        <input id="nuevoDocenteEmail" type="email" placeholder="docente@correo.com" />
-        <small id="error-nuevoDocenteEmail" class="field-error"></small>
+        <input id="nuevoUsuarioEmail" type="email" placeholder="usuario@correo.com" />
+        <small id="error-nuevoUsuarioEmail" class="field-error"></small>
+
+        <label>Rol <span class="required">*</span></label>
+        <select id="nuevoUsuarioRol">
+          <option value="profesor">Docente</option>
+          <option value="admin">Administrador</option>
+        </select>
 
         <label>Contraseña temporal <span class="required">*</span></label>
         <div style="display:flex; gap:8px;">
-          <input id="nuevoDocentePassword" type="text" placeholder="Mínimo 6 caracteres" autocomplete="off" />
+          <input id="nuevoUsuarioPassword" type="text" placeholder="Mínimo 6 caracteres" autocomplete="off" />
           <button class="small secondary" type="button" onclick="generarPasswordTemporal()">Generar</button>
         </div>
-        <small id="error-nuevoDocentePassword" class="field-error"></small>
+        <small id="error-nuevoUsuarioPassword" class="field-error"></small>
 
         <label style="display:flex; gap:8px; align-items:center; margin-top:10px;">
-          <input type="checkbox" id="nuevoDocenteCorreo" style="width:auto;" />
+          <input type="checkbox" id="nuevoUsuarioCorreo" style="width:auto;" />
           Enviarle un correo para que elija su propia contraseña
         </label>
 
-        <button id="btnCrearDocente" onclick="crearDocente()">Crear docente</button>
-        <p class="subtitle">Después asígnalo a sus materias en Materias &gt; Docentes. Quien se registre por su cuenta aparecerá aquí como <strong>pendiente</strong>.</p>
+        <button id="btnCrearUsuario" onclick="crearUsuario()">Crear usuario</button>
+        <p class="subtitle">Si es docente, asígnalo después a sus materias en Materias &gt; Docentes.</p>
+      </div>
+    </section>
+
+    <section id="usuarioDetalle" class="screen">
+      <div class="card">
+        <h2 id="usuDetTitulo">Usuario</h2>
+        <div class="reporte-cab nivel-vacio">
+          <span class="avatar" id="usuDetAvatar"></span>
+          <div class="reporte-datos"><strong id="usuDetNombreTexto"></strong><span id="usuDetEmail"></span><span class="chips chips-mini"><span class="chip" id="usuDetRolChip"></span></span></div>
+        </div>
+
+        <p class="etiqueta">Nombre</p>
+        <input id="usuDetNombre" placeholder="Nombre y apellido" />
+        <small id="error-usuDetNombre" class="field-error"></small>
+        <button class="secondary" onclick="guardarNombreUsuario()">Guardar nombre</button>
+
+        <p class="etiqueta">Rol</p>
+        <select id="usuDetRol"></select>
+        <p id="usuDetRolAviso" class="subtitle"></p>
+        <button class="secondary" id="btnUsuDetRol" onclick="guardarRolDetalle()">Guardar rol</button>
+
+        <div id="usuDetOtro">
+          <p class="etiqueta">Contraseña</p>
+          <p class="subtitle">Por seguridad, la contraseña de otra persona no se puede ver ni cambiar desde aquí. Se le envía un correo con un enlace para que elija una nueva.</p>
+          <button class="secondary" onclick="enviarCorreoPasswordDetalle()">Enviar correo para restablecer la contraseña</button>
+        </div>
+
+        <div id="usuDetYo">
+          <p class="etiqueta">Cambiar mi contraseña</p>
+          <label>Contraseña actual</label>
+          <input id="miPasswordActual" type="password" autocomplete="current-password" />
+          <small id="error-miPasswordActual" class="field-error"></small>
+          <label>Contraseña nueva</label>
+          <input id="miPasswordNueva" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+          <small id="error-miPasswordNueva" class="field-error"></small>
+          <label>Repite la contraseña nueva</label>
+          <input id="miPasswordRepetir" type="password" autocomplete="new-password" />
+          <small id="error-miPasswordRepetir" class="field-error"></small>
+          <button onclick="cambiarMiPassword()">Cambiar mi contraseña</button>
+        </div>
       </div>
     </section>
 
@@ -709,19 +759,19 @@
 
   </div>
 
-<script src="js/nucleo.js?v=11" defer></script>
-<script src="js/librerias.js?v=11" defer></script>
-<script src="js/sesion.js?v=11" defer></script>
-<script src="js/materias-estudiantes.js?v=11" defer></script>
-<script src="js/lista.js?v=11" defer></script>
-<script src="js/reportes.js?v=11" defer></script>
-<script src="js/historial.js?v=11" defer></script>
-<script src="js/admin.js?v=11" defer></script>
-<script src="js/resumenes.js?v=11" defer></script>
-<script src="js/importar.js?v=11" defer></script>
-<script src="js/carnets.js?v=11" defer></script>
-<script src="js/navegacion.js?v=11" defer></script>
-<script src="js/carga.js?v=11" defer></script>
-<script src="js/inicio.js?v=11" defer></script>
+<script src="js/nucleo.js?v=12" defer></script>
+<script src="js/librerias.js?v=12" defer></script>
+<script src="js/sesion.js?v=12" defer></script>
+<script src="js/materias-estudiantes.js?v=12" defer></script>
+<script src="js/lista.js?v=12" defer></script>
+<script src="js/reportes.js?v=12" defer></script>
+<script src="js/historial.js?v=12" defer></script>
+<script src="js/admin.js?v=12" defer></script>
+<script src="js/resumenes.js?v=12" defer></script>
+<script src="js/importar.js?v=12" defer></script>
+<script src="js/carnets.js?v=12" defer></script>
+<script src="js/navegacion.js?v=12" defer></script>
+<script src="js/carga.js?v=12" defer></script>
+<script src="js/inicio.js?v=12" defer></script>
 </body>
 </html>
